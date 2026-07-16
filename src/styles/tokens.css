@@ -1,0 +1,79 @@
+/* ---------------------------------------------------------------------------
+ * ArcSonare design tokens.
+ * Dark monochrome charcoal palette with subtle cool-blue undertones.
+ * Green / blue / red are reserved for tiny status indicators and validation.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  --sonare-black: #090b0e;
+  --sonare-surface-1: #0d1014;
+  --sonare-surface-2: #12161b;
+  --sonare-surface-3: #181d23;
+  --sonare-surface-4: #21272f;
+  --sonare-hover: #262d36;
+  --sonare-selected: #2b323b;
+
+  --sonare-border-soft: rgba(255, 255, 255, 0.055);
+  --sonare-border: rgba(255, 255, 255, 0.085);
+  --sonare-border-strong: rgba(255, 255, 255, 0.13);
+
+  --sonare-text-primary: #f5f6f8;
+  --sonare-text-secondary: #b3b8c1;
+  --sonare-text-muted: #747b86;
+  --sonare-text-disabled: #515761;
+
+  --sonare-white: #fafafb;
+  --sonare-wave-muted: #777d86;
+
+  --sonare-success: #55e3a4;
+  --sonare-info: #72a7ff;
+  --sonare-danger: #ff6b6b;
+
+  --sonare-surface-gradient: linear-gradient(
+    145deg,
+    rgba(22, 26, 32, 0.98),
+    rgba(10, 12, 16, 0.98)
+  );
+
+  --sonare-recessed: rgba(255, 255, 255, 0.035);
+  --sonare-recessed-border: rgba(255, 255, 255, 0.04);
+
+  --sonare-font:
+    "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui,
+    sans-serif;
+
+  --sonare-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Simple neutral light theme. Dark is the primary, polished experience;
+ * light must remain fully readable and unbroken. */
+:root[data-theme="light"] {
+  --sonare-black: #e9eaee;
+  --sonare-surface-1: #f2f3f5;
+  --sonare-surface-2: #f7f8fa;
+  --sonare-surface-3: #eceef1;
+  --sonare-surface-4: #e2e5e9;
+  --sonare-hover: #dde0e5;
+  --sonare-selected: #d5d9df;
+
+  --sonare-border-soft: rgba(9, 11, 14, 0.06);
+  --sonare-border: rgba(9, 11, 14, 0.1);
+  --sonare-border-strong: rgba(9, 11, 14, 0.16);
+
+  --sonare-text-primary: #16181d;
+  --sonare-text-secondary: #454b55;
+  --sonare-text-muted: #767d88;
+  --sonare-text-disabled: #a3a9b3;
+
+  --sonare-white: #16181d;
+  --sonare-wave-muted: #8b919b;
+
+  --sonare-surface-gradient: linear-gradient(
+    145deg,
+    rgba(250, 251, 252, 0.98),
+    rgba(235, 237, 241, 0.98)
+  );
+
+  --sonare-recessed: rgba(9, 11, 14, 0.045);
+  --sonare-recessed-border: rgba(9, 11, 14, 0.05);
+}

@@ -45,8 +45,9 @@ pub fn open_overlay(app: &AppHandle) {
         return;
     };
 
+    let position = crate::settings::current(app).overlay_position;
     // Positioning failures are non-fatal: the window keeps its last position.
-    if let Err(e) = window_position::position_top_center(app, &window) {
+    if let Err(e) = window_position::position_overlay(app, &window, &position) {
         log::warn!("could not position overlay on the active monitor: {e}");
     }
 
@@ -74,7 +75,33 @@ pub fn close_overlay(app: &AppHandle) {
     }
 }
 
-/// Frontend-initiated close (close button, Escape key).
+/// Immediately hides the overlay and marks it closed (used when the native
+/// window is force-closed, e.g. Alt+F4, where no animation can run).
+pub fn force_hide(app: &AppHandle) {
+    set_open(app, false);
+    if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
+        if let Err(e) = window.hide() {
+            log::error!("failed to hide overlay window: {e}");
+        }
+    }
+}
+
+/// Re-applies the configured position while the overlay is visible (called
+/// when the position preference changes).
+pub fn reposition_if_visible(app: &AppHandle) {
+    if !is_open(app) {
+        return;
+    }
+    let Some(window) = app.get_webview_window(OVERLAY_LABEL) else {
+        return;
+    };
+    let position = crate::settings::current(app).overlay_position;
+    if let Err(e) = window_position::position_overlay(app, &window, &position) {
+        log::warn!("could not reposition overlay: {e}");
+    }
+}
+
+/// Frontend-initiated close (Escape key).
 #[tauri::command]
 pub fn request_close(app: AppHandle) {
     close_overlay(&app);

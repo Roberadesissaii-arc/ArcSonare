@@ -1,31 +1,11 @@
 /* ---------------------------------------------------------------------------
- * ArcSonare overlay styles.
- * The native Tauri window is fully transparent; everything visible is drawn
- * here, including the shadow (native shadows are disabled in tauri.conf.json).
+ * Top-center ArcSonare overlay.
+ *
+ * Native window: 700 x 170 (see window_position.rs). The visible capsule is
+ * 620 x 96 anchored to the very top of the window — and the window sits at
+ * the monitor's top edge, so the capsule touches the edge of the screen.
+ * The 40px side / 74px bottom transparent padding is room for the CSS shadow.
  * ------------------------------------------------------------------------- */
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  overflow: hidden;
-}
-
-body {
-  font-family:
-    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  user-select: none;
-  cursor: default;
-}
 
 .overlay-root {
   width: 100%;
@@ -33,59 +13,50 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  /* Breathing room so the CSS shadow isn't clipped by the window edge. */
-  padding: 6px 10px 14px;
 }
 
-/* --------------------------------- capsule ------------------------------- */
-
-.capsule {
+.overlay-capsule {
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  height: 100%;
-  padding: 0 10px 0 16px;
-  border-radius: 24px;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(30, 34, 46, 0.94) 0%,
-      rgba(18, 20, 28, 0.94) 100%
-    );
-  /* Subtle inner border + soft drop shadow, all in CSS. */
+  width: 620px;
+  height: 96px;
+  padding: 17px 30px;
+  border-radius: 8px 8px 30px 30px;
+  background: var(--sonare-surface-gradient);
+  /* Inner border + top highlight + soft shadow below, all in CSS. */
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 6px 24px rgba(0, 0, 0, 0.45),
-    0 1px 4px rgba(0, 0, 0, 0.35);
+    inset 0 0 0 1px var(--sonare-border-soft),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 22px 55px rgba(0, 0, 0, 0.38),
+    0 5px 16px rgba(0, 0, 0, 0.24);
+  color: var(--sonare-text-primary);
   will-change: transform, opacity;
 }
 
 /* -------------------------- animation state machine ---------------------- */
 
-.phase-hidden .capsule {
+.phase-hidden .overlay-capsule {
   opacity: 0;
   pointer-events: none;
 }
 
-.phase-opening .capsule {
-  animation: sonare-in 210ms cubic-bezier(0.25, 0.8, 0.35, 1) both;
+.phase-opening .overlay-capsule {
+  animation: sonare-in 220ms var(--sonare-ease-out) both;
 }
 
-.phase-visible .capsule {
+.phase-visible .overlay-capsule {
   opacity: 1;
 }
 
-.phase-closing .capsule {
-  animation: sonare-out 190ms cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
+.phase-closing .overlay-capsule {
+  animation: sonare-out 200ms cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
   pointer-events: none;
 }
 
 @keyframes sonare-in {
   from {
     opacity: 0;
-    transform: translateY(-14px) scale(0.96);
+    transform: translateY(-90px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -100,141 +71,174 @@ body {
   }
   to {
     opacity: 0;
-    transform: translateY(-14px) scale(0.96);
+    transform: translateY(-90px) scale(0.985);
   }
 }
 
-/* ----------------------------------- orb --------------------------------- */
-
-.orb {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
+/* Reduced motion: keep a tiny fade so animation events still fire and the
+ * open/close state machine advances normally. */
+.reduce-motion .phase-opening .overlay-capsule {
+  animation: sonare-fade-in 80ms linear both;
 }
 
-.orb-core {
-  position: absolute;
-  inset: 5px;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      circle at 32% 28%,
-      #9ecbff 0%,
-      #5a8dee 38%,
-      #3b4fd8 72%,
-      #2a2f8f 100%
-    );
-  box-shadow:
-    0 0 12px rgba(90, 141, 238, 0.55),
-    0 0 28px rgba(90, 141, 238, 0.25);
-  animation: orb-breathe 3.6s ease-in-out infinite;
+.reduce-motion .phase-closing .overlay-capsule {
+  animation: sonare-fade-out 80ms linear both;
 }
 
-.orb-arc {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  border-top-color: rgba(158, 203, 255, 0.85);
-  border-right-color: rgba(158, 203, 255, 0.2);
-  animation: orb-orbit 6s linear infinite;
-}
-
-@keyframes orb-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: brightness(1);
+@media (prefers-reduced-motion: reduce) {
+  .phase-opening .overlay-capsule {
+    animation: sonare-fade-in 80ms linear both;
   }
-  50% {
-    transform: scale(1.06);
-    filter: brightness(1.12);
+  .phase-closing .overlay-capsule {
+    animation: sonare-fade-out 80ms linear both;
   }
 }
 
-@keyframes orb-orbit {
+@keyframes sonare-fade-in {
+  from {
+    opacity: 0;
+  }
   to {
-    transform: rotate(360deg);
+    opacity: 1;
+  }
+}
+
+@keyframes sonare-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 
 /* --------------------------------- identity ------------------------------ */
 
-.identity {
+.overlay-identity {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 18px;
+  flex: 1 1 0;
   min-width: 0;
 }
 
-.brand {
-  font-size: 14px;
+.overlay-logo {
+  display: flex;
+  color: var(--sonare-white);
+  flex-shrink: 0;
+}
+
+.overlay-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.overlay-title {
+  font-size: 18px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #f2f4fa;
+  letter-spacing: 0.01em;
+  color: var(--sonare-text-primary);
+  line-height: 1.2;
 }
 
-.status {
-  font-size: 11.5px;
+.overlay-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
   font-weight: 400;
-  color: #8b93a8;
+  color: var(--sonare-text-secondary);
+  line-height: 1.2;
 }
 
-.spacer {
-  flex: 1;
+/* Soft light-gray idle dot — green is reserved for active/running states. */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sonare-text-secondary);
+  flex-shrink: 0;
 }
 
-/* ------------------------------- shortcut hint --------------------------- */
+/* ---------------------------------- wave --------------------------------- */
+
+.sonare-wave {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.wave-bar {
+  width: 6px;
+  border-radius: 999px;
+  background: var(--sonare-white);
+  animation: wave-breathe 2.4s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+@keyframes wave-breathe {
+  from {
+    transform: translateY(0) scaleY(1);
+  }
+  to {
+    transform: translateY(-2px) scaleY(1.06);
+  }
+}
+
+/* --------------------------------- actions ------------------------------- */
+
+.overlay-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  flex: 1 1 0;
+  min-width: 0;
+}
 
 .shortcut-hint {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 14px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--sonare-recessed);
+  border: 1px solid var(--sonare-recessed-border);
   flex-shrink: 0;
 }
 
-.shortcut-hint kbd {
-  font-family: inherit;
-  font-size: 10px;
+.hint-key {
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1;
-  color: #a6adc2;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  padding: 4px 6px;
+  color: var(--sonare-text-secondary);
+  white-space: nowrap;
 }
 
-/* -------------------------------- close button --------------------------- */
-
-.close-button {
+.overlay-settings-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  border: none;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: transparent;
-  color: #7d8498;
-  cursor: pointer;
+  background: var(--sonare-surface-4);
+  border: 1px solid var(--sonare-border-soft);
+  color: var(--sonare-text-secondary);
+  flex-shrink: 0;
   transition:
     background 120ms ease,
     color 120ms ease;
 }
 
-.close-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e8ebf2;
+.overlay-settings-button:hover {
+  background: var(--sonare-hover);
+  color: var(--sonare-text-primary);
 }
 
-.close-button:active {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.close-button:focus-visible {
-  outline: 1px solid rgba(158, 203, 255, 0.7);
-  outline-offset: 1px;
+.overlay-settings-button:active {
+  background: var(--sonare-selected);
 }

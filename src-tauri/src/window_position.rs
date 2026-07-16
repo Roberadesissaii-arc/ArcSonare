@@ -1,39 +1,116 @@
-//! Monitor-aware top-center positioning with per-monitor DPI handling.
+//! Monitor-aware window placement with per-monitor DPI handling.
 
 use tauri::{AppHandle, LogicalSize, Monitor, PhysicalPosition, WebviewWindow};
 
-/// Overlay size in logical (DPI-independent) pixels; matches tauri.conf.json.
-const OVERLAY_WIDTH: f64 = 440.0;
-const OVERLAY_HEIGHT: f64 = 90.0;
-/// Gap between the top edge of the monitor and the overlay, in logical pixels.
-const TOP_MARGIN: f64 = 12.0;
+// Overlay geometry in logical pixels. The native window is larger than the
+// visible capsule so the CSS drop shadow has room to render; SIDE_PAD must
+// match the horizontal padding in overlay.css.
+pub const OVERLAY_WINDOW_WIDTH: f64 = 700.0;
+pub const OVERLAY_WINDOW_HEIGHT: f64 = 170.0;
+const OVERLAY_SIDE_PAD: f64 = 40.0;
+const OVERLAY_EDGE_MARGIN: f64 = 24.0;
 
-/// Moves the overlay to the top-center of the monitor under the mouse cursor
-/// (falling back to the primary monitor), accounting for monitors with
-/// negative coordinates and per-monitor DPI scale factors.
-pub fn position_top_center(app: &AppHandle, window: &WebviewWindow) -> Result<(), String> {
+pub const SETTINGS_WIDTH: f64 = 812.0;
+pub const SETTINGS_HEIGHT: f64 = 592.0;
+
+pub const QUICK_MENU_WIDTH: f64 = 300.0;
+pub const QUICK_MENU_HEIGHT: f64 = 380.0;
+
+/// Places the overlay against the top edge of the active monitor, honoring
+/// the configured horizontal position ("top-center" | "top-left" |
+/// "top-right"), negative monitor coordinates and DPI scaling. The capsule's
+/// top edge touches the physical top edge of the monitor.
+pub fn position_overlay(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    position: &str,
+) -> Result<(), String> {
     let monitor = pick_monitor(app, window)?;
     let scale = monitor.scale_factor();
     let mon_pos = monitor.position();
     let mon_size = monitor.size();
 
-    let width_px = (OVERLAY_WIDTH * scale).round() as i32;
-    let x = mon_pos.x + (mon_size.width as i32 - width_px) / 2;
-    let y = mon_pos.y + (TOP_MARGIN * scale).round() as i32;
+    let win_w = (OVERLAY_WINDOW_WIDTH * scale).round() as i32;
+    let x = match position {
+        // The capsule (not the transparent shadow padding) should sit
+        // OVERLAY_EDGE_MARGIN from the monitor edge.
+        "top-left" => mon_pos.x + ((OVERLAY_EDGE_MARGIN - OVERLAY_SIDE_PAD) * scale).round() as i32,
+        "top-right" => {
+            mon_pos.x + mon_size.width as i32 - win_w
+                + ((OVERLAY_SIDE_PAD - OVERLAY_EDGE_MARGIN) * scale).round() as i32
+        }
+        _ => mon_pos.x + (mon_size.width as i32 - win_w) / 2,
+    };
+    let y = mon_pos.y;
 
-    // Move first so the window adopts the target monitor's DPI, then apply
-    // the logical size (Windows may rescale on the monitor change), then
-    // anchor the final position.
+    move_and_size(window, x, y, OVERLAY_WINDOW_WIDTH, OVERLAY_WINDOW_HEIGHT)
+}
+
+/// Centers a window (by logical size) on the monitor under the cursor.
+pub fn center_on_active_monitor(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    logical_w: f64,
+    logical_h: f64,
+) -> Result<(), String> {
+    let monitor = pick_monitor(app, window)?;
+    let scale = monitor.scale_factor();
+    let mon_pos = monitor.position();
+    let mon_size = monitor.size();
+
+    let w = (logical_w * scale).round() as i32;
+    let h = (logical_h * scale).round() as i32;
+    let x = mon_pos.x + (mon_size.width as i32 - w) / 2;
+    let y = mon_pos.y + (mon_size.height as i32 - h) / 2;
+    move_and_size(window, x, y, logical_w, logical_h)
+}
+
+/// Places the quick menu near the tray click position (the Windows
+/// notification area), clamped inside the monitor that contains the cursor.
+pub fn position_quick_menu(
+    app: &AppHandle,
+    window: &WebviewWindow,
+    cursor: PhysicalPosition<f64>,
+) -> Result<(), String> {
+    let monitor = pick_monitor(app, window)?;
+    let scale = monitor.scale_factor();
+    let mon_pos = monitor.position();
+    let mon_size = monitor.size();
+
+    let w = (QUICK_MENU_WIDTH * scale).round() as i32;
+    let h = (QUICK_MENU_HEIGHT * scale).round() as i32;
+    let margin = (8.0 * scale).round() as i32;
+
+    let min_x = mon_pos.x + margin;
+    let max_x = mon_pos.x + mon_size.width as i32 - w - margin;
+    let x = ((cursor.x as i32) - w / 2).clamp(min_x, max_x.max(min_x));
+
+    // Open upward from the taskbar; never above the monitor's top edge.
+    let y_above = (cursor.y as i32) - h - (12.0 * scale).round() as i32;
+    let y = y_above.max(mon_pos.y + margin);
+
+    move_and_size(window, x, y, QUICK_MENU_WIDTH, QUICK_MENU_HEIGHT)
+}
+
+/// Moves first so the window adopts the target monitor's DPI, then applies
+/// the logical size (Windows may rescale on the monitor change), then anchors
+/// the final position.
+fn move_and_size(
+    window: &WebviewWindow,
+    x: i32,
+    y: i32,
+    logical_w: f64,
+    logical_h: f64,
+) -> Result<(), String> {
     window
         .set_position(PhysicalPosition::new(x, y))
         .map_err(|e| format!("set_position failed: {e}"))?;
     window
-        .set_size(LogicalSize::new(OVERLAY_WIDTH, OVERLAY_HEIGHT))
+        .set_size(LogicalSize::new(logical_w, logical_h))
         .map_err(|e| format!("set_size failed: {e}"))?;
     window
         .set_position(PhysicalPosition::new(x, y))
         .map_err(|e| format!("set_position failed: {e}"))?;
-
     Ok(())
 }
 

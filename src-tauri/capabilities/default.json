@@ -1,7 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities for the ArcSonare overlay window. Window management and global shortcuts are handled entirely in Rust; the frontend only needs core defaults (event listening + custom commands).",
-  "windows": ["sonare-overlay"],
-  "permissions": ["core:default"]
+  "description": "Capabilities for ArcSonare windows. Window management, shortcuts and persistence are handled in Rust; the frontend needs core defaults (events + custom commands) plus window dragging for the borderless settings window.",
+  "windows": ["sonare-overlay", "sonare-settings", "sonare-quick-menu"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize"
+  ]
 }
