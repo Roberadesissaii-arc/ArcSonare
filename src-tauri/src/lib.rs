@@ -40,7 +40,6 @@ pub fn run() {
             settings::clear_local_data,
             shortcuts::set_global_shortcut,
             panels::open_settings,
-            panels::hide_settings,
             panels::hide_quick_menu,
             panels::show_overlay,
             panels::show_main_window,

@@ -26,8 +26,8 @@ export function ConnectedToolsCard() {
               <img
                 src={integrationIcons[tool.id]}
                 alt=""
-                width={26}
-                height={26}
+                width={30}
+                height={30}
                 draggable={false}
               />
             </span>

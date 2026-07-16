@@ -67,6 +67,18 @@ button:disabled {
   border: 3px solid transparent;
 }
 
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(9, 11, 14, 0.16);
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(9, 11, 14, 0.26);
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+
 /* Motion preferences (OS + in-app) are applied per-component in
  * voice.css and dashboard.css via `prefers-reduced-motion` and the
  * `.reduce-motion` root class. */

@@ -52,26 +52,6 @@
         "focus": false
       },
       {
-        "label": "sonare-settings",
-        "title": "ArcSonare Settings",
-        "url": "index.html",
-        "width": 800,
-        "height": 580,
-        "minWidth": 760,
-        "minHeight": 540,
-        "visible": false,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": false,
-        "skipTaskbar": false,
-        "resizable": true,
-        "maximizable": false,
-        "minimizable": true,
-        "fullscreen": false,
-        "shadow": false,
-        "center": false
-      },
-      {
         "label": "sonare-quick-menu",
         "title": "ArcSonare Menu",
         "url": "index.html",

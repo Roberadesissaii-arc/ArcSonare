@@ -1,16 +1,22 @@
-import type { ComponentType, CSSProperties } from "react";
+import type { ComponentType } from "react";
 
 interface OrbitActionChipProps {
   icon: ComponentType<{ size?: number }>;
   label: string;
   status: string;
-  style?: CSSProperties;
+  /** True when the chip travels an orbit path inside the map SVG. */
+  orbiting?: boolean;
 }
 
 /** Floating smoked-titanium capsule attached to an orbit point. */
-export function OrbitActionChip({ icon: Icon, label, status, style }: OrbitActionChipProps) {
+export function OrbitActionChip({
+  icon: Icon,
+  label,
+  status,
+  orbiting,
+}: OrbitActionChipProps) {
   return (
-    <div className="orbit-chip" style={style}>
+    <div className={`orbit-chip${orbiting ? " orbit-chip-orbiting" : ""}`}>
       <span className="orbit-chip-icon">
         <Icon size={14} />
       </span>

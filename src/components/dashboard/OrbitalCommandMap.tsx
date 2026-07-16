@@ -56,6 +56,44 @@ const CHIP_ICONS = {
   calendar: CalendarIcon,
 };
 
+interface OrbitingChipProps {
+  chip: (typeof ORBIT_CHIPS)[number];
+  rx: number;
+  ry: number;
+  /** Counter-rotation (deg) cancelling the parent group tilt. */
+  counter: number;
+  duration: number;
+  delay: number;
+  /** Resting position under reduced motion, as offset-distance %. */
+  restAt: number;
+}
+
+/**
+ * A task chip traveling upright along an orbit. The <g> follows the ellipse
+ * via CSS motion path (offset-rotate: 0 keeps the local frame fixed) and the
+ * inner holder counter-rotates the parent group tilt so text stays level.
+ */
+function OrbitingChip({ chip, rx, ry, counter, duration, delay, restAt }: OrbitingChipProps) {
+  const Icon = CHIP_ICONS[chip.icon];
+  return (
+    <g
+      className="orbit-chip-motion"
+      style={{
+        offsetPath: `path('${orbitPath(rx, ry)}')`,
+        offsetDistance: `${restAt}%`,
+        animationDuration: `${duration}s`,
+        animationDelay: `${delay}s`,
+      }}
+    >
+      <foreignObject x={-85} y={-27} width={170} height={54} overflow="visible">
+        <div className="orbit-chip-holder" style={{ transform: `rotate(${counter}deg)` }}>
+          <OrbitActionChip icon={Icon} label={chip.label} status={chip.status} orbiting />
+        </div>
+      </foreignObject>
+    </g>
+  );
+}
+
 /**
  * The atmospheric intelligence visualization: layered deep background and
  * central haze (CSS), deterministic star dust, five tilted orbit paths with
@@ -108,6 +146,39 @@ export function OrbitalCommandMap() {
           <Traveler rx={200} ry={152} r={1.7} duration={104} delay={-14} />
         </g>
 
+        {/* Orbiting task cards — planets around the ArcSonare core. */}
+        <g transform={`rotate(-17 ${CX} ${CY})`}>
+          <OrbitingChip
+            chip={ORBIT_CHIPS[0]}
+            rx={268}
+            ry={104}
+            counter={17}
+            duration={72}
+            delay={-38}
+            restAt={53}
+          />
+          <OrbitingChip
+            chip={ORBIT_CHIPS[1]}
+            rx={238}
+            ry={92}
+            counter={17}
+            duration={88}
+            delay={-11}
+            restAt={12}
+          />
+        </g>
+        <g transform={`rotate(14 ${CX} ${CY})`}>
+          <OrbitingChip
+            chip={ORBIT_CHIPS[2]}
+            rx={200}
+            ry={152}
+            counter={-14}
+            duration={64}
+            delay={-51}
+            restAt={80}
+          />
+        </g>
+
         {/* Soft flares near orbital intersections. */}
         <g className="orbit-flares">
           <circle cx={118} cy={210} r={16} />
@@ -119,16 +190,6 @@ export function OrbitalCommandMap() {
       <div className="orbital-core-wrap">
         <ArcSonareCore />
       </div>
-
-      {ORBIT_CHIPS.map((chip) => (
-        <OrbitActionChip
-          key={chip.label}
-          icon={CHIP_ICONS[chip.icon]}
-          label={chip.label}
-          status={chip.status}
-          style={{ left: `${chip.x}%`, top: `${chip.y}%` }}
-        />
-      ))}
     </div>
   );
 }

@@ -31,6 +31,34 @@ export function GearIcon({ size }: IconProps) {
   );
 }
 
+export function ZapIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  );
+}
+
+export function LayersIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+      <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+      <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+    </svg>
+  );
+}
+
+export function CpuIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="9" y="9" width="6" height="6" rx="0.5" />
+      <path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2" />
+    </svg>
+  );
+}
+
 export function SlidersIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>

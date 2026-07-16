@@ -15,10 +15,13 @@ local state (persisted to `localStorage`); integrations honestly show
 
 | Label               | Purpose                                     | Shown by                                     |
 | ------------------- | ------------------------------------------- | -------------------------------------------- |
-| `main`              | Command Center (Dashboard/Tasks/Agent/Connect) | Launch, tray quick menu, second app launch |
+| `main`              | Command Center (Dashboard/Tasks/Agent/Connect/Settings) | Launch, tray quick menu, second app launch |
 | `sonare-overlay`    | Top-edge voice capsule                      | Global shortcut (when main is not focused)   |
-| `sonare-settings`   | Settings (shortcut, startup, theme, …)      | Header gear, overlay gear, tray, quick menu  |
 | `sonare-quick-menu` | Custom tray popover                         | Left-clicking the tray icon                  |
+
+Settings is a page inside the main window (header gear, tray "Settings" and
+the quick menu all show the main window and navigate to it) — there is no
+separate settings window.
 
 Windows are only ever shown/hidden — never destroyed. Closing the main
 window (red traffic light, Alt+F4) hides ArcSonare to the tray; only

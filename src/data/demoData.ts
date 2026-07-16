@@ -149,15 +149,13 @@ export interface OrbitChip {
   icon: "search" | "tasks" | "calendar";
   label: string;
   status: string;
-  /** Position as a percentage of the map canvas. */
-  x: number;
-  y: number;
 }
 
+/** The three objects orbiting the core; orbit geometry lives in the map. */
 export const ORBIT_CHIPS: OrbitChip[] = [
-  { icon: "search", label: "Market scan", status: "Updating", x: 16, y: 26 },
-  { icon: "tasks", label: "Strategy deck", status: "In progress", x: 76, y: 18 },
-  { icon: "calendar", label: "Client sync", status: "In 15 min", x: 70, y: 74 },
+  { icon: "search", label: "Market scan", status: "Updating" },
+  { icon: "tasks", label: "Strategy deck", status: "In progress" },
+  { icon: "calendar", label: "Client sync", status: "In 15 min" },
 ];
 
 export type AgentStatus =
@@ -228,4 +226,16 @@ export const INTEGRATIONS: IntegrationInfo[] = [
   { id: "discord", name: "Discord", category: "Community" },
   { id: "zoom", name: "Zoom", category: "Meetings" },
   { id: "trello", name: "Trello", category: "Boards" },
+  { id: "figma", name: "Figma", category: "Design" },
+  { id: "clickup", name: "ClickUp", category: "Projects" },
+  { id: "todoist", name: "Todoist", category: "Tasks" },
+  { id: "telegram", name: "Telegram", category: "Messaging" },
+  { id: "whatsapp", name: "WhatsApp", category: "Messaging" },
+  { id: "googleMeet", name: "Google Meet", category: "Meetings" },
+  { id: "googleDocs", name: "Google Docs", category: "Documents" },
+  { id: "googleSheets", name: "Google Sheets", category: "Spreadsheets" },
+  { id: "evernote", name: "Evernote", category: "Notes" },
+  { id: "onenote", name: "OneNote", category: "Notes" },
+  { id: "loom", name: "Loom", category: "Video" },
+  { id: "spotify", name: "Spotify", category: "Audio" },
 ];

@@ -47,6 +47,18 @@ import github from "../assets/icons/integrations/github.png";
 import discord from "../assets/icons/integrations/discord.png";
 import zoom from "../assets/icons/integrations/zoom.png";
 import trello from "../assets/icons/integrations/trello.png";
+import figma from "../assets/icons/integrations/figma.png";
+import clickup from "../assets/icons/integrations/clickup.png";
+import todoist from "../assets/icons/integrations/todoist.png";
+import telegram from "../assets/icons/integrations/telegram.png";
+import whatsapp from "../assets/icons/integrations/whatsapp.png";
+import googleMeet from "../assets/icons/integrations/google-meet.png";
+import googleDocs from "../assets/icons/integrations/google-docs.png";
+import googleSheets from "../assets/icons/integrations/google-sheets.png";
+import evernote from "../assets/icons/integrations/evernote.png";
+import loom from "../assets/icons/integrations/loom.png";
+import onenote from "../assets/icons/integrations/onenote.png";
+import spotify from "../assets/icons/integrations/spotify.png";
 
 export type UiIconName =
   | "general"
@@ -113,7 +125,19 @@ export type IntegrationId =
   | "github"
   | "discord"
   | "zoom"
-  | "trello";
+  | "trello"
+  | "figma"
+  | "clickup"
+  | "todoist"
+  | "telegram"
+  | "whatsapp"
+  | "googleMeet"
+  | "googleDocs"
+  | "googleSheets"
+  | "evernote"
+  | "loom"
+  | "onenote"
+  | "spotify";
 
 export const integrationIcons: Record<IntegrationId, string> = {
   gmail,
@@ -130,4 +154,16 @@ export const integrationIcons: Record<IntegrationId, string> = {
   discord,
   zoom,
   trello,
+  figma,
+  clickup,
+  todoist,
+  telegram,
+  whatsapp,
+  googleMeet,
+  googleDocs,
+  googleSheets,
+  evernote,
+  loom,
+  onenote,
+  spotify,
 };

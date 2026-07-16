@@ -89,10 +89,7 @@ export function CommandPalette({ onCreateTask }: CommandPaletteProps) {
         id: "settings",
         label: "Open Settings",
         icon: <GearIcon size={15} />,
-        run: () =>
-          invoke("open_settings").catch((err) =>
-            console.error("[ArcSonare] failed to open settings:", err),
-          ),
+        run: () => navigate("settings"),
       },
     ],
     [onCreateTask],

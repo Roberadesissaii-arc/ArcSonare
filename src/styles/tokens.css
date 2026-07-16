@@ -132,4 +132,14 @@
   --sonare-toggle-track-on: #2b323b;
   --sonare-toggle-thumb-off: #ffffff;
   --sonare-toggle-thumb-on: #f5f6f8;
+
+  /* Accents deepened for contrast on light surfaces. */
+  --sonare-violet: #7a4fe8;
+  --sonare-violet-soft: #6a48d7;
+  --sonare-violet-muted: rgba(106, 72, 215, 0.16);
+  --sonare-violet-glow: rgba(106, 72, 215, 0.24);
+  --sonare-green: #1e9c62;
+  --sonare-red: #c94f57;
+  --sonare-yellow: #a8741f;
+  --sonare-blue: #3c6fc4;
 }

@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { GearIcon } from "../Icons";
 import { useSettings } from "../../hooks/useSettings";
 import { shortcutKeys } from "../../services/shortcutFormat";
+import { navigate } from "../../stores/appStore";
 import { useVoiceState } from "../../stores/voiceStore";
 import { SonareLiveWaveform } from "./SonareLiveWaveform";
 
@@ -11,11 +11,7 @@ export function VoiceActionCard() {
   const { settings } = useSettings();
   const keys = shortcutKeys(settings?.globalShortcut ?? "Ctrl+Shift+Space");
 
-  const openShortcutSettings = () => {
-    invoke("open_settings").catch((err) =>
-      console.error("[ArcSonare] failed to open settings:", err),
-    );
-  };
+  const openShortcutSettings = () => navigate("settings");
 
   return (
     <section className="card voice-action-card">

@@ -1,14 +1,13 @@
-//! The settings window and the custom tray quick-menu window.
+//! The main Command Center window and the custom tray quick-menu window.
 //!
-//! Both windows are created hidden from tauri.conf.json and are only ever
-//! shown/hidden — never destroyed — so exactly one instance of each exists.
+//! The quick menu is created hidden from tauri.conf.json and is only ever
+//! shown/hidden — never destroyed — so exactly one instance exists.
 
-use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
 
 use crate::window_position;
 
 pub const MAIN_LABEL: &str = "main";
-pub const SETTINGS_LABEL: &str = "sonare-settings";
 pub const QUICK_MENU_LABEL: &str = "sonare-quick-menu";
 
 fn get_window(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
@@ -19,33 +18,16 @@ fn get_window(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
     window
 }
 
-/// Shows and focuses the settings window, centering it on the active monitor
-/// the first time (an already-visible window keeps the position the user
-/// gave it).
+/// Settings lives inside the main window: show and focus the Command Center,
+/// then ask its webview to navigate to the Settings page.
 pub fn show_settings(app: &AppHandle) {
-    log::info!("opening settings window");
-    let Some(window) = get_window(app, SETTINGS_LABEL) else {
-        return;
-    };
-    if !window.is_visible().unwrap_or(false) {
-        if let Err(e) = window_position::center_on_active_monitor(
-            app,
-            &window,
-            window_position::SETTINGS_WIDTH,
-            window_position::SETTINGS_HEIGHT,
-        ) {
-            log::warn!("could not center settings window: {e}");
+    log::info!("opening settings page in the main window");
+    show_main(app);
+    if let Some(window) = get_window(app, MAIN_LABEL) {
+        if let Err(e) = window.emit("sonare://open-settings", ()) {
+            log::error!("failed to request settings navigation: {e}");
         }
     }
-    if let Err(e) = window.show() {
-        log::error!("failed to show settings window: {e}");
-        return;
-    }
-    if let Err(e) = window.set_focus() {
-        log::warn!("failed to focus settings window: {e}");
-    }
-    // Opening settings from the quick menu should dismiss the menu.
-    hide_window(app, QUICK_MENU_LABEL);
 }
 
 fn hide_window(app: &AppHandle, label: &str) {
@@ -115,11 +97,6 @@ pub fn hide_main(app: AppHandle) {
 #[tauri::command]
 pub fn open_settings(app: AppHandle) {
     show_settings(&app);
-}
-
-#[tauri::command]
-pub fn hide_settings(app: AppHandle) {
-    hide_window(&app, SETTINGS_LABEL);
 }
 
 #[tauri::command]

@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   ChartIcon,
+  CheckIcon,
   CheckSquareIcon,
   ChevronDownIcon,
   CloseIcon,
+  CpuIcon,
+  LayersIcon,
   ListIcon,
   MailIcon,
+  SearchIcon,
   SendIcon,
   SparkleIcon,
+  ZapIcon,
 } from "../Icons";
 import { addActivity } from "../../stores/appStore";
 
@@ -22,7 +27,51 @@ const QUICK_ACTIONS: {
   { label: "Create task", prompt: "Create a task: ", icon: CheckSquareIcon },
 ];
 
-const MODES = ["Smart", "Precise", "Creative"] as const;
+interface ComposerMode {
+  id: string;
+  name: string;
+  description: string;
+  icon: ComponentType<{ size?: number }>;
+  /** No mode backend exists yet; only honest labels ship. */
+  comingLater?: boolean;
+}
+
+const MODES: ComposerMode[] = [
+  {
+    id: "smart",
+    name: "Smart mode",
+    description: "Automatically chooses the best approach",
+    icon: SparkleIcon,
+  },
+  {
+    id: "fast",
+    name: "Fast mode",
+    description: "Prioritizes speed",
+    icon: ZapIcon,
+    comingLater: true,
+  },
+  {
+    id: "reasoning",
+    name: "Reasoning mode",
+    description: "Uses deeper step-by-step planning",
+    icon: LayersIcon,
+    comingLater: true,
+  },
+  {
+    id: "research",
+    name: "Research mode",
+    description: "Searches connected knowledge and sources",
+    icon: SearchIcon,
+    comingLater: true,
+  },
+  {
+    id: "local",
+    name: "Local mode",
+    description: "Uses available private local models",
+    icon: CpuIcon,
+    comingLater: true,
+  },
+];
 
 /**
  * The floating bottom command composer. Submissions are recorded to the
@@ -31,7 +80,7 @@ const MODES = ["Smart", "Precise", "Creative"] as const;
 export function CommandComposer() {
   const [value, setValue] = useState("");
   const [collapsed, setCollapsed] = useState(false);
-  const [mode, setMode] = useState<(typeof MODES)[number]>("Smart");
+  const [mode, setMode] = useState<ComposerMode>(MODES[0]);
   const [modeOpen, setModeOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modeRef = useRef<HTMLDivElement>(null);
@@ -41,14 +90,21 @@ export function CommandComposer() {
     const onPointerDown = (event: PointerEvent) => {
       if (!modeRef.current?.contains(event.target as Node)) setModeOpen(false);
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setModeOpen(false);
+    };
     window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [modeOpen]);
 
   const submit = () => {
     const text = value.trim();
     if (!text) return;
-    addActivity(`Command (${mode}): "${text}"`, "command");
+    addActivity(`Command (${mode.name}): "${text}"`, "command");
     setValue("");
   };
 
@@ -66,7 +122,7 @@ export function CommandComposer() {
       setValue(prompt);
       textareaRef.current?.focus();
     } else {
-      addActivity(`Command (${mode}): "${prompt}"`, "command");
+      addActivity(`Command (${mode.name}): "${prompt}"`, "command");
     }
   };
 
@@ -134,24 +190,40 @@ export function CommandComposer() {
               aria-haspopup="listbox"
               aria-expanded={modeOpen}
             >
-              {mode}
+              {mode.name}
               <ChevronDownIcon size={13} />
             </button>
             {modeOpen ? (
               <ul className="mode-list" role="listbox" aria-label="Response mode">
                 {MODES.map((m) => (
-                  <li key={m}>
+                  <li key={m.id}>
                     <button
                       type="button"
                       role="option"
-                      aria-selected={m === mode}
-                      className={`mode-option${m === mode ? " selected" : ""}`}
+                      aria-selected={m.id === mode.id}
+                      className={`mode-option${m.id === mode.id ? " selected" : ""}`}
                       onClick={() => {
                         setMode(m);
                         setModeOpen(false);
                       }}
                     >
-                      {m}
+                      <span className="mode-option-icon">
+                        <m.icon size={15} />
+                      </span>
+                      <span className="mode-option-meta">
+                        <span className="mode-option-name">
+                          {m.name}
+                          {m.comingLater ? (
+                            <span className="mode-option-soon">Coming later</span>
+                          ) : null}
+                        </span>
+                        <span className="mode-option-desc">{m.description}</span>
+                      </span>
+                      {m.id === mode.id ? (
+                        <span className="mode-option-check">
+                          <CheckIcon size={14} />
+                        </span>
+                      ) : null}
                     </button>
                   </li>
                 ))}

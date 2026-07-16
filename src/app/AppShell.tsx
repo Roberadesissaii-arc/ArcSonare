@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { useSettings } from "../hooks/useSettings";
 import { useAppearance } from "../hooks/useTheme";
-import { openPalette, useAppState } from "../stores/appStore";
+import { navigate, openPalette, useAppState } from "../stores/appStore";
 import { CustomTitleBar } from "./CustomTitleBar";
 import { AppHeader } from "./AppHeader";
 import { CommandPalette } from "../components/command/CommandPalette";
@@ -11,6 +12,7 @@ import { DashboardPage } from "../pages/DashboardPage";
 import { TasksPage } from "../pages/TasksPage";
 import { AgentPage } from "../pages/AgentPage";
 import { ConnectPage } from "../pages/ConnectPage";
+import { SettingsPage } from "../pages/SettingsPage";
 
 /** The main Command Center window. */
 export function AppShell() {
@@ -39,6 +41,16 @@ export function AppShell() {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
+  // Tray / quick menu "Settings" shows this window and asks it to navigate.
+  useEffect(() => {
+    const unlisten = listen("sonare://open-settings", () => {
+      navigate("settings");
+    });
+    return () => {
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
+  }, []);
+
   const openCreateTask = () => setCreateTaskOpen(true);
 
   return (
@@ -50,6 +62,7 @@ export function AppShell() {
         {page === "tasks" && <TasksPage onCreateTask={openCreateTask} />}
         {page === "agent" && <AgentPage />}
         {page === "connect" && <ConnectPage />}
+        {page === "settings" && <SettingsPage />}
       </main>
       <footer className="app-statusbar">
         <span className="statusbar-left">ArcSonare · Ready</span>

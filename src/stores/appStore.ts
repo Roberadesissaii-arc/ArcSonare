@@ -6,7 +6,7 @@
 import { useSyncExternalStore } from "react";
 import type { TaskFilter } from "./taskStore";
 
-export type MainPage = "dashboard" | "tasks" | "agent" | "connect";
+export type MainPage = "dashboard" | "tasks" | "agent" | "connect" | "settings";
 
 export interface ActivityEntry {
   id: string;
@@ -22,9 +22,22 @@ interface AppState {
   /** Development default profile; a real profile arrives in a later phase. */
   profileName: string;
   activity: ActivityEntry[];
+  /** Entries newer than this are unread in the notification popover. */
+  notificationsReadAt: number;
 }
 
 const ACTIVITY_KEY = "arcsonare.activity.v1";
+const READ_AT_KEY = "arcsonare.notificationsReadAt.v1";
+
+function loadReadAt(): number {
+  try {
+    const raw = window.localStorage.getItem(READ_AT_KEY);
+    if (raw) return Number(raw) || 0;
+  } catch (err) {
+    console.error("[ArcSonare] failed to load notifications read state:", err);
+  }
+  return 0;
+}
 
 function loadActivity(): ActivityEntry[] {
   try {
@@ -42,6 +55,7 @@ let state: AppState = {
   paletteOpen: false,
   profileName: "Robera",
   activity: loadActivity(),
+  notificationsReadAt: loadReadAt(),
 };
 
 const listeners = new Set<() => void>();
@@ -81,6 +95,16 @@ export function addActivity(text: string, source: ActivityEntry["source"]) {
     console.error("[ArcSonare] failed to persist activity:", err);
   }
   set({ activity });
+}
+
+export function markNotificationsRead() {
+  const now = Date.now();
+  try {
+    window.localStorage.setItem(READ_AT_KEY, String(now));
+  } catch (err) {
+    console.error("[ArcSonare] failed to persist notifications read state:", err);
+  }
+  set({ notificationsReadAt: now });
 }
 
 export function useAppState(): AppState {

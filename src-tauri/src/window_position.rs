@@ -10,9 +10,6 @@ pub const OVERLAY_WINDOW_HEIGHT: f64 = 94.0;
 const OVERLAY_SIDE_PAD: f64 = 10.0;
 const OVERLAY_EDGE_MARGIN: f64 = 24.0;
 
-pub const SETTINGS_WIDTH: f64 = 800.0;
-pub const SETTINGS_HEIGHT: f64 = 580.0;
-
 pub const QUICK_MENU_WIDTH: f64 = 300.0;
 pub const QUICK_MENU_HEIGHT: f64 = 420.0;
 
@@ -44,25 +41,6 @@ pub fn position_overlay(
     let y = mon_pos.y;
 
     move_and_size(window, x, y, OVERLAY_WINDOW_WIDTH, OVERLAY_WINDOW_HEIGHT)
-}
-
-/// Centers a window (by logical size) on the monitor under the cursor.
-pub fn center_on_active_monitor(
-    app: &AppHandle,
-    window: &WebviewWindow,
-    logical_w: f64,
-    logical_h: f64,
-) -> Result<(), String> {
-    let monitor = pick_monitor(app, window)?;
-    let scale = monitor.scale_factor();
-    let mon_pos = monitor.position();
-    let mon_size = monitor.size();
-
-    let w = (logical_w * scale).round() as i32;
-    let h = (logical_h * scale).round() as i32;
-    let x = mon_pos.x + (mon_size.width as i32 - w) / 2;
-    let y = mon_pos.y + (mon_size.height as i32 - h) / 2;
-    move_and_size(window, x, y, logical_w, logical_h)
 }
 
 /// Places the quick menu near the tray click position (the Windows
