@@ -1,77 +1,68 @@
-# ArcSonare — Sonare Desktop (Phase 2)
+# ArcSonare — Command Center (Phase 3)
 
-ArcSonare is a Windows desktop assistant. Phase 2 delivers the full desktop
-shell: an edge-attached top overlay, a settings window, global-shortcut
-customization, and a custom tray quick menu — all in a dark monochrome design.
+ArcSonare is a voice-first AI operating environment for Windows. Phase 3
+turns the settings-only utility into a full desktop Command Center: a main
+native window with Dashboard, Tasks, Agent and Connect, an in-app voice
+console, an orbital command map, a command composer, and a Ctrl+K palette —
+all in the smoked-titanium design language with the orbital ArcSonare mark.
 
-No voice, microphone, AI, or automation functionality is included yet.
+No real microphone, AI model, or OAuth integration is connected yet. Voice
+states are a clearly-local simulation; tasks, activity and agent toggles are
+local state (persisted to `localStorage`); integrations honestly show
+“Not connected / Coming soon”.
 
 ## Windows
 
-| Label              | Purpose                                   | Shown by                                        |
-| ------------------ | ----------------------------------------- | ----------------------------------------------- |
-| `sonare-overlay`   | Top-edge capsule (logo, wave, shortcut)   | Global shortcut, tray, quick menu               |
-| `sonare-settings`  | Settings (shortcut, startup, theme, …)    | Overlay gear button, tray menu, quick menu      |
-| `sonare-quick-menu`| Custom tray popover                       | Left-clicking the tray icon                     |
+| Label               | Purpose                                     | Shown by                                     |
+| ------------------- | ------------------------------------------- | -------------------------------------------- |
+| `main`              | Command Center (Dashboard/Tasks/Agent/Connect) | Launch, tray quick menu, second app launch |
+| `sonare-overlay`    | Top-edge voice capsule                      | Global shortcut (when main is not focused)   |
+| `sonare-settings`   | Settings (shortcut, startup, theme, …)      | Header gear, overlay gear, tray, quick menu  |
+| `sonare-quick-menu` | Custom tray popover                         | Left-clicking the tray icon                  |
 
-All three are created hidden at launch and are only ever shown/hidden — never
-destroyed — so exactly one instance of each exists. Closing any of them (even
-Alt+F4) hides it; ArcSonare keeps running in the tray.
+Windows are only ever shown/hidden — never destroyed. Closing the main
+window (red traffic light, Alt+F4) hides ArcSonare to the tray; only
+**Quit ArcSonare** exits.
+
+## Global shortcut routing
+
+- Main window visible **and** focused → the shortcut toggles the in-app
+  voice console (`sonare:voice-toggle` event).
+- Otherwise → the shortcut toggles the top-screen overlay, as before.
+- Both surfaces share the voice-state store and design tokens.
 
 ## Architecture
 
-- **Rust** owns all native behavior and is the source of truth: the global
-  shortcut (customizable; a new shortcut is registered *before* the old one is
-  unregistered so a failure never loses the previous one), settings
-  persistence (`%APPDATA%\com.arcsonare.desktop\settings.json`, validated on
-  load), autostart (official `tauri-plugin-autostart`), monitor-aware
-  positioning (DPI, negative coordinates, top-center/left/right), the tray,
-  and the quick-menu placement near the notification area.
-- **React + TypeScript** renders the three windows (routed by window label),
-  runs the overlay animation state machine (`hidden → opening → visible →
-  closing`), and edits settings through commands. Every settings change is
-  broadcast to all windows via `sonare:settings-changed`.
-- Design tokens live in `src/styles/tokens.css` (dark charcoal monochrome;
-  light theme is a functional neutral variant; System follows Windows).
-
-## Prerequisites
-
-- Windows 10 or 11, Node.js 18+, Rust (stable MSVC), VS C++ Build Tools
+- **Rust** owns all native behavior: global shortcut (register-new-before-
+  unregister-old), settings persistence (`%APPDATA%\com.arcsonare.desktop`),
+  autostart, monitor-aware positioning, tray, and window show/hide commands
+  (`panels.rs`).
+- **React + TypeScript** renders the four windows routed by label
+  (`App.tsx`). Main-window state lives in small `useSyncExternalStore`
+  stores (`src/stores/`): `voiceStore` (shared voice states), `taskStore`
+  (persisted tasks), `appStore` (page, palette, activity log).
+- Design tokens: `src/styles/tokens.css` (smoked titanium — graphite
+  surfaces, restrained violet AI accent). The orbital logo is
+  `src/components/brand/ArcSonareLogo.tsx`; app icons were generated from it
+  (`src-tauri/icons`).
+- Icon mapping: `src/config/iconRegistry.ts`. Integration logos were
+  extracted from the local `ICO/` library (highest-resolution PNG frame)
+  into `src/assets/icons/integrations/` and keep their brand colors.
 
 ## Commands
 
 ```powershell
 npm install          # once
-npm run tauri dev    # development (app starts hidden — check the tray)
+npm run tauri dev    # development — opens the Command Center
 npm run tauri build  # Windows installer -> src-tauri/target/release/bundle/nsis/
 ```
 
-## Manual test checklist
+## Known limitations (Phase 3)
 
-1. Launch — no window appears; the tray icon does.
-2. Press the global shortcut (default `Ctrl+Shift+Space`) — the capsule slides
-   down from the top edge of the monitor under your cursor.
-3. The overlay shows the ArcSonare logo, “● Ready”, the seven-bar wave, the
-   current shortcut and a gear button; pressing the shortcut again hides it;
-   Escape also hides it.
-4. The gear opens Settings (General: Global Shortcut, Startup, Theme,
-   Position, Sound). Escape or ✕ hides Settings.
-5. “Change” records a new shortcut (needs a modifier); a rejected registration
-   keeps the old shortcut and shows the error; the overlay hint updates
-   immediately on success.
-6. Startup, theme, position, sound, notification and motion preferences
-   persist across restarts.
-7. Left-clicking the tray icon opens the quick menu near the notification
-   area; clicking elsewhere dismisses it; right-click shows the native menu.
-8. Quit (tray or quick menu) fully exits.
-
-## Known limitations (Phase 2)
-
-- The **Fn key cannot be used as a shortcut** — it is handled by keyboard
-  firmware and never reaches Windows, so no application can register it.
-- “Check for updates”, “Send feedback” and “Help” honestly report that these
-  arrive in a later phase — there is no update server yet.
-- Tauri 2 does not expose `WS_EX_NOREDIRECTIONBITMAP`; in practice no white
-  flash occurs because windows are created hidden and content loads first.
-- The logo is a temporary vector mark, isolated in `SonareLogo.tsx` so the
-  final ArcSonare character can replace it in one place.
+- Voice is simulated (listening → processing → speaking) — no microphone.
+- Up Next events, Focus card, agents and connected tools are demo data
+  (`src/data/demoData.ts`); tasks marked “Demo” were seeded once.
+- Command submissions are recorded to the local activity log only.
+- The ICO library has no Asana or Microsoft Calendar icon, so those two
+  integrations are not listed.
+- The Fn key cannot be a shortcut (keyboard firmware).
