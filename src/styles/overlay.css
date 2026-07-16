@@ -1,0 +1,240 @@
+/* ---------------------------------------------------------------------------
+ * ArcSonare overlay styles.
+ * The native Tauri window is fully transparent; everything visible is drawn
+ * here, including the shadow (native shadows are disabled in tauri.conf.json).
+ * ------------------------------------------------------------------------- */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family:
+    "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+.overlay-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  /* Breathing room so the CSS shadow isn't clipped by the window edge. */
+  padding: 6px 10px 14px;
+}
+
+/* --------------------------------- capsule ------------------------------- */
+
+.capsule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  padding: 0 10px 0 16px;
+  border-radius: 24px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(30, 34, 46, 0.94) 0%,
+      rgba(18, 20, 28, 0.94) 100%
+    );
+  /* Subtle inner border + soft drop shadow, all in CSS. */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 24px rgba(0, 0, 0, 0.45),
+    0 1px 4px rgba(0, 0, 0, 0.35);
+  will-change: transform, opacity;
+}
+
+/* -------------------------- animation state machine ---------------------- */
+
+.phase-hidden .capsule {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.phase-opening .capsule {
+  animation: sonare-in 210ms cubic-bezier(0.25, 0.8, 0.35, 1) both;
+}
+
+.phase-visible .capsule {
+  opacity: 1;
+}
+
+.phase-closing .capsule {
+  animation: sonare-out 190ms cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
+  pointer-events: none;
+}
+
+@keyframes sonare-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes sonare-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+}
+
+/* ----------------------------------- orb --------------------------------- */
+
+.orb {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.orb-core {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      #9ecbff 0%,
+      #5a8dee 38%,
+      #3b4fd8 72%,
+      #2a2f8f 100%
+    );
+  box-shadow:
+    0 0 12px rgba(90, 141, 238, 0.55),
+    0 0 28px rgba(90, 141, 238, 0.25);
+  animation: orb-breathe 3.6s ease-in-out infinite;
+}
+
+.orb-arc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-top-color: rgba(158, 203, 255, 0.85);
+  border-right-color: rgba(158, 203, 255, 0.2);
+  animation: orb-orbit 6s linear infinite;
+}
+
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.12);
+  }
+}
+
+@keyframes orb-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --------------------------------- identity ------------------------------ */
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.brand {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #f2f4fa;
+}
+
+.status {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #8b93a8;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ------------------------------- shortcut hint --------------------------- */
+
+.shortcut-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.shortcut-hint kbd {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  color: #a6adc2;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+
+/* -------------------------------- close button --------------------------- */
+
+.close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #7d8498;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.close-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8ebf2;
+}
+
+.close-button:active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.close-button:focus-visible {
+  outline: 1px solid rgba(158, 203, 255, 0.7);
+  outline-offset: 1px;
+}
