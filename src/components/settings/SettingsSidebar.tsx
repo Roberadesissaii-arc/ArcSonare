@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { SonareLogo } from "../overlay/SonareLogo";
+import { ArcSonareLogo } from "../brand/ArcSonareLogo";
 import {
   BellIcon,
   InfoIcon,
@@ -43,7 +43,7 @@ export function SettingsSidebar({ page, onNavigate }: SettingsSidebarProps) {
     <aside className="sidebar">
       <div className="sidebar-brand" data-tauri-drag-region>
         <span className="sidebar-logo" data-tauri-drag-region>
-          <SonareLogo size={36} />
+          <ArcSonareLogo size={36} />
         </span>
         <div className="sidebar-titles" data-tauri-drag-region>
           <span className="sidebar-app-name">ArcSonare</span>

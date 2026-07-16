@@ -1,8 +1,8 @@
-import { PlugIcon } from "../../Icons";
+import { ConnectGrid } from "../../connect/ConnectGrid";
 
 /**
- * Integrations arrive with Sonare Connect in a later phase. This is a clean
- * informational empty state — no fake connected accounts.
+ * Settings-side Connect page. Shares the integration grid with the main
+ * Command Center — real icons, honest "Not connected" states, no OAuth yet.
  */
 export function ConnectPage() {
   return (
@@ -10,20 +10,11 @@ export function ConnectPage() {
       <header className="page-header">
         <h1 className="page-title">Connect</h1>
         <p className="page-subtitle">
-          Link ArcSonare with the tools you already use.
+          Bring your favorite tools into ArcSonare.
         </p>
       </header>
-
-      <div className="empty-state">
-        <span className="empty-state-icon">
-          <PlugIcon size={26} />
-        </span>
-        <h2 className="empty-state-title">No integrations yet</h2>
-        <p className="empty-state-text">
-          Sonare Connect arrives in a later ArcSonare phase. Mail, calendar and
-          messaging integrations will appear here, each with its own
-          permissions you control.
-        </p>
+      <div className="settings-connect">
+        <ConnectGrid />
       </div>
     </div>
   );

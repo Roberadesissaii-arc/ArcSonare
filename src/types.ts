@@ -29,3 +29,8 @@ export const EVENT_CLOSE = "sonare:close";
 
 /** Broadcast to every window whenever any setting changes. */
 export const EVENT_SETTINGS_CHANGED = "sonare:settings-changed";
+
+/** Emitted by Rust to the main window when the global shortcut fires while
+ * the Command Center is visible and focused (instead of opening the
+ * top-screen overlay). */
+export const EVENT_VOICE_TOGGLE = "sonare:voice-toggle";

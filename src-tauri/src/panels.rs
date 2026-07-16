@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
 
 use crate::window_position;
 
+pub const MAIN_LABEL: &str = "main";
 pub const SETTINGS_LABEL: &str = "sonare-settings";
 pub const QUICK_MENU_LABEL: &str = "sonare-quick-menu";
 
@@ -79,6 +80,45 @@ pub fn toggle_quick_menu(app: &AppHandle, cursor: PhysicalPosition<f64>) {
     if let Err(e) = window.set_focus() {
         log::warn!("failed to focus quick menu: {e}");
     }
+}
+
+/// True when the main Command Center window is both visible and focused —
+/// the case where the global shortcut drives the in-app voice console
+/// instead of the top-screen overlay.
+pub fn main_window_is_active(app: &AppHandle) -> bool {
+    app.get_webview_window(MAIN_LABEL)
+        .map(|w| w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false))
+        .unwrap_or(false)
+}
+
+/// Shows and focuses the main Command Center window (tray / quick menu).
+pub fn show_main(app: &AppHandle) {
+    let Some(window) = get_window(app, MAIN_LABEL) else {
+        return;
+    };
+    if window.is_minimized().unwrap_or(false) {
+        if let Err(e) = window.unminimize() {
+            log::warn!("failed to unminimize main window: {e}");
+        }
+    }
+    if let Err(e) = window.show() {
+        log::error!("failed to show main window: {e}");
+        return;
+    }
+    if let Err(e) = window.set_focus() {
+        log::warn!("failed to focus main window: {e}");
+    }
+    hide_window(app, QUICK_MENU_LABEL);
+}
+
+#[tauri::command]
+pub fn show_main_window(app: AppHandle) {
+    show_main(&app);
+}
+
+#[tauri::command]
+pub fn hide_main(app: AppHandle) {
+    hide_window(&app, MAIN_LABEL);
 }
 
 #[tauri::command]

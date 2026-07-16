@@ -1,0 +1,68 @@
+/* ---------------------------------------------------------------------------
+ * Desktop-only responsive rules. Primary target: 1600 × 920.
+ * ------------------------------------------------------------------------- */
+
+@media (max-width: 1450px) {
+  .dashboard {
+    grid-template-columns:
+      minmax(272px, 0.78fr)
+      minmax(520px, 1.9fr)
+      minmax(272px, 0.78fr);
+    gap: 16px;
+    padding: 0 20px 10px;
+  }
+
+  .app-header {
+    padding: 0 20px;
+  }
+
+  .app-statusbar,
+  .tasks-page,
+  .agent-page,
+  .connect-page {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .header-search {
+    flex-basis: 150px;
+  }
+
+  .header-search-hint {
+    display: none;
+  }
+}
+
+/* Below ~1180px the side columns collapse into toggleable rows beneath the
+ * center workspace; the center stays dominant and navigation stays intact. */
+@media (max-width: 1180px) {
+  .dashboard {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(0, 1.4fr) minmax(0, 0.8fr);
+    grid-template-areas:
+      "center center"
+      "left right";
+    overflow-y: auto;
+  }
+
+  .dashboard-center {
+    grid-area: center;
+    min-height: 560px;
+  }
+
+  .dashboard-left {
+    grid-area: left;
+  }
+
+  .dashboard-right {
+    grid-area: right;
+  }
+
+  .header-wordmark {
+    display: none;
+  }
+
+  .main-nav-tab {
+    padding: 0 14px;
+  }
+}

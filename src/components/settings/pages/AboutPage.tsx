@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
-import { SonareLogo } from "../../overlay/SonareLogo";
+import { ArcSonareLogo } from "../../brand/ArcSonareLogo";
 import { SettingRow } from "../SettingRow";
 
 const ACKNOWLEDGEMENTS = [
@@ -36,7 +36,7 @@ export function AboutPage() {
 
       <div className="about-hero">
         <span className="about-logo">
-          <SonareLogo size={44} />
+          <ArcSonareLogo size={44} />
         </span>
         <div>
           <div className="about-name">ArcSonare</div>

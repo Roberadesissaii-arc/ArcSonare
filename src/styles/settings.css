@@ -1,13 +1,13 @@
 /* ---------------------------------------------------------------------------
  * ArcSonare Settings window.
- * Native window: 812 x 592 (transparent). The visible frame is inset 26px on
- * every side so the CSS shadow has room to render.
+ * Native window: 800 x 580 (transparent). The visible frame nearly fills it —
+ * only a 10px gutter remains on each side for the CSS shadow.
  * ------------------------------------------------------------------------- */
 
 .settings-shell {
   width: 100%;
   height: 100%;
-  padding: 26px;
+  padding: 10px;
 }
 
 .settings-frame {
@@ -16,7 +16,7 @@
   height: 100%;
   border-radius: 20px;
   overflow: hidden;
-  background: linear-gradient(160deg, #171b21, #12161b 55%);
+  background: linear-gradient(160deg, #151a21, #11161c 55%);
   box-shadow:
     inset 0 0 0 1px var(--sonare-border),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -35,7 +35,7 @@
   flex-direction: column;
   width: 220px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #0f1217, #0b0e12);
+  background: linear-gradient(180deg, #0d1116, #090c10);
   border-right: 1px solid var(--sonare-border-soft);
   padding: 18px 12px 14px;
 }
@@ -308,9 +308,9 @@
   width: 42px;
   height: 24px;
   border-radius: 999px;
-  background: var(--sonare-surface-4);
+  background: var(--sonare-toggle-track-off);
   border: 1px solid var(--sonare-border);
-  transition: background 140ms ease;
+  transition: background 150ms ease;
   flex-shrink: 0;
 }
 
@@ -321,20 +321,20 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--sonare-text-secondary);
+  background: var(--sonare-toggle-thumb-off);
   transition:
-    transform 140ms ease,
-    background 140ms ease;
+    transform 150ms var(--sonare-ease-out),
+    background 150ms ease;
 }
 
 .toggle.on {
-  background: var(--sonare-text-secondary);
+  background: var(--sonare-toggle-track-on);
   border-color: transparent;
 }
 
 .toggle.on .toggle-thumb {
   transform: translateX(18px);
-  background: var(--sonare-surface-1);
+  background: var(--sonare-toggle-thumb-on);
 }
 
 .toggle:disabled {
@@ -550,6 +550,12 @@
   font-size: 13px;
   color: var(--sonare-text-muted);
   max-width: 34em;
+}
+
+/* --------------------------------- connect ------------------------------- */
+
+.settings-connect {
+  padding-top: 16px;
 }
 
 /* ---------------------------------- about -------------------------------- */

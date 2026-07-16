@@ -5,16 +5,16 @@ use tauri::{AppHandle, LogicalSize, Monitor, PhysicalPosition, WebviewWindow};
 // Overlay geometry in logical pixels. The native window is larger than the
 // visible capsule so the CSS drop shadow has room to render; SIDE_PAD must
 // match the horizontal padding in overlay.css.
-pub const OVERLAY_WINDOW_WIDTH: f64 = 700.0;
-pub const OVERLAY_WINDOW_HEIGHT: f64 = 170.0;
-const OVERLAY_SIDE_PAD: f64 = 40.0;
+pub const OVERLAY_WINDOW_WIDTH: f64 = 640.0;
+pub const OVERLAY_WINDOW_HEIGHT: f64 = 150.0;
+const OVERLAY_SIDE_PAD: f64 = 10.0;
 const OVERLAY_EDGE_MARGIN: f64 = 24.0;
 
-pub const SETTINGS_WIDTH: f64 = 812.0;
-pub const SETTINGS_HEIGHT: f64 = 592.0;
+pub const SETTINGS_WIDTH: f64 = 800.0;
+pub const SETTINGS_HEIGHT: f64 = 580.0;
 
 pub const QUICK_MENU_WIDTH: f64 = 300.0;
-pub const QUICK_MENU_HEIGHT: f64 = 380.0;
+pub const QUICK_MENU_HEIGHT: f64 = 420.0;
 
 /// Places the overlay against the top edge of the active monitor, honoring
 /// the configured horizontal position ("top-center" | "top-left" |

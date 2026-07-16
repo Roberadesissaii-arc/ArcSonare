@@ -7,8 +7,8 @@ import type { WaveState } from "../../types";
  * for future phases.
  */
 
-const BAR_HEIGHTS = [20, 34, 48, 62, 48, 34, 20];
-const BAR_OPACITIES = [0.5, 0.65, 0.82, 1, 0.82, 0.65, 0.5];
+const BAR_HEIGHTS = [20, 36, 52, 64, 52, 36, 20];
+const BAR_OPACITIES = [0.48, 0.68, 0.84, 1, 0.84, 0.68, 0.48];
 
 interface SonareWaveProps {
   state?: WaveState;

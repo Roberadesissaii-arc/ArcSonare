@@ -3,9 +3,8 @@ import { useOverlayLifecycle } from "../../hooks/useOverlayLifecycle";
 import { useSettings } from "../../hooks/useSettings";
 import { useAppearance } from "../../hooks/useTheme";
 import { playOpenSound } from "../../services/sound";
-import { SonareLogo } from "./SonareLogo";
+import { ArcSonareLogo } from "../brand/ArcSonareLogo";
 import { SonareWave } from "./SonareWave";
-import { ShortcutHint } from "./ShortcutHint";
 import { OverlaySettingsButton } from "./OverlaySettingsButton";
 
 export function SonareOverlay() {
@@ -33,7 +32,7 @@ export function SonareOverlay() {
       <div className="overlay-capsule" onAnimationEnd={handleAnimationEnd}>
         <div className="overlay-identity">
           <span className="overlay-logo">
-            <SonareLogo size={48} />
+            <ArcSonareLogo size={46} />
           </span>
           <div className="overlay-titles">
             <span className="overlay-title">ArcSonare</span>
@@ -47,9 +46,6 @@ export function SonareOverlay() {
         <SonareWave state="idle" />
 
         <div className="overlay-actions">
-          <ShortcutHint
-            shortcut={settings?.globalShortcut ?? "Ctrl+Shift+Space"}
-          />
           <OverlaySettingsButton />
         </div>
       </div>

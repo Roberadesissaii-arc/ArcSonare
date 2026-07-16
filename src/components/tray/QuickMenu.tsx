@@ -3,11 +3,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../hooks/useSettings";
 import { useAppearance } from "../../hooks/useTheme";
 import { shortcutKeys } from "../../services/shortcutFormat";
-import { SonareLogo } from "../overlay/SonareLogo";
+import { ArcSonareLogo } from "../brand/ArcSonareLogo";
 import {
   ArrowUpIcon,
   GearIcon,
   HelpIcon,
+  LayoutIcon,
   MessageIcon,
   PowerIcon,
   RefreshIcon,
@@ -65,7 +66,7 @@ export function QuickMenu() {
       <div className="qm-panel">
         <div className="qm-header">
           <span className="qm-logo">
-            <SonareLogo size={34} />
+            <ArcSonareLogo size={34} />
           </span>
           <div className="qm-titles">
             <span className="qm-name">ArcSonare</span>
@@ -77,6 +78,11 @@ export function QuickMenu() {
         </div>
 
         <div className="qm-items">
+          <MenuItem
+            icon={<LayoutIcon size={16} />}
+            label="Open Command Center"
+            onSelect={() => command("show_main_window")}
+          />
           <MenuItem
             icon={<ArrowUpIcon size={16} />}
             label="Show ArcSonare"

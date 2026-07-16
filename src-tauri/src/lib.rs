@@ -17,8 +17,10 @@ pub fn run() {
         // Must be the first plugin: a second launch forwards to the running
         // instance (which opens the overlay) and then exits immediately.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            log::info!("second instance launch detected; opening overlay in the running instance");
-            overlay::open_overlay(app);
+            log::info!(
+                "second instance launch detected; showing the Command Center in the running instance"
+            );
+            panels::show_main(app);
         }))
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
@@ -41,6 +43,8 @@ pub fn run() {
             panels::hide_settings,
             panels::hide_quick_menu,
             panels::show_overlay,
+            panels::show_main_window,
+            panels::hide_main,
             panels::quit_app,
         ])
         .on_window_event(|window, event| match event {

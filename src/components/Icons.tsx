@@ -1,6 +1,7 @@
 /**
- * Shared monochrome outline icons. All icons inherit `currentColor` and are
- * sized by the `size` prop (default 16px).
+ * Shared monochrome outline icons (Lucide-style geometry: 24px grid, 1.7px
+ * stroke, round caps/joins). All icons inherit `currentColor` and are sized
+ * by the `size` prop (default 16px).
  */
 
 interface IconProps {
@@ -24,8 +25,8 @@ function base(size: number | undefined) {
 export function GearIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M19.4 13.6a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56v.18a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.12-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03h-.18a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.12 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08a1.7 1.7 0 0 0 1.03-1.56v-.18a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03h.18a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -51,9 +52,11 @@ export function KeyboardIcon({ size }: IconProps) {
 export function PaletteIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
-      <circle cx="12" cy="12" r="9.2" />
-      <path d="M12 2.8v18.4" />
-      <path d="M12 7a5 5 0 0 1 0 10" />
+      <path d="M12 2.5a9.5 9.5 0 1 0 0 19c.87 0 1.55-.7 1.55-1.58 0-.41-.17-.79-.41-1.06-.27-.27-.41-.61-.41-1.06a1.55 1.55 0 0 1 1.57-1.57h1.87a5.71 5.71 0 0 0 5.33-5.23A9.5 9.5 0 0 0 12 2.5Z" />
+      <circle cx="13.5" cy="6.7" r="0.6" fill="currentColor" />
+      <circle cx="17.3" cy="10.2" r="0.6" fill="currentColor" />
+      <circle cx="8.6" cy="7.6" r="0.6" fill="currentColor" />
+      <circle cx="6.7" cy="12.3" r="0.6" fill="currentColor" />
     </svg>
   );
 }
@@ -71,6 +74,15 @@ export function ShieldIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
       <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z" />
+    </svg>
+  );
+}
+
+export function ShieldCheckIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10Z" />
+      <path d="M9 11.5l2 2 4-4" />
     </svg>
   );
 }
@@ -117,6 +129,14 @@ export function ArrowUpIcon({ size }: IconProps) {
   );
 }
 
+export function ArrowRightIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  );
+}
+
 export function RefreshIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -159,6 +179,14 @@ export function ChevronDownIcon({ size }: IconProps) {
   );
 }
 
+export function ChevronRightIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -171,6 +199,132 @@ export function TrashIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
       <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    </svg>
+  );
+}
+
+export function SearchIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
+export function PlusIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+/** Vertical audio-lines mark used for voice actions (never a microphone). */
+export function WaveIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M2 10v4M6 7v10M10 4v16M14 8v8M18 6v12M22 10v4" />
+    </svg>
+  );
+}
+
+export function DotsIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="5" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="12" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="19" cy="12" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function SparkleIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z" />
+    </svg>
+  );
+}
+
+export function SendIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
+export function CalendarIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="3" y="4.5" width="18" height="17" rx="2.5" />
+      <path d="M8 2.5v4M16 2.5v4M3 9.5h18" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="12" cy="12" r="9.2" />
+      <path d="M12 7v5l3.2 1.8" />
+    </svg>
+  );
+}
+
+export function ListIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8 6h13M8 12h13M8 18h13" />
+      <path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+    </svg>
+  );
+}
+
+export function BotIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="4" y="8" width="16" height="12" rx="3" />
+      <path d="M12 4v4M9 2.5h6" />
+      <path d="M9 13h.01M15 13h.01M9.5 16.5h5" />
+    </svg>
+  );
+}
+
+export function LayoutIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="3" y="3" width="18" height="18" rx="2.5" />
+      <path d="M3 10h18M10 10v11" />
+    </svg>
+  );
+}
+
+export function TargetArrowIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      <circle cx="12" cy="12" r="4.5" />
+    </svg>
+  );
+}
+
+export function FileTextIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5Z" />
+      <path d="M14 2v5h5M9 13h6M9 17h4" />
+    </svg>
+  );
+}
+
+export function UsersIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20.5c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+      <path d="M16 5a3.5 3.5 0 0 1 0 6.7M21.5 20.5c0-2.9-1.9-5-4.5-5.7" />
     </svg>
   );
 }
