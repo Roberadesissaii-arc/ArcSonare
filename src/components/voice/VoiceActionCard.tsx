@@ -1,13 +1,13 @@
+import { invoke } from "@tauri-apps/api/core";
 import { GearIcon } from "../Icons";
 import { useSettings } from "../../hooks/useSettings";
 import { shortcutKeys } from "../../services/shortcutFormat";
 import { useVoiceState } from "../../stores/voiceStore";
-import { SonareWaveform } from "../voice/SonareWaveform";
-import { invoke } from "@tauri-apps/api/core";
+import { SonareLiveWaveform } from "./SonareLiveWaveform";
 
-/** The suggested / most recent voice action. */
+/** The suggested / most recent voice action, with the shared violet waveform. */
 export function VoiceActionCard() {
-  const state = useVoiceState();
+  const { status } = useVoiceState();
   const { settings } = useSettings();
   const keys = shortcutKeys(settings?.globalShortcut ?? "Ctrl+Shift+Space");
 
@@ -24,7 +24,12 @@ export function VoiceActionCard() {
       </div>
       <h2 className="card-title">Schedule deep work block</h2>
       <div className="voice-action-wave">
-        <SonareWaveform state={state} width={190} />
+        <SonareLiveWaveform
+          variant={status === "idle" ? "idle" : status}
+          width={252}
+          height={46}
+          bars={48}
+        />
       </div>
       <div className="voice-action-foot">
         <span className="voice-action-hint">

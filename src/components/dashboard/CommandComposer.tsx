@@ -1,12 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { CloseIcon, ChevronDownIcon, SendIcon, SparkleIcon } from "../Icons";
+import { useEffect, useRef, useState, type ComponentType } from "react";
+import {
+  ChartIcon,
+  CheckSquareIcon,
+  ChevronDownIcon,
+  CloseIcon,
+  ListIcon,
+  MailIcon,
+  SendIcon,
+  SparkleIcon,
+} from "../Icons";
 import { addActivity } from "../../stores/appStore";
 
-const QUICK_ACTIONS = [
-  { label: "Summarize updates", prompt: "Summarize today's updates" },
-  { label: "Draft email", prompt: "Draft an email about " },
-  { label: "Find insights", prompt: "Find insights in " },
-  { label: "Create task", prompt: "Create a task: " },
+const QUICK_ACTIONS: {
+  label: string;
+  prompt: string;
+  icon: ComponentType<{ size?: number }>;
+}[] = [
+  { label: "Summarize updates", prompt: "Summarize today's updates", icon: ListIcon },
+  { label: "Draft email", prompt: "Draft an email about ", icon: MailIcon },
+  { label: "Find insights", prompt: "Find insights in ", icon: ChartIcon },
+  { label: "Create task", prompt: "Create a task: ", icon: CheckSquareIcon },
 ];
 
 const MODES = ["Smart", "Precise", "Creative"] as const;
@@ -107,6 +120,7 @@ export function CommandComposer() {
               className="quick-action"
               onClick={() => applyQuickAction(qa.prompt)}
             >
+              <qa.icon size={14} />
               {qa.label}
             </button>
           ))}

@@ -21,23 +21,13 @@ pub fn parse_shortcut(value: &str) -> Option<Shortcut> {
 }
 
 /// Builds the global-shortcut plugin. Only the toggle shortcut is ever
-/// registered. While the main Command Center window is visible and focused
-/// the shortcut drives the in-app voice console; otherwise it toggles the
-/// top-screen overlay as before.
+/// registered, so any press event simply toggles the global voice overlay —
+/// voice activation always lives in the dedicated overlay window.
 pub fn init() -> TauriPlugin<Wry> {
     tauri_plugin_global_shortcut::Builder::new()
         .with_handler(|app, _shortcut, event| {
             if event.state() == ShortcutState::Pressed {
-                if crate::panels::main_window_is_active(app) {
-                    use tauri::{Emitter, Manager};
-                    if let Some(window) = app.get_webview_window(crate::panels::MAIN_LABEL) {
-                        if let Err(e) = window.emit("sonare:voice-toggle", ()) {
-                            log::error!("failed to emit voice toggle to main window: {e}");
-                        }
-                    }
-                } else {
-                    crate::overlay::toggle_overlay(app);
-                }
+                crate::overlay::toggle_overlay(app);
             }
         })
         .build()

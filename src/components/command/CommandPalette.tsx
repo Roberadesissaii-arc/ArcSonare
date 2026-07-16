@@ -18,7 +18,6 @@ import {
   navigate,
   useAppState,
 } from "../../stores/appStore";
-import { toggleVoice } from "../../stores/voiceStore";
 
 interface PaletteAction {
   id: string;
@@ -73,9 +72,12 @@ export function CommandPalette({ onCreateTask }: CommandPaletteProps) {
       },
       {
         id: "voice",
-        label: "Toggle voice mode",
+        label: "Activate voice mode",
         icon: <WaveIcon size={15} />,
-        run: toggleVoice,
+        run: () =>
+          invoke("show_overlay").catch((err) =>
+            console.error("[ArcSonare] failed to open voice overlay:", err),
+          ),
       },
       {
         id: "urgent",

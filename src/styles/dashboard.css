@@ -1,14 +1,15 @@
 /* ---------------------------------------------------------------------------
- * Dashboard: three-column grid, orbital command map, greeting, composer.
+ * Dashboard: three-column grid, atmospheric orbital command map, greeting,
+ * command composer.
  * ------------------------------------------------------------------------- */
 
 .dashboard {
   display: grid;
   grid-template-columns:
-    minmax(310px, 0.82fr)
-    minmax(560px, 1.8fr)
-    minmax(310px, 0.82fr);
-  gap: 22px;
+    minmax(300px, 340px)
+    minmax(620px, 1fr)
+    minmax(300px, 340px);
+  gap: 24px;
   height: 100%;
   padding: 0 30px 10px;
   overflow: hidden;
@@ -22,6 +23,11 @@
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 8px;
+}
+
+/* Cards keep their natural heights; nothing stretches to fill the column. */
+.dashboard-col > * {
+  flex-shrink: 0;
 }
 
 .dashboard-center {
@@ -43,10 +49,11 @@
   min-height: 0;
   border-radius: 20px;
   overflow: hidden;
+  /* Layer 1: deep background · Layer 2: central blue-violet atmosphere. */
   background:
-    radial-gradient(560px 340px at 50% 42%, rgba(28, 38, 44, 0.5), transparent 70%),
-    radial-gradient(300px 200px at 50% 42%, rgba(145, 110, 255, 0.06), transparent 70%),
-    linear-gradient(180deg, #081014 0%, #05090c 100%);
+    radial-gradient(420px 300px at 50% 46%, rgba(84, 96, 168, 0.1), transparent 72%),
+    radial-gradient(300px 210px at 50% 46%, rgba(131, 92, 255, 0.07), transparent 70%),
+    radial-gradient(ellipse at center, #0b1118 0%, #070c11 42%, #03070a 100%);
 }
 
 .orbital-svg {
@@ -58,12 +65,34 @@
 
 .orbit-line {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.09);
+  stroke: rgba(255, 255, 255, 0.085);
   stroke-width: 1;
 }
 
 .orbit-line-faint {
-  stroke: rgba(255, 255, 255, 0.055);
+  stroke: rgba(255, 255, 255, 0.05);
+}
+
+.orbit-violet {
+  stroke: rgba(150, 112, 240, 0.16);
+}
+
+.orbit-fade-a {
+  animation: orbit-fade 11s ease-in-out infinite alternate;
+}
+
+.orbit-fade-b {
+  stroke: rgba(255, 255, 255, 0.065);
+  animation: orbit-fade 14s ease-in-out -6s infinite alternate;
+}
+
+@keyframes orbit-fade {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .orbit-links line {
@@ -74,7 +103,7 @@
 
 .orbit-traveler {
   fill: #9aa19d;
-  opacity: 0.75;
+  opacity: 0.78;
   offset-rotate: 0deg;
   animation-name: orbit-travel;
   animation-timing-function: linear;
@@ -83,7 +112,7 @@
 
 .orbit-traveler.violet {
   fill: var(--sonare-violet);
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 @keyframes orbit-travel {
@@ -95,36 +124,102 @@
   }
 }
 
-.core-ring {
-  fill: none;
-  stroke: rgba(145, 110, 255, 0.4);
-  stroke-width: 1.4;
-  filter: drop-shadow(0 0 10px rgba(145, 110, 255, 0.28));
-  animation: core-breathe 5.5s ease-in-out infinite alternate;
-  transform-origin: 360px 240px;
+/* Soft white-violet flares at orbital intersections. */
+.orbit-flares circle {
+  fill: rgba(196, 172, 255, 0.06);
+  filter: blur(6px);
 }
 
-@keyframes core-breathe {
-  from {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0.95;
-    transform: scale(1.045);
-  }
-}
+/* ---------------------------- central system core ------------------------- */
 
-.orbital-core {
+.orbital-core-wrap {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.arc-core {
+  position: relative;
+  width: 104px;
+  height: 104px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--sonare-text-primary);
-  pointer-events: none;
+}
+
+.arc-core > span {
+  position: absolute;
+  border-radius: 50%;
+}
+
+/* Outer atmospheric halo (~120px spread). */
+.arc-core-halo {
+  inset: -14px;
+  background: radial-gradient(
+    circle,
+    rgba(131, 92, 255, 0.16) 0%,
+    rgba(131, 92, 255, 0.06) 46%,
+    rgba(131, 92, 255, 0) 74%
+  );
+  filter: blur(6px);
+}
+
+/* Thin breathing violet ring with a brighter upper-right arc. */
+.arc-core-ring {
+  inset: 4px;
+  background: conic-gradient(
+    from 300deg,
+    rgba(192, 145, 255, 0.85) 0%,
+    rgba(140, 94, 255, 0.2) 22%,
+    rgba(140, 94, 255, 0.08) 48%,
+    rgba(168, 120, 255, 0.4) 72%,
+    rgba(192, 145, 255, 0.85) 100%
+  );
+  -webkit-mask: radial-gradient(circle, transparent 94.5%, #000 96%);
+  mask: radial-gradient(circle, transparent 94.5%, #000 96%);
+  animation: core-breathe 5.5s ease-in-out infinite alternate;
+}
+
+@keyframes core-breathe {
+  from {
+    opacity: 0.55;
+    transform: scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* Smoked-glass container holding the orbital logo. */
+.arc-core-glass {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  color: #e9ebe8;
+  background: radial-gradient(
+    circle at 36% 30%,
+    rgba(255, 255, 255, 0.08),
+    rgba(24, 28, 38, 0.72) 35%,
+    rgba(7, 9, 14, 0.94) 100%
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 6px 14px rgba(0, 0, 0, 0.35),
+    0 14px 34px rgba(0, 0, 0, 0.4);
+}
+
+.arc-core-satellites {
+  position: absolute;
+  inset: -8px;
+  width: calc(100% + 16px);
+  height: calc(100% + 16px);
 }
 
 /* --------------------------------- chips --------------------------------- */
@@ -134,10 +229,11 @@
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 13px 7px 9px;
-  border-radius: 999px;
-  background: linear-gradient(160deg, rgba(38, 44, 45, 0.92), rgba(17, 22, 24, 0.96));
+  gap: 10px;
+  height: 48px;
+  padding: 0 15px 0 8px;
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(38, 44, 45, 0.94), rgba(17, 22, 24, 0.97));
   border: 1px solid var(--sonare-border);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.035),
@@ -148,10 +244,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   color: var(--sonare-text-secondary);
   flex-shrink: 0;
 }
@@ -164,7 +261,7 @@
 
 .orbit-chip-label {
   font-size: 11.5px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--sonare-text-primary);
   line-height: 1.2;
   white-space: nowrap;
@@ -187,15 +284,15 @@
 .greeting-title {
   font-size: 28px;
   font-weight: 500;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.015em;
   color: var(--sonare-text-primary);
   line-height: 1.25;
 }
 
 .greeting-sub {
-  margin-top: 4px;
+  margin-top: 9px;
   font-size: 13px;
-  color: var(--sonare-text-secondary);
+  color: var(--sonare-text-muted);
 }
 
 .greeting-indicator {
@@ -249,7 +346,7 @@
 .composer-spark {
   display: flex;
   color: var(--sonare-violet);
-  opacity: 0.85;
+  filter: drop-shadow(0 0 5px rgba(145, 110, 255, 0.45));
   padding-top: 3px;
   flex-shrink: 0;
 }
@@ -289,22 +386,37 @@
 }
 
 .quick-action {
-  height: 27px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
   padding: 0 12px;
   border-radius: 999px;
   font-size: 11.5px;
   white-space: nowrap;
   color: var(--sonare-text-secondary);
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid var(--sonare-border-soft);
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   transition:
     background 150ms ease,
+    border-color 150ms ease,
     color 150ms ease;
+}
+
+.quick-action svg {
+  color: var(--sonare-text-muted);
+  flex-shrink: 0;
+  transition: color 150ms ease;
 }
 
 .quick-action:hover {
   background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(255, 255, 255, 0.09);
   color: var(--sonare-text-primary);
+}
+
+.quick-action:hover svg {
+  color: var(--sonare-text-secondary);
 }
 
 .composer-right {
@@ -409,20 +521,26 @@
 /* ------------------------- motion / paused states ------------------------ */
 
 .app-paused .orbit-traveler,
-.app-paused .core-ring,
-.app-paused .wf-bar,
-.app-paused .voice-orb {
+.app-paused .arc-core-ring,
+.app-paused .orbit-fade-a,
+.app-paused .orbit-fade-b,
+.app-paused .slw-bar,
+.app-paused .marble-orb {
   animation-play-state: paused !important;
 }
 
 .reduce-motion .orbit-traveler,
-.reduce-motion .core-ring {
+.reduce-motion .arc-core-ring,
+.reduce-motion .orbit-fade-a,
+.reduce-motion .orbit-fade-b {
   animation: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .orbit-traveler,
-  .core-ring,
+  .arc-core-ring,
+  .orbit-fade-a,
+  .orbit-fade-b,
   .app-main {
     animation: none !important;
   }

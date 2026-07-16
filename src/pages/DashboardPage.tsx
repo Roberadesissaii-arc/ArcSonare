@@ -1,12 +1,11 @@
 import { useAppState } from "../stores/appStore";
 import { FocusCard } from "../components/dashboard/FocusCard";
-import { VoiceActionCard } from "../components/dashboard/VoiceActionCard";
+import { VoiceActionCard } from "../components/voice/VoiceActionCard";
 import { ConnectedToolsCard } from "../components/dashboard/ConnectedToolsCard";
 import { OrbitalCommandMap } from "../components/dashboard/OrbitalCommandMap";
 import { UpNextCard } from "../components/dashboard/UpNextCard";
 import { UrgentCard } from "../components/dashboard/UrgentCard";
-import { InAppVoiceConsole } from "../components/voice/InAppVoiceConsole";
-import { CommandComposer } from "../components/command/CommandComposer";
+import { CommandComposer } from "../components/dashboard/CommandComposer";
 
 function greetingForNow(): string {
   const hour = new Date().getHours();
@@ -31,7 +30,6 @@ export function DashboardPage(_props: DashboardPageProps) {
       </div>
 
       <div className="dashboard-center">
-        <InAppVoiceConsole />
         <OrbitalCommandMap />
         <div className="dashboard-greeting">
           <h1 className="greeting-title">

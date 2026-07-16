@@ -9,7 +9,7 @@ import {
   WaveIcon,
 } from "../components/Icons";
 import { openPalette, useAppState } from "../stores/appStore";
-import { toggleVoice, useVoiceState } from "../stores/voiceStore";
+import { useVoiceState } from "../stores/voiceStore";
 import { MainNavigation } from "./MainNavigation";
 
 interface AppHeaderProps {
@@ -18,7 +18,7 @@ interface AppHeaderProps {
 
 /** Brand · primary navigation · search + quick actions. */
 export function AppHeader({ onCreateTask }: AppHeaderProps) {
-  const voiceState = useVoiceState();
+  const { status } = useVoiceState();
   const { activity } = useAppState();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -48,7 +48,14 @@ export function AppHeader({ onCreateTask }: AppHeaderProps) {
     );
   };
 
-  const voiceActive = voiceState !== "ready";
+  // Voice activation lives in the global overlay window.
+  const openVoiceOverlay = () => {
+    invoke("show_overlay").catch((err) =>
+      console.error("[ArcSonare] failed to open voice overlay:", err),
+    );
+  };
+
+  const voiceActive = status !== "idle";
 
   return (
     <div className="app-header">
@@ -89,9 +96,8 @@ export function AppHeader({ onCreateTask }: AppHeaderProps) {
         <button
           type="button"
           className={`header-action${voiceActive ? " voice-active" : ""}`}
-          onClick={toggleVoice}
-          aria-label="Toggle voice mode"
-          aria-pressed={voiceActive}
+          onClick={openVoiceOverlay}
+          aria-label="Activate voice mode"
           title="Voice"
         >
           <WaveIcon size={18} />

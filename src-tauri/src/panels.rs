@@ -82,15 +82,6 @@ pub fn toggle_quick_menu(app: &AppHandle, cursor: PhysicalPosition<f64>) {
     }
 }
 
-/// True when the main Command Center window is both visible and focused —
-/// the case where the global shortcut drives the in-app voice console
-/// instead of the top-screen overlay.
-pub fn main_window_is_active(app: &AppHandle) -> bool {
-    app.get_webview_window(MAIN_LABEL)
-        .map(|w| w.is_visible().unwrap_or(false) && w.is_focused().unwrap_or(false))
-        .unwrap_or(false)
-}
-
 /// Shows and focuses the main Command Center window (tray / quick menu).
 pub fn show_main(app: &AppHandle) {
     let Some(window) = get_window(app, MAIN_LABEL) else {

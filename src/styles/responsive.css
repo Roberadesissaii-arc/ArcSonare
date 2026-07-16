@@ -5,9 +5,9 @@
 @media (max-width: 1450px) {
   .dashboard {
     grid-template-columns:
-      minmax(272px, 0.78fr)
-      minmax(520px, 1.9fr)
-      minmax(272px, 0.78fr);
+      minmax(280px, 316px)
+      minmax(560px, 1fr)
+      minmax(280px, 316px);
     gap: 16px;
     padding: 0 20px 10px;
   }

@@ -319,6 +319,33 @@ export function FileTextIcon({ size }: IconProps) {
   );
 }
 
+export function MailIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2.5" y="5" width="19" height="14" rx="2.5" />
+      <path d="M3.5 7l8.5 6 8.5-6" />
+    </svg>
+  );
+}
+
+export function ChartIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+      <path d="M8 16v-5M13 16V8M18 16v-8" />
+    </svg>
+  );
+}
+
+export function CheckSquareIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+      <path d="M8.5 12l2.5 2.5 4.5-5" />
+    </svg>
+  );
+}
+
 export function UsersIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>

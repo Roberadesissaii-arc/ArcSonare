@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { useSettings } from "../hooks/useSettings";
 import { useAppearance } from "../hooks/useTheme";
 import { openPalette, useAppState } from "../stores/appStore";
-import { toggleVoice } from "../stores/voiceStore";
-import { EVENT_VOICE_TOGGLE } from "../types";
 import { CustomTitleBar } from "./CustomTitleBar";
 import { AppHeader } from "./AppHeader";
 import { CommandPalette } from "../components/command/CommandPalette";
@@ -33,15 +30,6 @@ export function AppShell() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  // The global shortcut routes here (instead of the top overlay) while the
-  // main window is visible and focused.
-  useEffect(() => {
-    const unlisten = listen(EVENT_VOICE_TOGGLE, () => toggleVoice());
-    return () => {
-      unlisten.then((f) => f());
-    };
   }, []);
 
   // Pause ambient animation (orbits, waveforms) while the window is hidden.

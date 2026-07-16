@@ -5,8 +5,8 @@ use tauri::{AppHandle, LogicalSize, Monitor, PhysicalPosition, WebviewWindow};
 // Overlay geometry in logical pixels. The native window is larger than the
 // visible capsule so the CSS drop shadow has room to render; SIDE_PAD must
 // match the horizontal padding in overlay.css.
-pub const OVERLAY_WINDOW_WIDTH: f64 = 640.0;
-pub const OVERLAY_WINDOW_HEIGHT: f64 = 150.0;
+pub const OVERLAY_WINDOW_WIDTH: f64 = 600.0;
+pub const OVERLAY_WINDOW_HEIGHT: f64 = 94.0;
 const OVERLAY_SIDE_PAD: f64 = 10.0;
 const OVERLAY_EDGE_MARGIN: f64 = 24.0;
 

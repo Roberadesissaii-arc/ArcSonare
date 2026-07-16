@@ -67,13 +67,6 @@ button:disabled {
   border: 3px solid transparent;
 }
 
-/* Motion is disabled both by OS preference and by the in-app setting. */
-@media (prefers-reduced-motion: reduce) {
-  .wave-bar {
-    animation: none !important;
-  }
-}
-
-.reduce-motion .wave-bar {
-  animation: none !important;
-}
+/* Motion preferences (OS + in-app) are applied per-component in
+ * voice.css and dashboard.css via `prefers-reduced-motion` and the
+ * `.reduce-motion` root class. */
