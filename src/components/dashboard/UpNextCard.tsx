@@ -10,7 +10,7 @@ export function UpNextCard() {
   };
 
   return (
-    <section className="card upnext-card">
+    <section className="card sonare-card upnext-card">
       <div className="card-head">
         <span className="card-label">Up Next</span>
       </div>

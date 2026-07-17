@@ -1,68 +1,80 @@
 /* ---------------------------------------------------------------------------
  * ArcSonare design tokens — "Smoked Titanium".
  * Matte gunmetal panels, dark graphite surfaces, subtle blue-green
- * undertones and a restrained violet AI accent. 90–95% of the interface
- * stays charcoal/graphite/soft-white; violet marks AI/system moments only.
+ * undertones and a restrained violet AI accent.
  * ------------------------------------------------------------------------- */
 
 :root {
-  --sonare-background: #05090c;
-  --sonare-background-soft: #080d11;
+  --sonare-page: #05090c;
+  --sonare-page-soft: #080d11;
+  --sonare-header: #090e12;
+
+  --sonare-card-top: #1d2427;
+  --sonare-card-middle: #161d20;
+  --sonare-card-bottom: #101619;
+
+  --sonare-control: #1b2226;
+  --sonare-control-hover: #252d31;
+  --sonare-control-active: #30383d;
+
+  --sonare-border-soft: rgba(255, 255, 255, 0.038);
+  --sonare-border: rgba(255, 255, 255, 0.065);
+  --sonare-border-strong: rgba(255, 255, 255, 0.1);
+
+  --sonare-text-primary: #e8ebe9;
+  --sonare-text-secondary: #a2a8a5;
+  --sonare-text-muted: #69716e;
+  --sonare-text-disabled: #464d4a;
+
+  --sonare-violet: #9168ff;
+  --sonare-violet-light: #c29bff;
+  --sonare-violet-dark: #5b3ab8;
+  --sonare-violet-soft: rgba(145, 104, 255, 0.16);
+  --sonare-violet-glow: rgba(145, 104, 255, 0.3);
+
+  --sonare-green: #59d999;
+  --sonare-red: #e56c73;
+  --sonare-yellow: #e7ad54;
+  --sonare-blue: #6696e4;
+
+  /* Legacy aliases — keep existing CSS working. */
+  --sonare-background: var(--sonare-page);
+  --sonare-background-soft: var(--sonare-page-soft);
   --sonare-background-raised: #0c1216;
 
   --sonare-surface-1: #11171a;
-  --sonare-surface-2: #171d20;
-  --sonare-surface-3: #1d2426;
+  --sonare-surface-2: var(--sonare-card-middle);
+  --sonare-surface-3: var(--sonare-card-top);
   --sonare-surface-4: #252c2d;
-  --sonare-surface-hover: #2b3232;
-  --sonare-surface-selected: #303737;
+  --sonare-surface-hover: var(--sonare-control-hover);
+  --sonare-surface-selected: var(--sonare-control-active);
 
   --sonare-titanium-light: #4b504e;
   --sonare-titanium-mid: #343a39;
   --sonare-titanium-dark: #171c1d;
 
-  --sonare-border-soft: rgba(255, 255, 255, 0.035);
-  --sonare-border: rgba(255, 255, 255, 0.06);
-  --sonare-border-strong: rgba(255, 255, 255, 0.095);
+  --sonare-violet-muted: var(--sonare-violet-soft);
 
-  --sonare-text-primary: #e9ebe8;
-  --sonare-text-secondary: #a2a8a4;
-  --sonare-text-muted: #686f6c;
-  --sonare-text-disabled: #474d4b;
-
-  --sonare-violet: #916eff;
-  --sonare-violet-soft: #7559d5;
-  --sonare-violet-muted: rgba(145, 110, 255, 0.18);
-  --sonare-violet-glow: rgba(145, 110, 255, 0.32);
-
-  --sonare-green: #55d89a;
-  --sonare-red: #e76870;
-  --sonare-yellow: #e7ae56;
-  --sonare-blue: #6499e8;
-
-  /* Legacy aliases kept for the overlay / settings / quick-menu surfaces. */
-  --sonare-black: var(--sonare-background);
-  --sonare-hover: var(--sonare-surface-hover);
-  --sonare-selected: var(--sonare-surface-selected);
+  --sonare-black: var(--sonare-page);
+  --sonare-hover: var(--sonare-control-hover);
+  --sonare-selected: var(--sonare-control-active);
   --sonare-success: var(--sonare-green);
   --sonare-info: var(--sonare-blue);
   --sonare-danger: var(--sonare-red);
   --sonare-white: #f2f4f1;
 
-  /* Smoked-titanium primary panel treatment (subtle directional lighting). */
   --sonare-panel-gradient: linear-gradient(
     145deg,
-    rgba(38, 44, 45, 0.78) 0%,
-    rgba(20, 26, 28, 0.94) 52%,
-    rgba(13, 18, 20, 0.98) 100%
+    rgba(31, 39, 42, 0.97) 0%,
+    rgba(21, 28, 31, 0.985) 48%,
+    rgba(13, 19, 22, 0.995) 100%
   );
-  --sonare-panel-border: 1px solid rgba(255, 255, 255, 0.055);
+  --sonare-panel-border: 1px solid rgba(255, 255, 255, 0.06);
   --sonare-panel-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.032),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
-    0 20px 45px rgba(0, 0, 0, 0.19);
+    inset 0 1px 0 rgba(255, 255, 255, 0.038),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.36),
+    0 18px 44px rgba(0, 0, 0, 0.19);
 
-  /* Nearly-solid dark gradient for the edge-attached overlay + quick menu. */
   --sonare-surface-gradient: linear-gradient(
     180deg,
     rgba(16, 20, 26, 0.99) 0%,
@@ -82,11 +94,19 @@
     sans-serif;
 
   --sonare-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --sonare-page-atmosphere: radial-gradient(
+    ellipse at 51% 37%,
+    rgba(18, 27, 34, 0.43) 0%,
+    rgba(8, 14, 18, 0.24) 37%,
+    rgba(5, 9, 12, 1) 74%
+  );
 }
 
-/* Simple neutral light theme. Dark is the primary, polished experience;
- * light must remain fully readable and unbroken. */
 :root[data-theme="light"] {
+  --sonare-page: #e9eaee;
+  --sonare-page-soft: #eef0f3;
+  --sonare-header: #f2f3f6;
   --sonare-background: #e9eaee;
   --sonare-background-soft: #eef0f3;
   --sonare-background-raised: #f2f3f6;
@@ -133,13 +153,21 @@
   --sonare-toggle-thumb-off: #ffffff;
   --sonare-toggle-thumb-on: #f5f6f8;
 
-  /* Accents deepened for contrast on light surfaces. */
   --sonare-violet: #7a4fe8;
-  --sonare-violet-soft: #6a48d7;
+  --sonare-violet-light: #9b78f0;
+  --sonare-violet-dark: #5b3ab8;
+  --sonare-violet-soft: rgba(106, 72, 215, 0.16);
   --sonare-violet-muted: rgba(106, 72, 215, 0.16);
   --sonare-violet-glow: rgba(106, 72, 215, 0.24);
   --sonare-green: #1e9c62;
   --sonare-red: #c94f57;
   --sonare-yellow: #a8741f;
   --sonare-blue: #3c6fc4;
+
+  --sonare-page-atmosphere: radial-gradient(
+    ellipse at 51% 37%,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(238, 240, 243, 0.4) 40%,
+    #e9eaee 80%
+  );
 }

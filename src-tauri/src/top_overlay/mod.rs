@@ -31,7 +31,11 @@ pub fn overlay_queue_command(app: AppHandle, transcript: String) {
 /// Take (and clear) any pending overlay command.
 #[tauri::command]
 pub fn overlay_take_pending_command(app: AppHandle) -> Option<String> {
-    app.state::<PendingOverlayCommand>().0.lock().unwrap().take()
+    app.state::<PendingOverlayCommand>()
+        .0
+        .lock()
+        .unwrap()
+        .take()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

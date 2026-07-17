@@ -33,7 +33,11 @@ fn set_own_windows_capture_affinity(app: &AppHandle, exclude: bool) {
     }
     const WDA_NONE: u32 = 0x0;
     const WDA_EXCLUDEFROMCAPTURE: u32 = 0x11;
-    let affinity = if exclude { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE };
+    let affinity = if exclude {
+        WDA_EXCLUDEFROMCAPTURE
+    } else {
+        WDA_NONE
+    };
     for (_, window) in app.webview_windows() {
         if let Ok(hwnd) = window.hwnd() {
             let ok = unsafe { SetWindowDisplayAffinity(hwnd.0 as isize, affinity) };
@@ -184,13 +188,7 @@ fn capture_inner(
             for monitor in monitors {
                 let id = monitor.id().map(|i| i.to_string()).unwrap_or_default();
                 let image = capture_monitor_image(&monitor)?;
-                results.push(save_image(
-                    app,
-                    image,
-                    "multi-monitor",
-                    vec![id],
-                    None,
-                )?);
+                results.push(save_image(app, image, "multi-monitor", vec![id], None)?);
             }
             Ok(results)
         }
@@ -215,11 +213,7 @@ fn capture_inner(
 /// Returns a capture (or its annotated variant) as a PNG data URL for
 /// rendering inside the app — the CSP allows `img-src data:`.
 #[tauri::command]
-pub fn get_capture_data_url(
-    app: AppHandle,
-    id: String,
-    annotated: bool,
-) -> Result<String, String> {
+pub fn get_capture_data_url(app: AppHandle, id: String, annotated: bool) -> Result<String, String> {
     if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err("Invalid capture id.".into());
     }

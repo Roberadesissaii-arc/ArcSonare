@@ -10,6 +10,7 @@ import {
   PaletteIcon,
   PlugIcon,
   SlidersIcon,
+  UserIcon,
   VolumeIcon,
   WaveIcon,
 } from "../components/Icons";
@@ -19,6 +20,7 @@ import {
   useAppState,
   type SettingsSection,
 } from "../stores/appStore";
+import { AccountSettingsPage } from "./settings/AccountSettingsPage";
 import { GeneralSettingsPage } from "./settings/GeneralSettingsPage";
 import { VoiceSettingsPage } from "./settings/VoiceSettingsPage";
 import { ModelsSettingsPage } from "./settings/ModelsSettingsPage";
@@ -32,6 +34,7 @@ import { IntegrationsSettingsPage } from "./settings/IntegrationsSettingsPage";
 import { AboutSettingsPage } from "./settings/AboutSettingsPage";
 
 const SECTIONS: { id: SettingsSection; label: string; icon: ReactNode }[] = [
+  { id: "account", label: "Account", icon: <UserIcon size={17} /> },
   { id: "general", label: "General", icon: <SlidersIcon size={17} /> },
   { id: "voice", label: "Voice", icon: <WaveIcon size={17} /> },
   { id: "models", label: "Models", icon: <ChartIcon size={17} /> },
@@ -82,6 +85,7 @@ export function SettingsPage() {
       </nav>
 
       <div className="settings-page-content">
+        {settingsSection === "account" && <AccountSettingsPage />}
         {settingsSection === "general" && <GeneralSettingsPage />}
         {settingsSection === "voice" && <VoiceSettingsPage />}
         {settingsSection === "models" && <ModelsSettingsPage />}

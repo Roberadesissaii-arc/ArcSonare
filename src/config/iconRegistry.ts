@@ -59,6 +59,7 @@ import evernote from "../assets/icons/integrations/evernote.png";
 import loom from "../assets/icons/integrations/loom.png";
 import onenote from "../assets/icons/integrations/onenote.png";
 import spotify from "../assets/icons/integrations/spotify.png";
+import youtube from "../assets/top-overlay/youtube.svg";
 
 export type UiIconName =
   | "general"
@@ -137,7 +138,8 @@ export type IntegrationId =
   | "evernote"
   | "loom"
   | "onenote"
-  | "spotify";
+  | "spotify"
+  | "youtube";
 
 export const integrationIcons: Record<IntegrationId, string> = {
   gmail,
@@ -166,4 +168,5 @@ export const integrationIcons: Record<IntegrationId, string> = {
   loom,
   onenote,
   spotify,
+  youtube,
 };

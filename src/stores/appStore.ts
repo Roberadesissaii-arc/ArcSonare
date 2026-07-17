@@ -9,6 +9,7 @@ import type { TaskFilter } from "./taskStore";
 export type MainPage = "dashboard" | "tasks" | "agent" | "connect" | "settings";
 
 export type SettingsSection =
+  | "account"
   | "general"
   | "voice"
   | "models"
@@ -22,6 +23,7 @@ export type SettingsSection =
   | "about";
 
 const SETTINGS_SECTIONS: SettingsSection[] = [
+  "account",
   "general",
   "voice",
   "models",
@@ -169,6 +171,12 @@ export function addActivity(text: string, source: ActivityEntry["source"]) {
     console.error("[ArcSonare] failed to persist activity:", err);
   }
   set({ activity });
+}
+
+/** Updates the display name used by the Dashboard greeting. */
+export function setProfileDisplayName(name: string) {
+  const trimmed = name.trim() || "Robera";
+  set({ profileName: trimmed });
 }
 
 export function markNotificationsRead() {

@@ -15,8 +15,14 @@ import {
   SparkleIcon,
   ZapIcon,
 } from "../Icons";
+import { SonareSparkle } from "../brand/SonareSparkle";
 import { addActivity } from "../../stores/appStore";
 import { parseOverlayIntent } from "../../features/top-overlay/iconResolver";
+import {
+  requireCenterConfig,
+  startCenterWork,
+  completeCenterWork,
+} from "../../stores/centerStageStore";
 
 const QUICK_ACTIONS: {
   label: string;
@@ -109,8 +115,74 @@ export function CommandComposer() {
     addActivity(`Command (${mode.name}): "${text}"`, "command");
     setValue("");
 
-    // Testing hook: drive the top overlay for open/search/action phrases.
+    const lower = text.toLowerCase();
     const intent = parseOverlayIntent(text);
+
+    // Dashboard center-stage workflows (draft / summarize / insights / task).
+    if (lower.startsWith("draft an email") || lower.startsWith("draft email")) {
+      startCenterWork({
+        kind: "draft-email",
+        title: "Drafting email",
+        status: "Understanding your request",
+        step: "Reviewing the provided context",
+        progress: 28,
+        contextNote: "Local composer context only — no model is connected yet.",
+        resultReady: false,
+      });
+      window.setTimeout(() => {
+        requireCenterConfig(
+          "Draft workflow prepared. Configure a model to generate the email.",
+        );
+      }, 900);
+    } else if (lower.startsWith("summarize")) {
+      startCenterWork({
+        kind: "summarize",
+        title: "Summarizing updates",
+        status: "Gathering local updates",
+        step: "Preparing summary",
+        progress: 40,
+        contextNote: "Using local demo activity — no remote sources connected.",
+        resultReady: false,
+      });
+      window.setTimeout(() => {
+        completeCenterWork({
+          status: "Summary ready (demo)",
+          step: "Review the key points below.",
+        });
+      }, 900);
+    } else if (lower.startsWith("find insights") || lower.startsWith("find insight")) {
+      startCenterWork({
+        kind: "find-insights",
+        title: "Finding insights",
+        status: "Scanning connected sources",
+        step: "No live sources connected — preparing demo scope",
+        progress: 35,
+        contextNote: "Insight search requires connected knowledge sources.",
+        resultReady: false,
+      });
+      window.setTimeout(() => {
+        requireCenterConfig(
+          "Insight search requires connected sources and a configured model.",
+        );
+      }, 900);
+    } else if (lower.startsWith("create a task") || lower.startsWith("create task")) {
+      startCenterWork({
+        kind: "create-task",
+        title: "Creating task",
+        status: "Preparing task form",
+        step: text.replace(/^create (a )?task[:\s]*/i, "") || "New task",
+        progress: 50,
+        contextNote: "Task will be saved locally.",
+        resultReady: false,
+      });
+      window.setTimeout(() => {
+        completeCenterWork({
+          status: "Open Tasks to finish creating this item.",
+          step: "Task draft prepared locally.",
+        });
+      }, 700);
+    }
+
     const drivesOverlay =
       intent.kind === "open" ||
       intent.kind === "search" ||
@@ -121,7 +193,14 @@ export function CommandComposer() {
       intent.kind === "mention" ||
       intent.kind === "clarify";
 
-    if (drivesOverlay) {
+    // Open-app phrases also drive the top overlay for visual QA.
+    if (intent.kind === "open" || intent.kind === "search") {
+      void invoke("overlay_queue_command", { transcript: text })
+        .then(() => invoke("show_overlay"))
+        .catch((err) =>
+          console.error("[ArcSonare] failed to drive overlay from composer:", err),
+        );
+    } else if (drivesOverlay && intent.kind !== "draft-email" && intent.kind !== "create-task") {
       void invoke("overlay_queue_command", { transcript: text })
         .then(() => invoke("show_overlay"))
         .catch((err) =>
@@ -156,7 +235,7 @@ export function CommandComposer() {
         onClick={() => setCollapsed(false)}
         aria-label="Expand the command composer"
       >
-        <SparkleIcon size={14} />
+        <SonareSparkle size={16} />
         <span>Ask ArcSonare anything...</span>
       </button>
     );
@@ -166,7 +245,7 @@ export function CommandComposer() {
     <div className="composer">
       <div className="composer-input-row">
         <span className="composer-spark" aria-hidden="true">
-          <SparkleIcon size={15} />
+          <SonareSparkle size={22} />
         </span>
         <textarea
           ref={textareaRef}

@@ -28,12 +28,7 @@ pub struct ScreenContextStatus {
 }
 
 pub fn status(app: &AppHandle) -> ScreenContextStatus {
-    let ids = app
-        .state::<ScreenContextState>()
-        .0
-        .lock()
-        .unwrap()
-        .clone();
+    let ids = app.state::<ScreenContextState>().0.lock().unwrap().clone();
     ScreenContextStatus {
         active: !ids.is_empty(),
         monitor_ids: ids,

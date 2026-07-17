@@ -12,8 +12,7 @@ fn entry(provider: &str) -> Result<keyring::Entry, String> {
     if !KNOWN_PROVIDERS.contains(&provider) {
         return Err(format!("Unknown provider '{provider}'."));
     }
-    keyring::Entry::new(SERVICE, provider)
-        .map_err(|e| format!("Credential store unavailable: {e}"))
+    keyring::Entry::new(SERVICE, provider).map_err(|e| format!("Credential store unavailable: {e}"))
 }
 
 #[tauri::command]

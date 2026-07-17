@@ -6,28 +6,33 @@
 .dashboard {
   display: grid;
   grid-template-columns:
-    minmax(300px, 340px)
-    minmax(620px, 1fr)
-    minmax(300px, 340px);
-  gap: 24px;
+    minmax(300px, 326px)
+    minmax(660px, 1fr)
+    minmax(300px, 326px);
+  column-gap: 22px;
+  row-gap: 0;
   height: 100%;
   padding: 0 30px 10px;
   overflow: hidden;
+  /* Inherit shell atmosphere — a separate fill created a hard seam under the header. */
+  background: transparent;
 }
 
-.dashboard-col {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.dashboard-col,
+.side-column {
+  display: grid;
+  grid-template-rows: 238px 210px 156px;
+  gap: 16px;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 8px;
+  overflow: hidden;
+  padding-bottom: 0;
 }
 
-/* Cards keep their natural heights; nothing stretches to fill the column. */
-.dashboard-col > * {
-  flex-shrink: 0;
+.dashboard-col > *,
+.side-column > * {
+  min-height: 0;
+  overflow: hidden;
 }
 
 .dashboard-center {
@@ -47,13 +52,13 @@
   flex: 1;
   width: 100%;
   min-height: 0;
-  border-radius: 20px;
+  border-radius: 0 0 20px 20px;
   overflow: hidden;
-  /* Layer 1: deep background · Layer 2: central blue-violet atmosphere. */
+  /* Soft top blend into shell — avoids a hard straight edge under the header. */
   background:
     radial-gradient(420px 300px at 50% 46%, rgba(84, 96, 168, 0.1), transparent 72%),
     radial-gradient(300px 210px at 50% 46%, rgba(131, 92, 255, 0.07), transparent 70%),
-    radial-gradient(ellipse at center, #0b1118 0%, #070c11 42%, #03070a 100%);
+    radial-gradient(ellipse 95% 88% at 50% 58%, #0b1118 0%, #070c11 48%, transparent 78%);
 }
 
 .orbital-svg {
@@ -327,16 +332,63 @@
   margin-top: 12px;
 }
 
-.greeting-indicator span {
+.greeting-indicator button {
+  position: relative;
   width: 14px;
-  height: 2px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
-.greeting-indicator span.violet {
+.greeting-indicator button::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.greeting-indicator button.violet {
   width: 26px;
-  background: var(--sonare-violet-soft);
+}
+
+.greeting-indicator button.violet::after {
+  background: var(--sonare-violet);
+  box-shadow: 0 0 8px rgba(145, 110, 255, 0.35);
+}
+
+.greeting-indicator button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.greeting-indicator button:focus-visible {
+  outline: 2px solid rgba(195, 155, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.center-work-panel {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  width: min(420px, 90%);
+  z-index: 4;
+  padding: 18px 20px;
+  max-height: 55%;
+  overflow: auto;
+}
+
+.orbital-stage-wrap .orbital-map {
+  height: 100%;
 }
 
 /* -------------------------------- composer ------------------------------- */
@@ -605,7 +657,7 @@
  * inside it keeps the dark palette. Surfaces outside the map flip. */
 
 :root[data-theme="light"] .orbital-map {
-  box-shadow: inset 0 0 0 1px rgba(9, 11, 14, 0.1);
+  box-shadow: none;
 }
 
 :root[data-theme="light"] .orbit-chip {
@@ -624,11 +676,11 @@
   color: #a2a8a4;
 }
 
-:root[data-theme="light"] .greeting-indicator span {
-  background: rgba(9, 11, 14, 0.16);
+:root[data-theme="light"] .greeting-indicator button::after {
+  background: rgba(9, 11, 14, 0.22);
 }
 
-:root[data-theme="light"] .greeting-indicator span.violet {
+:root[data-theme="light"] .greeting-indicator button.violet::after {
   background: var(--sonare-violet-soft);
 }
 

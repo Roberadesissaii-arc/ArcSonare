@@ -238,4 +238,5 @@ export const INTEGRATIONS: IntegrationInfo[] = [
   { id: "onenote", name: "OneNote", category: "Notes" },
   { id: "loom", name: "Loom", category: "Video" },
   { id: "spotify", name: "Spotify", category: "Audio" },
+  { id: "youtube", name: "YouTube", category: "Video" },
 ];

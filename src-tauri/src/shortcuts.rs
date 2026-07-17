@@ -266,7 +266,11 @@ pub fn set_action_shortcut(
     Ok(())
 }
 
-fn write_pref_shortcut(settings: &mut crate::settings::Settings, action: &str, value: Option<&str>) {
+fn write_pref_shortcut(
+    settings: &mut crate::settings::Settings,
+    action: &str,
+    value: Option<&str>,
+) {
     let prefs = settings
         .prefs
         .as_object_mut()

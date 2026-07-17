@@ -129,23 +129,21 @@ pub fn open_annotation(app: AppHandle, monitor_id: Option<String>) -> Result<(),
 
     let window = match app.get_webview_window(super::overlay::ANNOTATE_LABEL) {
         Some(existing) => existing,
-        None => WebviewWindowBuilder::new(
-            &app,
-            ANNOTATE_LABEL,
-            WebviewUrl::App("index.html".into()),
-        )
-        .title("ArcSonare Annotation")
-        .transparent(true)
-        .decorations(false)
-        .shadow(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .resizable(false)
-        .maximizable(false)
-        .minimizable(false)
-        .visible(false)
-        .build()
-        .map_err(|e| format!("Could not create the annotation window: {e}"))?,
+        None => {
+            WebviewWindowBuilder::new(&app, ANNOTATE_LABEL, WebviewUrl::App("index.html".into()))
+                .title("ArcSonare Annotation")
+                .transparent(true)
+                .decorations(false)
+                .shadow(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .maximizable(false)
+                .minimizable(false)
+                .visible(false)
+                .build()
+                .map_err(|e| format!("Could not create the annotation window: {e}"))?
+        }
     };
 
     window

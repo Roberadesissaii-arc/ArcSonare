@@ -9,7 +9,7 @@ import { ArrowRightIcon } from "../Icons";
  */
 export function ConnectedToolsCard() {
   return (
-    <section className="card tools-card">
+    <section className="card sonare-card tools-card">
       <div className="card-head">
         <span className="card-label">Connected Tools</span>
       </div>
