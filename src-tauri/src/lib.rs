@@ -1,3 +1,4 @@
+mod capabilities;
 mod credentials;
 mod data;
 mod deepseek;
@@ -41,7 +42,15 @@ pub fn run() {
         .manage(settings::SettingsState::default())
         .manage(shortcuts::ShortcutActions::default())
         .manage(screen_context::ScreenContextState::default())
+        .manage(capabilities::ConfirmationStore::default())
+        .manage(capabilities::AuditStore::default())
+        .manage(capabilities::ApplicationIndexState::default())
         .invoke_handler(tauri::generate_handler![
+            capabilities::executor::capability_execute,
+            capabilities::executor::capability_confirm_prepare,
+            capabilities::executor::capability_health,
+            capabilities::executor::capability_audit_list,
+            capabilities::executor::capability_audit_clear,
             overlay::request_close,
             overlay::overlay_hidden,
             overlay::toggle_overlay_cmd,

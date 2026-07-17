@@ -9,11 +9,10 @@ const TABS: { id: MainPage; label: string }[] = [
 
 /**
  * Rounded capsule navigation in the header center.
- * Settings appears as a temporary active pill only while Settings is open.
+ * Settings is opened from the gear icon only — never injected into this bar.
  */
 export function MainNavigation() {
   const { page } = useAppState();
-  const inSettings = page === "settings";
 
   return (
     <nav className="main-nav" aria-label="Primary">
@@ -28,15 +27,6 @@ export function MainNavigation() {
           {tab.label}
         </button>
       ))}
-      {inSettings ? (
-        <button
-          type="button"
-          className="main-nav-tab active"
-          aria-current="page"
-        >
-          Settings
-        </button>
-      ) : null}
     </nav>
   );
 }

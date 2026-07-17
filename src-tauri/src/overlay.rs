@@ -81,7 +81,26 @@ pub fn close_overlay(app: &AppHandle) {
     set_open(app, false);
     if let Err(e) = app.emit_to(OVERLAY_LABEL, EVENT_CLOSE, ()) {
         log::error!("failed to emit close event: {e}");
+        // React will never animate — hide immediately so we don't stick.
+        force_hide(app);
+        return;
     }
+
+    // Backup: if the frontend never calls `overlay_hidden` (stuck Cancelled),
+    // hide the native window after the exit animation should have finished.
+    let app_backup = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(700));
+        if !is_open(&app_backup) {
+            if let Some(window) = app_backup.get_webview_window(OVERLAY_LABEL) {
+                if let Err(e) = window.hide() {
+                    log::error!("backup hide failed: {e}");
+                } else {
+                    log::debug!("backup hide applied (frontend close callback missed)");
+                }
+            }
+        }
+    });
 }
 
 /// Immediately hides the overlay and marks it closed (used when the native

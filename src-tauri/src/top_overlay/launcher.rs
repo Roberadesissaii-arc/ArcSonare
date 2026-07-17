@@ -43,6 +43,11 @@ fn expand_env(path: &str) -> String {
     out
 }
 
+/// Public wrapper so the capability engine can resolve curated candidates.
+pub fn first_existing_public(candidates: &[&str]) -> Option<PathBuf> {
+    first_existing(candidates)
+}
+
 fn first_existing(candidates: &[&str]) -> Option<PathBuf> {
     for c in candidates {
         let expanded = expand_env(c);

@@ -22,7 +22,6 @@ import {
   useOverlayStore,
   overlayModeToLegacyVoiceStatus,
 } from "./overlayStore";
-import { playEventSound } from "../../services/SoundService";
 import {
   startSpeechListening,
   stopSpeechListening,
@@ -145,6 +144,12 @@ export function GlobalTopOverlay() {
         return;
       }
       event.stopImmediatePropagation();
+      if (current.mode === "closing" || phase === "closing") {
+        forceClose();
+        endOverlaySession();
+        voiceSessionEnded();
+        return;
+      }
       cancelOverlaySession();
       requestClose();
     };
@@ -152,7 +157,7 @@ export function GlobalTopOverlay() {
     // runs in capture to handle confirmation dismissal first.
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [requestClose]);
+  }, [requestClose, forceClose, phase]);
 
   useEffect(() => {
     if (overlay.mode === "success" && !overlay.expanded && phase === "visible") {

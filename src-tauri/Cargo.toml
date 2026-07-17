@@ -31,6 +31,17 @@ open = "5"
 percent-encoding = "2"
 # Local Ollama HTTP API (localhost only).
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Capability engine: real local datetime (never the model's guess).
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+iana-time-zone = "0.1"
+# Windows known-folder resolution (Desktop may be redirected, e.g. OneDrive).
+dirs = "6"
+# Recycle Bin deletion via IFileOperation — never permanent by default.
+trash = "5"
+# Application discovery: App Paths + protocol handlers from the registry.
+winreg = "0.55"
+# Clipboard read/write with readback verification.
+arboard = { version = "3", default-features = false, features = ["windows-sys"] }
 
 [profile.release]
 panic = "abort"

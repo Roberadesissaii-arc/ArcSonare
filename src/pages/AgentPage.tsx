@@ -1,25 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  LayoutIcon,
-  ListIcon,
   PlusIcon,
-  SearchIcon,
 } from "../components/Icons";
-import { Dropdown } from "../components/settings/Dropdown";
-import { AgentAnalyticsRow } from "../features/agents/AgentAnalyticsRow";
-import { AgentCard } from "../features/agents/AgentCard";
 import { AgentConstellation } from "../features/agents/AgentConstellation";
 import { AgentCreationWizard } from "../features/agents/AgentCreationWizard";
 import { AgentDetail } from "../features/agents/AgentDetail";
-import { AgentSummaryGrid } from "../features/agents/AgentSummaryGrid";
 import { ApprovalQueueCard } from "../features/agents/ApprovalQueueCard";
 import { RecentAgentActivityCard } from "../features/agents/RecentAgentActivityCard";
 import {
   AGENT_TEMPLATES,
   agentFromTemplate,
 } from "../features/agents/agentTemplates";
-import { canActivate as canActivateHealth } from "../features/agents/agentHealth";
 import { agentAvatarSrc } from "../features/agents/agentAvatars";
+import { canActivate as canActivateHealth } from "../features/agents/agentHealth";
 import {
   appendAgentActivity,
   blankAgent,
@@ -32,56 +25,9 @@ import {
   useApprovals,
   type AgentConfig,
 } from "../features/agents/agentStore";
-import {
-  filterAgents,
-  groupAgents,
-  sortAgents,
-  summarizeAgents,
-} from "../features/agents/agentSelectors";
-import type {
-  AgentFilter,
-  AgentGroupMode,
-  AgentSortMode,
-  AgentViewMode,
-} from "../features/agents/agentTypes";
+import { summarizeAgents } from "../features/agents/agentSelectors";
 import { addActivity } from "../stores/appStore";
 import { updateTask, useTasks, type Task } from "../stores/taskStore";
-
-const FILTERS: { id: AgentFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "active", label: "Active" },
-  { id: "paused", label: "Paused" },
-  { id: "unconfigured", label: "Not configured" },
-  { id: "with-tasks", label: "With tasks" },
-];
-
-const SORT_OPTIONS: { value: AgentSortMode; label: string }[] = [
-  { value: "last-active", label: "Last active" },
-  { value: "name", label: "Name" },
-  { value: "status", label: "Status" },
-  { value: "workload", label: "Current workload" },
-  { value: "completed", label: "Tasks completed" },
-  { value: "health", label: "Health" },
-  { value: "created", label: "Recently created" },
-];
-
-const GROUP_OPTIONS: { value: AgentGroupMode; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "status", label: "Status" },
-  { value: "role", label: "Role" },
-  { value: "model", label: "Model" },
-  { value: "runtime", label: "Runtime" },
-  { value: "health", label: "Health" },
-];
-
-function useDebounced(value: string, ms: number) {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = window.setTimeout(() => setV(value), ms);
-    return () => window.clearTimeout(t);
-  }, [value, ms]);
-  return v;
-}
 
 /** Premium agent-management workspace. */
 export function AgentPage() {
@@ -89,11 +35,6 @@ export function AgentPage() {
   const prefs = useAgentPrefs();
   const approvals = useApprovals();
   const tasks = useTasks();
-  const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounced(query, 160);
-  const [summaryFocus, setSummaryFocus] = useState<
-    "none" | "waiting" | "failed" | "active" | "completed"
-  >("none");
   const [wizardDraft, setWizardDraft] = useState<AgentConfig | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [openAgentId, setOpenAgentId] = useState<string | null>(
@@ -102,41 +43,21 @@ export function AgentPage() {
   const [assignAgentId, setAssignAgentId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [approvalTick, setApprovalTick] = useState(0);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   const openAgent = agents.find((a) => a.id === openAgentId) ?? null;
   const assignAgent = agents.find((a) => a.id === assignAgentId) ?? null;
+  const primeAgent = agents.find((agent) => agent.isPrime) ?? agents[0] ?? null;
+
+  useEffect(() => {
+    if (primeAgent && !agents.some((agent) => agent.isPrime)) {
+      setPrimeAgent(primeAgent.id);
+    }
+  }, [agents, primeAgent]);
 
   const counts = useMemo(
     () => summarizeAgents(agents, tasks, approvals),
     [agents, tasks, approvals, approvalTick],
   );
-
-  const effectiveFilter: AgentFilter =
-    summaryFocus === "active" ? "active" : prefs.filter;
-
-  const visible = useMemo(() => {
-    let list = filterAgents(agents, effectiveFilter, debouncedQuery, tasks);
-    if (summaryFocus === "failed") {
-      list = list.filter((a) => (a.metrics?.tasksFailed ?? 0) > 0);
-    }
-    return sortAgents(list, prefs.sort, tasks);
-  }, [
-    agents,
-    effectiveFilter,
-    debouncedQuery,
-    tasks,
-    prefs.sort,
-    summaryFocus,
-  ]);
-
-  const groups = useMemo(
-    () => groupAgents(visible, prefs.group),
-    [visible, prefs.group],
-  );
-
-  const filterCount = (id: AgentFilter) =>
-    filterAgents(agents, id, "", tasks).length;
 
   useEffect(() => {
     setAgentPrefs({ lastSelectedId: openAgentId });
@@ -150,11 +71,6 @@ export function AgentPage() {
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        searchRef.current?.focus();
-        return;
-      }
       if (!typing && e.key.toLowerCase() === "n") {
         e.preventDefault();
         setWizardDraft(blankAgent());
@@ -196,228 +112,82 @@ export function AgentPage() {
     });
     addActivity(`${next ? "Enabled" : "Paused"} agent ${agent.name}`, "agent");
   };
+  void toggleAgent;
 
   return (
     <div className="agent-page">
-      <header className="agent-hero">
-        <div>
-          <p className="agent-kicker">Agent workspace</p>
-          <h1 className="agent-heading">Agents</h1>
-          <p className="agent-lede">
-            Build and manage specialized AI agents working for you.
-            Configurations are real; external actions require connected tools
-            and approval.
-          </p>
-        </div>
-        <div className="agent-header-actions">
-          <button
-            type="button"
-            className="btn agent-btn-secondary"
-            onClick={() => setTemplatesOpen(true)}
-          >
-            Templates
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary agent-btn-primary"
-            onClick={() => setWizardDraft(blankAgent())}
-          >
-            <PlusIcon size={14} />
-            Create agent
-          </button>
-        </div>
-      </header>
-
-      <AgentConstellation
-        agents={agents}
-        onOpen={setOpenAgentId}
-        onCreate={() => setWizardDraft(blankAgent())}
-      />
-
-      <AgentSummaryGrid
-        counts={counts}
-        focus={summaryFocus}
-        onFocus={(f) => {
-          setSummaryFocus(f);
-          if (f === "active") setAgentPrefs({ filter: "active" });
-          if (f === "none") setAgentPrefs({ filter: "all" });
-        }}
-      />
-
-      <div className="agent-main-layout">
-        <div className="agent-main-column">
-          <div className="agent-toolbar agent-surface">
-            <div className="agent-toolbar-top">
-              <label className="agent-search">
-                <SearchIcon size={14} />
-                <input
-                  ref={searchRef}
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search agents..."
-                  aria-label="Search agents"
-                />
-              </label>
-              <div className="agent-toolbar-controls">
-                <Dropdown
-                  options={GROUP_OPTIONS}
-                  value={prefs.group}
-                  onChange={(group) => setAgentPrefs({ group })}
-                  ariaLabel="Group agents"
-                />
-                <Dropdown
-                  options={SORT_OPTIONS}
-                  value={prefs.sort}
-                  onChange={(sort) => setAgentPrefs({ sort })}
-                  ariaLabel="Sort agents"
-                />
-                <div className="agent-view-toggle" role="group" aria-label="View">
-                  <button
-                    type="button"
-                    className={prefs.view === "grid" ? "is-active" : undefined}
-                    aria-pressed={prefs.view === "grid"}
-                    aria-label="Grid view"
-                    onClick={() =>
-                      setAgentPrefs({ view: "grid" satisfies AgentViewMode })
-                    }
-                  >
-                    <LayoutIcon size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className={prefs.view === "list" ? "is-active" : undefined}
-                    aria-pressed={prefs.view === "list"}
-                    aria-label="List view"
-                    onClick={() => setAgentPrefs({ view: "list" })}
-                  >
-                    <ListIcon size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="agent-filters" role="tablist" aria-label="Filter agents">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={
-                    (summaryFocus === "active" && f.id === "active") ||
-                    (summaryFocus === "none" && prefs.filter === f.id)
-                  }
-                  className={`agent-filter${
-                    (summaryFocus === "active" && f.id === "active") ||
-                    (summaryFocus === "none" && prefs.filter === f.id)
-                      ? " active"
-                      : ""
-                  }`}
-                  onClick={() => {
-                    setSummaryFocus("none");
-                    setAgentPrefs({ filter: f.id });
-                  }}
-                >
-                  {f.label}
-                  <span className="agent-filter-count">{filterCount(f.id)}</span>
+      <div className="agent-command-center">
+        <aside className="agent-command-side agent-command-left">
+          <section className="agent-prime-overview agent-surface">
+            <span className="agent-rail-label">Prime agent</span>
+            <strong>{primeAgent?.name ?? "Not assigned"}</strong>
+            <p>Receives new work, selects specialists, and supervises every handoff.</p>
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={() => {
+                if (primeAgent) setOpenAgentId(primeAgent.id);
+              }}
+            >
+              Open command profile
+            </button>
+          </section>
+          <section className="agent-side-feature agent-surface tone-blue">
+            <span className="agent-rail-label">Delegation flow</span>
+            <strong>{tasks.filter((task) => Boolean(task.agent)).length}<small> assigned tasks</small></strong>
+            <p>{tasks.filter((task) => !task.agent).length} waiting for the Prime Agent to route.</p>
+            <div className="agent-side-meter"><span style={{ width: `${tasks.length ? (tasks.filter((task) => Boolean(task.agent)).length / tasks.length) * 100 : 0}%` }} /></div>
+          </section>
+          <section className="agent-side-feature agent-surface tone-green">
+            <span className="agent-rail-label">Team capacity</span>
+            <strong>{counts.active + counts.idleConfigured}<small> ready agents</small></strong>
+            <p>{counts.paused} paused · {counts.failed} need attention</p>
+            <div className="agent-mini-avatars">
+              {agents.slice(0, 5).map((agent) => (
+                <button key={agent.id} type="button" onClick={() => setOpenAgentId(agent.id)} aria-label={agent.name}>
+                  {agentAvatarSrc(agent.avatarId) ? <img src={agentAvatarSrc(agent.avatarId)} alt="" /> : agent.initials}
                 </button>
               ))}
             </div>
-          </div>
+          </section>
+        </aside>
 
-          {visible.length === 0 ? (
-            <div className="agent-empty agent-surface">
-              <h2>
-                {agents.length === 0
-                  ? "No agents yet"
-                  : "No agents match this search."}
-              </h2>
-              <p>
-                {agents.length === 0
-                  ? "Create a specialized agent or start from a template."
-                  : "Try clearing search or filters."}
-              </p>
-              <div className="agent-empty-actions">
-                {agents.length === 0 ? (
-                  <>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => setTemplatesOpen(true)}
-                    >
-                      Browse templates
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => setWizardDraft(blankAgent())}
-                    >
-                      <PlusIcon size={14} />
-                      Create agent
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() => {
-                      setQuery("");
-                      setSummaryFocus("none");
-                      setAgentPrefs({ filter: "all" });
-                    }}
-                  >
-                    Clear search
-                  </button>
-                )}
-              </div>
+        <div className="agent-command-orbit">
+          <div className="agent-command-title">
+            <span>Agent command constellation</span>
+            <strong>Your team, coordinated in real time</strong>
+            <p>Specialists orbit the Prime Agent. Select any profile to inspect its role, workload, and permissions.</p>
+            <div className="agent-command-actions">
+              <button type="button" className="btn btn-small" onClick={() => setTemplatesOpen(true)}>Templates</button>
+              <button type="button" className="btn btn-small btn-primary" onClick={() => setWizardDraft(blankAgent())}><PlusIcon size={12} /> Create</button>
             </div>
-          ) : (
-            groups.map(([label, items]) => (
-              <section key={label} className="agent-group">
-                {prefs.group !== "none" ? (
-                  <h2 className="agent-group-title">
-                    {label} <span>{items.length}</span>
-                  </h2>
-                ) : null}
-                <div
-                  className={prefs.view === "grid" ? "agent-grid" : "agent-list"}
-                >
-                  {items.map((agent) => (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      tasks={tasks}
-                      selected={agent.id === openAgentId}
-                      view={prefs.view}
-                      onOpen={() => setOpenAgentId(agent.id)}
-                      onToggle={(next) => toggleAgent(agent, next)}
-                      onDelete={() => setConfirmDeleteId(agent.id)}
-                      onAssign={() => setAssignAgentId(agent.id)}
-                      onSetPrime={() => {
-                        setPrimeAgent(agent.id);
-                        addActivity(`${agent.name} is now the Prime Agent`, "agent");
-                      }}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))
-          )}
-
-          <AgentAnalyticsRow agents={agents} tasks={tasks} />
+          </div>
+          <AgentConstellation
+            agents={agents}
+            onOpen={setOpenAgentId}
+            onCreate={() => setWizardDraft(blankAgent())}
+            centerStage
+          />
         </div>
 
-        <aside className="agent-rail-column">
+        <aside className="agent-command-side agent-command-right">
+          <ApprovalQueueCard
+            approvals={approvals}
+            agents={agents}
+            onChanged={() => setApprovalTick((n) => n + 1)}
+          />
           <RecentAgentActivityCard
             agents={agents}
             onViewAll={() => {
               if (agents[0]) setOpenAgentId(agents[0].id);
             }}
           />
-          <ApprovalQueueCard
-            approvals={approvals}
-            agents={agents}
-            onChanged={() => setApprovalTick((n) => n + 1)}
-          />
+          <section className="agent-side-feature agent-surface tone-violet">
+            <span className="agent-rail-label">Agent network</span>
+            <strong>{agents.length}<small> specialists</small></strong>
+            <p>{counts.waiting} approvals waiting · {counts.completedToday} completed today</p>
+            <div className="agent-network-status"><span /> Network ready</div>
+          </section>
         </aside>
       </div>
 
