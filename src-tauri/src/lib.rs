@@ -1,5 +1,8 @@
+mod credentials;
+mod data;
 mod overlay;
 mod panels;
+mod screen_context;
 mod settings;
 mod shortcuts;
 mod tray;
@@ -27,10 +30,13 @@ pub fn run() {
             None,
         ))
         .plugin(shortcuts::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(overlay::OverlayState::default())
         // Managed before any window exists: webviews created from the config
         // may invoke commands before `setup` runs.
         .manage(settings::SettingsState::default())
+        .manage(shortcuts::ShortcutActions::default())
+        .manage(screen_context::ScreenContextState::default())
         .invoke_handler(tauri::generate_handler![
             overlay::request_close,
             overlay::overlay_hidden,
@@ -39,12 +45,33 @@ pub fn run() {
             settings::set_autostart,
             settings::clear_local_data,
             shortcuts::set_global_shortcut,
+            shortcuts::set_action_shortcut,
+            shortcuts::probe_shortcut,
             panels::open_settings,
             panels::hide_quick_menu,
             panels::show_overlay,
             panels::show_main_window,
             panels::hide_main,
             panels::quit_app,
+            credentials::set_provider_key,
+            credentials::has_provider_key,
+            credentials::delete_provider_key,
+            data::get_data_usage,
+            data::open_data_folder,
+            data::open_microphone_privacy_settings,
+            data::send_test_notification,
+            screen_context::screen_context_status,
+            screen_context::start_screen_context,
+            screen_context::stop_screen_context,
+            screen_context::monitors::list_monitors,
+            screen_context::capture::capture_screen,
+            screen_context::capture::get_capture_data_url,
+            screen_context::capture::save_annotated_capture,
+            screen_context::storage::list_captures,
+            screen_context::storage::delete_capture,
+            screen_context::storage::clear_capture_history,
+            screen_context::overlay::open_annotation,
+            screen_context::overlay::close_annotation,
         ])
         .on_window_event(|window, event| match event {
             // None of our windows may ever be destroyed (e.g. via Alt+F4);
@@ -73,6 +100,8 @@ pub fn run() {
                 log::error!("failed to initialize the system tray: {e}");
             }
             shortcuts::register_from_settings(handle);
+            // Enforce the configured retention on captures left from earlier runs.
+            screen_context::storage::apply_retention(handle);
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -80,6 +109,8 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 shortcuts::unregister_all(app);
+                // Never leave a capture session or its indicators behind.
+                screen_context::stop_all(app);
                 log::info!("ArcSonare exited cleanly");
             }
         });

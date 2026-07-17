@@ -16,10 +16,16 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4"
 env_logger = "0.11"
+# Screen Context: monitor enumeration + capture (Windows GDI/DXGI backend).
+xcap = "0.9"
+# Provider credentials in Windows Credential Manager — never in plain files.
+keyring = { version = "3", features = ["windows-native"] }
+base64 = "0.22"
 
 [profile.release]
 panic = "abort"

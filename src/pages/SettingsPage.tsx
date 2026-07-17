@@ -1,61 +1,79 @@
-import { useState, type ReactNode } from "react";
-import { useSettings } from "../hooks/useSettings";
+import type { ReactNode } from "react";
 import {
   BellIcon,
+  ChartIcon,
+  ChevronRightIcon,
+  DatabaseIcon,
   InfoIcon,
   KeyboardIcon,
+  MonitorIcon,
   PaletteIcon,
   PlugIcon,
-  ShieldIcon,
   SlidersIcon,
+  VolumeIcon,
+  WaveIcon,
 } from "../components/Icons";
-import { GeneralPage } from "../components/settings/pages/GeneralPage";
-import { ShortcutsPage } from "../components/settings/pages/ShortcutsPage";
-import { AppearancePage } from "../components/settings/pages/AppearancePage";
-import { NotificationsPage } from "../components/settings/pages/NotificationsPage";
-import { PrivacyPage } from "../components/settings/pages/PrivacyPage";
-import { ConnectPage } from "../components/settings/pages/ConnectPage";
-import { AboutPage } from "../components/settings/pages/AboutPage";
+import {
+  leaveSettings,
+  navigateSettings,
+  useAppState,
+  type SettingsSection,
+} from "../stores/appStore";
+import { GeneralSettingsPage } from "./settings/GeneralSettingsPage";
+import { VoiceSettingsPage } from "./settings/VoiceSettingsPage";
+import { ModelsSettingsPage } from "./settings/ModelsSettingsPage";
+import { ShortcutsSettingsPage } from "./settings/ShortcutsSettingsPage";
+import { ScreenContextSettingsPage } from "./settings/ScreenContextSettingsPage";
+import { AppearanceSettingsPage } from "./settings/AppearanceSettingsPage";
+import { SoundsSettingsPage } from "./settings/SoundsSettingsPage";
+import { NotificationsSettingsPage } from "./settings/NotificationsSettingsPage";
+import { DataPrivacySettingsPage } from "./settings/DataPrivacySettingsPage";
+import { IntegrationsSettingsPage } from "./settings/IntegrationsSettingsPage";
+import { AboutSettingsPage } from "./settings/AboutSettingsPage";
 
-type SectionId =
-  | "general"
-  | "shortcuts"
-  | "appearance"
-  | "notifications"
-  | "privacy"
-  | "connect"
-  | "about";
-
-const SECTIONS: { id: SectionId; label: string; icon: ReactNode }[] = [
+const SECTIONS: { id: SettingsSection; label: string; icon: ReactNode }[] = [
   { id: "general", label: "General", icon: <SlidersIcon size={17} /> },
+  { id: "voice", label: "Voice", icon: <WaveIcon size={17} /> },
+  { id: "models", label: "Models", icon: <ChartIcon size={17} /> },
   { id: "shortcuts", label: "Shortcuts", icon: <KeyboardIcon size={17} /> },
+  { id: "screen-context", label: "Screen Context", icon: <MonitorIcon size={17} /> },
   { id: "appearance", label: "Appearance", icon: <PaletteIcon size={17} /> },
+  { id: "sounds", label: "Sounds", icon: <VolumeIcon size={17} /> },
   { id: "notifications", label: "Notifications", icon: <BellIcon size={17} /> },
-  { id: "privacy", label: "Privacy", icon: <ShieldIcon size={17} /> },
-  { id: "connect", label: "Connect", icon: <PlugIcon size={17} /> },
+  { id: "data-privacy", label: "Data & Privacy", icon: <DatabaseIcon size={17} /> },
+  { id: "integrations", label: "Integrations", icon: <PlugIcon size={17} /> },
   { id: "about", label: "About", icon: <InfoIcon size={17} /> },
 ];
 
 /**
- * Settings as a page inside the main Command Center window (opened by the
- * header gear, tray and quick menu — never a separate native window). The
- * internal left navigation switches sections; each section reuses the
- * shared setting-row components and design tokens.
+ * Settings inside the main Command Center window. The internal left
+ * navigation switches sections; the last visited section is remembered so
+ * the header gear returns to it. Back returns to the previous main page.
  */
 export function SettingsPage() {
-  const { settings, update } = useSettings();
-  const [section, setSection] = useState<SectionId>("general");
+  const { settingsSection, pageBeforeSettings } = useAppState();
 
   return (
     <div className="settings-page">
       <nav className="settings-page-nav" aria-label="Settings sections">
+        <button
+          type="button"
+          className="settings-back"
+          onClick={leaveSettings}
+          aria-label={`Back to ${pageBeforeSettings}`}
+        >
+          <span className="settings-back-chevron" aria-hidden="true">
+            <ChevronRightIcon size={14} />
+          </span>
+          Back
+        </button>
         {SECTIONS.map((item) => (
           <button
             key={item.id}
             type="button"
-            className={`nav-item${item.id === section ? " active" : ""}`}
-            aria-current={item.id === section ? "page" : undefined}
-            onClick={() => setSection(item.id)}
+            className={`nav-item${item.id === settingsSection ? " active" : ""}`}
+            aria-current={item.id === settingsSection ? "page" : undefined}
+            onClick={() => navigateSettings(item.id)}
           >
             <span className="nav-icon">{item.icon}</span>
             <span>{item.label}</span>
@@ -64,23 +82,17 @@ export function SettingsPage() {
       </nav>
 
       <div className="settings-page-content">
-        {settings ? (
-          <>
-            {section === "general" && (
-              <GeneralPage settings={settings} update={update} />
-            )}
-            {section === "shortcuts" && <ShortcutsPage settings={settings} />}
-            {section === "appearance" && (
-              <AppearancePage settings={settings} update={update} />
-            )}
-            {section === "notifications" && (
-              <NotificationsPage settings={settings} update={update} />
-            )}
-            {section === "privacy" && <PrivacyPage />}
-            {section === "connect" && <ConnectPage />}
-            {section === "about" && <AboutPage />}
-          </>
-        ) : null}
+        {settingsSection === "general" && <GeneralSettingsPage />}
+        {settingsSection === "voice" && <VoiceSettingsPage />}
+        {settingsSection === "models" && <ModelsSettingsPage />}
+        {settingsSection === "shortcuts" && <ShortcutsSettingsPage />}
+        {settingsSection === "screen-context" && <ScreenContextSettingsPage />}
+        {settingsSection === "appearance" && <AppearanceSettingsPage />}
+        {settingsSection === "sounds" && <SoundsSettingsPage />}
+        {settingsSection === "notifications" && <NotificationsSettingsPage />}
+        {settingsSection === "data-privacy" && <DataPrivacySettingsPage />}
+        {settingsSection === "integrations" && <IntegrationsSettingsPage />}
+        {settingsSection === "about" && <AboutSettingsPage />}
       </div>
     </div>
   );

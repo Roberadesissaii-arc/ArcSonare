@@ -8,6 +8,47 @@ import type { TaskFilter } from "./taskStore";
 
 export type MainPage = "dashboard" | "tasks" | "agent" | "connect" | "settings";
 
+export type SettingsSection =
+  | "general"
+  | "voice"
+  | "models"
+  | "shortcuts"
+  | "screen-context"
+  | "appearance"
+  | "sounds"
+  | "notifications"
+  | "data-privacy"
+  | "integrations"
+  | "about";
+
+const SETTINGS_SECTIONS: SettingsSection[] = [
+  "general",
+  "voice",
+  "models",
+  "shortcuts",
+  "screen-context",
+  "appearance",
+  "sounds",
+  "notifications",
+  "data-privacy",
+  "integrations",
+  "about",
+];
+
+const SECTION_KEY = "arcsonare.settingsSection.v1";
+
+function loadSettingsSection(): SettingsSection {
+  try {
+    const raw = window.localStorage.getItem(SECTION_KEY);
+    if (raw && SETTINGS_SECTIONS.includes(raw as SettingsSection)) {
+      return raw as SettingsSection;
+    }
+  } catch {
+    // localStorage unavailable — fall back to the first section.
+  }
+  return "general";
+}
+
 export interface ActivityEntry {
   id: string;
   text: string;
@@ -24,6 +65,10 @@ interface AppState {
   activity: ActivityEntry[];
   /** Entries newer than this are unread in the notification popover. */
   notificationsReadAt: number;
+  /** Last visited Settings section (persisted; the gear returns here). */
+  settingsSection: SettingsSection;
+  /** Main page that was active before entering Settings (for Back). */
+  pageBeforeSettings: Exclude<MainPage, "settings">;
 }
 
 const ACTIVITY_KEY = "arcsonare.activity.v1";
@@ -56,6 +101,8 @@ let state: AppState = {
   profileName: "Robera",
   activity: loadActivity(),
   notificationsReadAt: loadReadAt(),
+  settingsSection: loadSettingsSection(),
+  pageBeforeSettings: "dashboard",
 };
 
 const listeners = new Set<() => void>();
@@ -66,7 +113,34 @@ function set(patch: Partial<AppState>) {
 }
 
 export function navigate(page: MainPage, opts?: { taskFilter?: TaskFilter }) {
-  set({ page, ...(opts?.taskFilter ? { taskFilter: opts.taskFilter } : {}) });
+  const remember =
+    page === "settings" && state.page !== "settings"
+      ? { pageBeforeSettings: state.page as Exclude<MainPage, "settings"> }
+      : {};
+  set({
+    page,
+    ...remember,
+    ...(opts?.taskFilter ? { taskFilter: opts.taskFilter } : {}),
+  });
+}
+
+/** Opens a specific Settings section (and remembers it as last visited). */
+export function navigateSettings(section: SettingsSection) {
+  try {
+    window.localStorage.setItem(SECTION_KEY, section);
+  } catch {
+    // Persistence is best-effort.
+  }
+  const remember =
+    state.page !== "settings"
+      ? { pageBeforeSettings: state.page as Exclude<MainPage, "settings"> }
+      : {};
+  set({ page: "settings", settingsSection: section, ...remember });
+}
+
+/** Back action from Settings to the previously open main page. */
+export function leaveSettings() {
+  set({ page: state.pageBeforeSettings });
 }
 
 export function setTaskFilter(taskFilter: TaskFilter) {

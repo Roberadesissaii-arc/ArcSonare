@@ -2,7 +2,13 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capabilities for ArcSonare windows. Window management, shortcuts and persistence are handled in Rust; the frontend needs core defaults (events + custom commands), window dragging for the borderless windows, and the main window's custom traffic-light controls (hide / minimize / maximize).",
-  "windows": ["main", "sonare-overlay", "sonare-quick-menu"],
+  "windows": [
+    "main",
+    "sonare-overlay",
+    "sonare-quick-menu",
+    "sonare-edge-*",
+    "sonare-annotate"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",

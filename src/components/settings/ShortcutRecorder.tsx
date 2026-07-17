@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { keyLabel, shortcutKeys } from "../../services/shortcutFormat";
 
 const MODIFIER_CODES = new Set([
@@ -23,6 +22,9 @@ const BLOCKED_SHORTCUTS = new Set([
   "Super+Tab",
 ]);
 
+const FN_MESSAGE =
+  "The Fn key is handled by your keyboard hardware and cannot be registered as a global shortcut on this system. Choose another key.";
+
 function modifiersFrom(event: KeyboardEvent): string[] {
   const mods: string[] = [];
   if (event.ctrlKey) mods.push("Ctrl");
@@ -33,19 +35,28 @@ function modifiersFrom(event: KeyboardEvent): string[] {
 }
 
 interface ShortcutRecorderProps {
-  shortcut: string;
+  /** Current binding ("Ctrl+Shift+Space") or null when unbound. */
+  shortcut: string | null;
+  /**
+   * Persists the combination. Must reject with a user-readable message when
+   * native registration fails; the previous binding stays active in that
+   * case (Rust registers the new one before dropping the old).
+   */
+  onCommit: (candidate: string) => Promise<void>;
+  /** Shown when no binding exists. */
+  emptyLabel?: string;
 }
 
 /**
- * Displays the current global shortcut and records a replacement.
- *
- * While recording, keystrokes are captured at the window level (capture
- * phase, so the settings window's own Escape handling is bypassed). The new
- * combination is sent to Rust, which registers it *before* unregistering the
- * old one — a failed registration therefore never destroys the previous
- * shortcut, and the error from Windows is surfaced here.
+ * Records a keyboard chord for a global shortcut. Each held key is shown
+ * live; Escape cancels; the candidate is validated and only saved after
+ * Windows accepted the native registration.
  */
-export function ShortcutRecorder({ shortcut }: ShortcutRecorderProps) {
+export function ShortcutRecorder({
+  shortcut,
+  onCommit,
+  emptyLabel = "Not set",
+}: ShortcutRecorderProps) {
   const [recording, setRecording] = useState(false);
   const [heldModifiers, setHeldModifiers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +79,12 @@ export function ShortcutRecorder({ shortcut }: ShortcutRecorderProps) {
         return;
       }
 
+      // Fn rarely reaches the browser at all; when it does, be explicit.
+      if (event.key === "Fn" || event.code === "Fn") {
+        setError(FN_MESSAGE);
+        return;
+      }
+
       if (MODIFIER_CODES.has(event.code)) {
         setHeldModifiers(modifiersFrom(event));
         return;
@@ -75,9 +92,7 @@ export function ShortcutRecorder({ shortcut }: ShortcutRecorderProps) {
 
       const modifiers = modifiersFrom(event);
       if (modifiers.length === 0) {
-        setError(
-          "Include at least one modifier key (Ctrl, Alt, Shift or Win).",
-        );
+        setError("Include at least one modifier key (Ctrl, Alt, Shift or Win).");
         return;
       }
 
@@ -88,14 +103,18 @@ export function ShortcutRecorder({ shortcut }: ShortcutRecorderProps) {
       }
 
       setSaving(true);
-      invoke("set_global_shortcut", { shortcut: candidate })
+      onCommit(candidate)
         .then(() => {
           setError(null);
           stopRecording();
         })
         .catch((err) => {
           setError(
-            typeof err === "string" ? err : "The shortcut could not be set.",
+            typeof err === "string"
+              ? err
+              : err instanceof Error
+                ? err.message
+                : "The shortcut could not be set.",
           );
           stopRecording();
         })
@@ -116,7 +135,7 @@ export function ShortcutRecorder({ shortcut }: ShortcutRecorderProps) {
       window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("keyup", onKeyUp, true);
     };
-  }, [recording, stopRecording]);
+  }, [recording, stopRecording, onCommit]);
 
   const startRecording = () => {
     setError(null);
@@ -126,7 +145,9 @@ export function ShortcutRecorder({ shortcut }: ShortcutRecorderProps) {
 
   const displayedKeys = recording
     ? heldModifiers.map(keyLabel)
-    : shortcutKeys(shortcut);
+    : shortcut
+      ? shortcutKeys(shortcut)
+      : [];
 
   return (
     <div className="shortcut-recorder">
@@ -134,8 +155,10 @@ export function ShortcutRecorder({ shortcut }: ShortcutRecorderProps) {
         className={`shortcut-field${recording ? " recording" : ""}`}
         aria-live="polite"
       >
-        {recording && displayedKeys.length === 0 ? (
-          <span className="shortcut-placeholder">Press a new shortcut…</span>
+        {displayedKeys.length === 0 ? (
+          <span className="shortcut-placeholder">
+            {recording ? "Press a new shortcut…" : emptyLabel}
+          </span>
         ) : (
           <span className="shortcut-value">
             {displayedKeys.map((key, index) => (

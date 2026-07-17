@@ -31,6 +31,177 @@ export function GearIcon({ size }: IconProps) {
   );
 }
 
+export function MonitorIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+    </svg>
+  );
+}
+
+export function VolumeIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+
+export function DatabaseIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+      <path d="M3 12a9 3 0 0 0 18 0" />
+    </svg>
+  );
+}
+
+export function MicIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0M12 17v4" />
+    </svg>
+  );
+}
+
+export function PlayIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="m7 4 13 8-13 8V4z" />
+    </svg>
+  );
+}
+
+export function PauseIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M8 5v14M16 5v14" />
+    </svg>
+  );
+}
+
+export function StopIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="6" y="6" width="12" height="12" rx="1.5" />
+    </svg>
+  );
+}
+
+export function PenIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  );
+}
+
+export function SquareIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+    </svg>
+  );
+}
+
+export function CircleIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  );
+}
+
+export function ArrowUpRightIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M7 17 17 7M8 7h9v9" />
+    </svg>
+  );
+}
+
+export function HighlighterIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="m9 11-6 6v3h9l3-3" />
+      <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4Z" />
+    </svg>
+  );
+}
+
+export function BlurIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 2.7 6.3 8.4a8 8 0 1 0 11.4 0Z" />
+      <path d="M12 22V8" />
+    </svg>
+  );
+}
+
+export function UndoIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M3 7v6h6" />
+      <path d="M21 17a9 9 0 0 0-15-6.7L3 13" />
+    </svg>
+  );
+}
+
+export function RedoIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M21 7v6h-6" />
+      <path d="M3 17a9 9 0 0 1 15-6.7L21 13" />
+    </svg>
+  );
+}
+
+export function CursorIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="m4 4 7.1 16.5 2.2-6.6 6.6-2.2Z" />
+    </svg>
+  );
+}
+
+export function DownloadIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+    </svg>
+  );
+}
+
+export function FolderIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+    </svg>
+  );
+}
+
+export function KeyIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="m21 2-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78Zm0 0L15.5 7.5m3 3L21 8m-3-3 3 3" />
+    </svg>
+  );
+}
+
+export function UserIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
 export function ZapIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>

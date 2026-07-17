@@ -84,6 +84,11 @@ pub fn show_main(app: &AppHandle) {
     hide_window(app, QUICK_MENU_LABEL);
 }
 
+/// Hides the main Command Center window (shortcut action / tray).
+pub fn hide_main_window(app: &AppHandle) {
+    hide_window(app, MAIN_LABEL);
+}
+
 #[tauri::command]
 pub fn show_main_window(app: AppHandle) {
     show_main(&app);

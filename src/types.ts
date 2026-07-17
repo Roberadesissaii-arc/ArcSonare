@@ -16,6 +16,8 @@ export interface Settings {
   notificationsEnabled: boolean;
   completionNotifications: boolean;
   errorNotifications: boolean;
+  /** Free-form preference tree; typed + validated in src/config/prefs.ts. */
+  prefs: unknown;
 }
 
 /** Emitted by Rust right after the native overlay window is shown. */

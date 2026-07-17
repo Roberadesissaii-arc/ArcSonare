@@ -25,6 +25,11 @@ pub struct Settings {
     pub notifications_enabled: bool,
     pub completion_notifications: bool,
     pub error_notifications: bool,
+    /// Free-form preference tree owned by the frontend (typed + validated in
+    /// src/config/prefs.ts). Rust persists and broadcasts it; the pieces Rust
+    /// itself consumes (extra shortcuts, screen-context options) are read
+    /// through the accessors below.
+    pub prefs: serde_json::Value,
 }
 
 impl Default for Settings {
@@ -39,6 +44,7 @@ impl Default for Settings {
             notifications_enabled: true,
             completion_notifications: true,
             error_notifications: true,
+            prefs: serde_json::Value::Object(Default::default()),
         }
     }
 }
@@ -58,7 +64,38 @@ impl Settings {
         if crate::shortcuts::parse_shortcut(&self.global_shortcut).is_none() {
             self.global_shortcut = DEFAULT_SHORTCUT.into();
         }
+        if !self.prefs.is_object() {
+            self.prefs = serde_json::Value::Object(Default::default());
+        }
         self
+    }
+
+    /// `prefs.shortcuts` — action id → shortcut string for the extra global
+    /// shortcuts (the voice toggle stays in `global_shortcut`).
+    pub fn action_shortcuts(&self) -> Vec<(String, String)> {
+        let Some(map) = self.prefs.get("shortcuts").and_then(|v| v.as_object()) else {
+            return Vec::new();
+        };
+        map.iter()
+            .filter_map(|(action, value)| {
+                value
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| (action.clone(), s.to_string()))
+            })
+            .collect()
+    }
+
+    /// Reads a boolean from the prefs tree by dotted path, with a default.
+    pub fn pref_bool(&self, path: &str, default: bool) -> bool {
+        let mut node = &self.prefs;
+        for part in path.split('.') {
+            match node.get(part) {
+                Some(next) => node = next,
+                None => return default,
+            }
+        }
+        node.as_bool().unwrap_or(default)
     }
 }
 
@@ -162,6 +199,19 @@ pub fn update_settings(app: AppHandle, settings: Settings) {
     let current_settings = current(&app);
     incoming.global_shortcut = current_settings.global_shortcut.clone();
     incoming.launch_at_startup = current_settings.launch_at_startup;
+
+    // Action shortcuts require native registration and are only writable
+    // through the dedicated `set_action_shortcut` command.
+    if let Some(incoming_obj) = incoming.prefs.as_object_mut() {
+        match current_settings.prefs.get("shortcuts") {
+            Some(current_shortcuts) => {
+                incoming_obj.insert("shortcuts".into(), current_shortcuts.clone());
+            }
+            None => {
+                incoming_obj.remove("shortcuts");
+            }
+        }
+    }
 
     let reposition = incoming.overlay_position != current_settings.overlay_position;
     if incoming == current_settings {
