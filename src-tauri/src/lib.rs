@@ -5,6 +5,7 @@ mod panels;
 mod screen_context;
 mod settings;
 mod shortcuts;
+mod top_overlay;
 mod tray;
 mod window_position;
 
@@ -32,6 +33,7 @@ pub fn run() {
         .plugin(shortcuts::init())
         .plugin(tauri_plugin_notification::init())
         .manage(overlay::OverlayState::default())
+        .manage(top_overlay::PendingOverlayCommand::default())
         // Managed before any window exists: webviews created from the config
         // may invoke commands before `setup` runs.
         .manage(settings::SettingsState::default())
@@ -40,6 +42,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             overlay::request_close,
             overlay::overlay_hidden,
+            top_overlay::overlay_launch_app,
+            top_overlay::overlay_open_url,
+            top_overlay::overlay_web_search,
+            top_overlay::overlay_open_service,
+            top_overlay::overlay_queue_command,
+            top_overlay::overlay_take_pending_command,
+            top_overlay::overlay_window::resize_overlay,
             settings::get_settings,
             settings::update_settings,
             settings::set_autostart,

@@ -26,6 +26,9 @@ xcap = "0.9"
 # Provider credentials in Windows Credential Manager — never in plain files.
 keyring = { version = "3", features = ["windows-native"] }
 base64 = "0.22"
+# Safe default-browser / file opening (never raw shell with spoken input).
+open = "5"
+percent-encoding = "2"
 
 [profile.release]
 panic = "abort"

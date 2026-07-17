@@ -1,0 +1,802 @@
+[
+    {
+        "originalName":  "adobe.svg",
+        "cleanName":  "adobe.svg",
+        "byteSize":  299
+    },
+    {
+        "originalName":  "adobe-acrobat.svg",
+        "cleanName":  "adobe-acrobat.svg",
+        "byteSize":  1135
+    },
+    {
+        "originalName":  "adobe-firefly.svg",
+        "cleanName":  "adobe-firefly.svg",
+        "byteSize":  881
+    },
+    {
+        "originalName":  "adobe-lightroom.svg",
+        "cleanName":  "adobe-lightroom.svg",
+        "byteSize":  835
+    },
+    {
+        "originalName":  "adobe-photoshop.svg",
+        "cleanName":  "adobe-photoshop.svg",
+        "byteSize":  1768
+    },
+    {
+        "originalName":  "adobe-premiere-pro.svg",
+        "cleanName":  "adobe-premiere-pro.svg",
+        "byteSize":  1315
+    },
+    {
+        "originalName":  "airtable.svg",
+        "cleanName":  "airtable.svg",
+        "byteSize":  847
+    },
+    {
+        "originalName":  "amd-light.svg",
+        "cleanName":  "amd-light.svg",
+        "byteSize":  201
+    },
+    {
+        "originalName":  "anaconda.svg",
+        "cleanName":  "anaconda.svg",
+        "byteSize":  3183
+    },
+    {
+        "originalName":  "apple-maps.svg",
+        "cleanName":  "apple-maps.svg",
+        "byteSize":  15874
+    },
+    {
+        "originalName":  "apple-music.svg",
+        "cleanName":  "apple-music.svg",
+        "byteSize":  2122
+    },
+    {
+        "originalName":  "apple-podcasts.svg",
+        "cleanName":  "apple-podcasts.svg",
+        "byteSize":  2459
+    },
+    {
+        "originalName":  "app-store.svg",
+        "cleanName":  "app-store.svg",
+        "byteSize":  1156
+    },
+    {
+        "originalName":  "arduino.svg",
+        "cleanName":  "arduino.svg",
+        "byteSize":  1671
+    },
+    {
+        "originalName":  "asus-rog.svg",
+        "cleanName":  "asus-rog.svg",
+        "byteSize":  3974
+    },
+    {
+        "originalName":  "atlassian-bitbucket.svg",
+        "cleanName":  "atlassian-bitbucket.svg",
+        "byteSize":  776
+    },
+    {
+        "originalName":  "atlassian-confluence.svg",
+        "cleanName":  "atlassian-confluence.svg",
+        "byteSize":  1053
+    },
+    {
+        "originalName":  "atlassian-jira.svg",
+        "cleanName":  "atlassian-jira.svg",
+        "byteSize":  988
+    },
+    {
+        "originalName":  "aws-light.svg",
+        "cleanName":  "aws-light.svg",
+        "byteSize":  2976
+    },
+    {
+        "originalName":  "azure.svg",
+        "cleanName":  "azure.svg",
+        "byteSize":  225
+    },
+    {
+        "originalName":  "azure-vm.svg",
+        "cleanName":  "azure-vm.svg",
+        "byteSize":  1330
+    },
+    {
+        "originalName":  "beef.svg",
+        "cleanName":  "beef.svg",
+        "byteSize":  11989
+    },
+    {
+        "originalName":  "canvas-lms.svg",
+        "cleanName":  "canvas-lms.svg",
+        "byteSize":  1960
+    },
+    {
+        "originalName":  "cap-cut-dark.svg",
+        "cleanName":  "cap-cut-dark.svg",
+        "byteSize":  485
+    },
+    {
+        "originalName":  "chrome.svg",
+        "cleanName":  "chrome.svg",
+        "byteSize":  2910
+    },
+    {
+        "originalName":  "claude-ai.svg",
+        "cleanName":  "claude-ai.svg",
+        "byteSize":  4102
+    },
+    {
+        "originalName":  "clickup.svg",
+        "cleanName":  "clickup.svg",
+        "byteSize":  1552
+    },
+    {
+        "originalName":  "cloudflare.svg",
+        "cleanName":  "cloudflare.svg",
+        "byteSize":  1216
+    },
+    {
+        "originalName":  "csharp.svg",
+        "cleanName":  "csharp.svg",
+        "byteSize":  1840
+    },
+    {
+        "originalName":  "cursor.svg",
+        "cleanName":  "cursor.svg",
+        "byteSize":  547
+    },
+    {
+        "originalName":  "debian-linux.svg",
+        "cleanName":  "debian-linux.svg",
+        "byteSize":  3107
+    },
+    {
+        "originalName":  "deno-light.svg",
+        "cleanName":  "deno-light.svg",
+        "byteSize":  5987
+    },
+    {
+        "originalName":  "digital-ocean.svg",
+        "cleanName":  "digital-ocean.svg",
+        "byteSize":  723
+    },
+    {
+        "originalName":  "discord (1).svg",
+        "cleanName":  "discord.svg",
+        "byteSize":  779
+    },
+    {
+        "originalName":  "docker-engine.svg",
+        "cleanName":  "docker-engine.svg",
+        "byteSize":  608
+    },
+    {
+        "originalName":  "dotnet.svg",
+        "cleanName":  "dotnet.svg",
+        "byteSize":  549
+    },
+    {
+        "originalName":  "dropbox.svg",
+        "cleanName":  "dropbox.svg",
+        "byteSize":  412
+    },
+    {
+        "originalName":  "duo.svg",
+        "cleanName":  "duo.svg",
+        "byteSize":  1215
+    },
+    {
+        "originalName":  "duolingo.svg",
+        "cleanName":  "duolingo.svg",
+        "byteSize":  4164
+    },
+    {
+        "originalName":  "edge.svg",
+        "cleanName":  "edge.svg",
+        "byteSize":  2971
+    },
+    {
+        "originalName":  "electronic-arts.svg",
+        "cleanName":  "electronic-arts.svg",
+        "byteSize":  527
+    },
+    {
+        "originalName":  "esphome.svg",
+        "cleanName":  "esphome.svg",
+        "byteSize":  2243
+    },
+    {
+        "originalName":  "esphome-alt.svg",
+        "cleanName":  "esphome-alt.svg",
+        "byteSize":  1630
+    },
+    {
+        "originalName":  "espressif.svg",
+        "cleanName":  "espressif.svg",
+        "byteSize":  1241
+    },
+    {
+        "originalName":  "evernote.svg",
+        "cleanName":  "evernote.svg",
+        "byteSize":  1600
+    },
+    {
+        "originalName":  "facebook (1).svg",
+        "cleanName":  "facebook.svg",
+        "byteSize":  758
+    },
+    {
+        "originalName":  "figma.svg",
+        "cleanName":  "figma.svg",
+        "byteSize":  759
+    },
+    {
+        "originalName":  "firefox-reality.svg",
+        "cleanName":  "firefox-reality.svg",
+        "byteSize":  192300
+    },
+    {
+        "originalName":  "framer.svg",
+        "cleanName":  "framer.svg",
+        "byteSize":  201
+    },
+    {
+        "originalName":  "github (1).svg",
+        "cleanName":  "github.svg",
+        "byteSize":  907
+    },
+    {
+        "originalName":  "gmail.svg",
+        "cleanName":  "gmail.svg",
+        "byteSize":  535
+    },
+    {
+        "originalName":  "godaddy.svg",
+        "cleanName":  "godaddy.svg",
+        "byteSize":  1483
+    },
+    {
+        "originalName":  "google.svg",
+        "cleanName":  "google.svg",
+        "byteSize":  817
+    },
+    {
+        "originalName":  "google-assistant.svg",
+        "cleanName":  "google-assistant.svg",
+        "byteSize":  674
+    },
+    {
+        "originalName":  "google-calendar.svg",
+        "cleanName":  "google-calendar.svg",
+        "byteSize":  1386
+    },
+    {
+        "originalName":  "googlecloud-color (1).svg",
+        "cleanName":  "google-cloud.svg",
+        "byteSize":  925
+    },
+    {
+        "originalName":  "google-colab.svg",
+        "cleanName":  "google-colab.svg",
+        "byteSize":  920
+    },
+    {
+        "originalName":  "google-drive (1).svg",
+        "cleanName":  "google-drive.svg",
+        "byteSize":  800
+    },
+    {
+        "originalName":  "google-earth.svg",
+        "cleanName":  "google-earth.svg",
+        "byteSize":  2391
+    },
+    {
+        "originalName":  "google-gemini.svg",
+        "cleanName":  "google-gemini.svg",
+        "byteSize":  8712
+    },
+    {
+        "originalName":  "google-jules.svg",
+        "cleanName":  "google-jules.svg",
+        "byteSize":  1651
+    },
+    {
+        "originalName":  "google-meet.svg",
+        "cleanName":  "google-meet.svg",
+        "byteSize":  737
+    },
+    {
+        "originalName":  "google-photos.svg",
+        "cleanName":  "google-photos.svg",
+        "byteSize":  633
+    },
+    {
+        "originalName":  "google-play.svg",
+        "cleanName":  "google-play.svg",
+        "byteSize":  531
+    },
+    {
+        "originalName":  "google-play-books.svg",
+        "cleanName":  "google-play-books.svg",
+        "byteSize":  1273
+    },
+    {
+        "originalName":  "google-play-games.svg",
+        "cleanName":  "google-play-games.svg",
+        "byteSize":  1081
+    },
+    {
+        "originalName":  "google-podcasts.svg",
+        "cleanName":  "google-podcasts.svg",
+        "byteSize":  429
+    },
+    {
+        "originalName":  "google-sheets.svg",
+        "cleanName":  "google-sheets.svg",
+        "byteSize":  3663
+    },
+    {
+        "originalName":  "google-slides.svg",
+        "cleanName":  "google-slides.svg",
+        "byteSize":  3619
+    },
+    {
+        "originalName":  "google-tasks.svg",
+        "cleanName":  "google-tasks.svg",
+        "byteSize":  2171
+    },
+    {
+        "originalName":  "google-tv.svg",
+        "cleanName":  "google-tv.svg",
+        "byteSize":  606
+    },
+    {
+        "originalName":  "google-wallet.svg",
+        "cleanName":  "google-wallet.svg",
+        "byteSize":  986
+    },
+    {
+        "originalName":  "grok-dark.svg",
+        "cleanName":  "grok-dark.svg",
+        "byteSize":  964
+    },
+    {
+        "originalName":  "home-assistant.svg",
+        "cleanName":  "home-assistant.svg",
+        "byteSize":  879
+    },
+    {
+        "originalName":  "homebridge.svg",
+        "cleanName":  "homebridge.svg",
+        "byteSize":  1952
+    },
+    {
+        "originalName":  "hp.svg",
+        "cleanName":  "hp.svg",
+        "byteSize":  644
+    },
+    {
+        "originalName":  "html-light.svg",
+        "cleanName":  "html-light.svg",
+        "byteSize":  642
+    },
+    {
+        "originalName":  "huawei.svg",
+        "cleanName":  "huawei.svg",
+        "byteSize":  2622
+    },
+    {
+        "originalName":  "hugging-face.svg",
+        "cleanName":  "hugging-face.svg",
+        "byteSize":  18681
+    },
+    {
+        "originalName":  "ibm.svg",
+        "cleanName":  "ibm.svg",
+        "byteSize":  1691
+    },
+    {
+        "originalName":  "instacart.svg",
+        "cleanName":  "instacart.svg",
+        "byteSize":  601
+    },
+    {
+        "originalName":  "instagram (1).svg",
+        "cleanName":  "instagram.svg",
+        "byteSize":  3285
+    },
+    {
+        "originalName":  "java.svg",
+        "cleanName":  "java.svg",
+        "byteSize":  3164
+    },
+    {
+        "originalName":  "jetbrains-toolbox (1).svg",
+        "cleanName":  "jetbrains-toolbox.svg",
+        "byteSize":  583
+    },
+    {
+        "originalName":  "kali-linux.svg",
+        "cleanName":  "kali-linux.svg",
+        "byteSize":  9386
+    },
+    {
+        "originalName":  "kick.svg",
+        "cleanName":  "kick.svg",
+        "byteSize":  339
+    },
+    {
+        "originalName":  "lastpass.svg",
+        "cleanName":  "lastpass.svg",
+        "byteSize":  584
+    },
+    {
+        "originalName":  "linkedin (1).svg",
+        "cleanName":  "linkedin.svg",
+        "byteSize":  627
+    },
+    {
+        "originalName":  "loki.svg",
+        "cleanName":  "loki.svg",
+        "byteSize":  4994
+    },
+    {
+        "originalName":  "mergeable.svg",
+        "cleanName":  "mergeable.svg",
+        "byteSize":  821
+    },
+    {
+        "originalName":  "meta.svg",
+        "cleanName":  "meta.svg",
+        "byteSize":  1918
+    },
+    {
+        "originalName":  "microsoft-365.svg",
+        "cleanName":  "microsoft-365.svg",
+        "byteSize":  3208
+    },
+    {
+        "originalName":  "microsoft-azure.svg",
+        "cleanName":  "microsoft-azure.svg",
+        "byteSize":  1662
+    },
+    {
+        "originalName":  "microsoft-bing.svg",
+        "cleanName":  "microsoft-bing.svg",
+        "byteSize":  2985
+    },
+    {
+        "originalName":  "microsoft-clipchamp.svg",
+        "cleanName":  "microsoft-clipchamp.svg",
+        "byteSize":  9482
+    },
+    {
+        "originalName":  "microsoft-copilot.svg",
+        "cleanName":  "microsoft-copilot.svg",
+        "byteSize":  3558
+    },
+    {
+        "originalName":  "microsoft-office.svg",
+        "cleanName":  "microsoft-office.svg",
+        "byteSize":  3175
+    },
+    {
+        "originalName":  "microsoft-onedrive-2018 (1).svg",
+        "cleanName":  "microsoft-onedrive.svg",
+        "byteSize":  809
+    },
+    {
+        "originalName":  "microsoft-onenote-2018.svg",
+        "cleanName":  "microsoft-onenote.svg",
+        "byteSize":  1886
+    },
+    {
+        "originalName":  "microsoft-outlook-2018.svg",
+        "cleanName":  "microsoft-outlook.svg",
+        "byteSize":  4915
+    },
+    {
+        "originalName":  "microsoft-powerpoint.svg",
+        "cleanName":  "microsoft-powerpoint.svg",
+        "byteSize":  2090
+    },
+    {
+        "originalName":  "microsoft-store.svg",
+        "cleanName":  "microsoft-store.svg",
+        "byteSize":  1995
+    },
+    {
+        "originalName":  "microsoft-to-do.svg",
+        "cleanName":  "microsoft-to-do.svg",
+        "byteSize":  761
+    },
+    {
+        "originalName":  "microsoft-windows.svg",
+        "cleanName":  "microsoft-windows.svg",
+        "byteSize":  209
+    },
+    {
+        "originalName":  "minecraft-detailed.svg",
+        "cleanName":  "minecraft-detailed.svg",
+        "byteSize":  88952
+    },
+    {
+        "originalName":  "mqtt.svg",
+        "cleanName":  "mqtt.svg",
+        "byteSize":  531
+    },
+    {
+        "originalName":  "multifactor-authenticator.svg",
+        "cleanName":  "multifactor-authenticator.svg",
+        "byteSize":  2354
+    },
+    {
+        "originalName":  "n8n.svg",
+        "cleanName":  "n8n.svg",
+        "byteSize":  1248
+    },
+    {
+        "originalName":  "nanobanana-color (1).svg",
+        "cleanName":  "nanobanana.svg",
+        "byteSize":  1380
+    },
+    {
+        "originalName":  "nasa.svg",
+        "cleanName":  "nasa.svg",
+        "byteSize":  5563
+    },
+    {
+        "originalName":  "netflix (1).svg",
+        "cleanName":  "netflix.svg",
+        "byteSize":  3354
+    },
+    {
+        "originalName":  "nextcloud-white.svg",
+        "cleanName":  "nextcloud-white.svg",
+        "byteSize":  708
+    },
+    {
+        "originalName":  "nintendo-switch.svg",
+        "cleanName":  "nintendo-switch.svg",
+        "byteSize":  1686
+    },
+    {
+        "originalName":  "nodejs-alt.svg",
+        "cleanName":  "nodejs-alt.svg",
+        "byteSize":  2578
+    },
+    {
+        "originalName":  "node-red.svg",
+        "cleanName":  "node-red.svg",
+        "byteSize":  1052
+    },
+    {
+        "originalName":  "nordvpn.svg",
+        "cleanName":  "nordvpn.svg",
+        "byteSize":  298
+    },
+    {
+        "originalName":  "notebook-lm-dark.svg",
+        "cleanName":  "notebook-lm-dark.svg",
+        "byteSize":  758
+    },
+    {
+        "originalName":  "notion-light.svg",
+        "cleanName":  "notion-light.svg",
+        "byteSize":  1156
+    },
+    {
+        "originalName":  "npm.svg",
+        "cleanName":  "npm.svg",
+        "byteSize":  460
+    },
+    {
+        "originalName":  "nvidia.svg",
+        "cleanName":  "nvidia.svg",
+        "byteSize":  818
+    },
+    {
+        "originalName":  "oculus-light.svg",
+        "cleanName":  "oculus-light.svg",
+        "byteSize":  870
+    },
+    {
+        "originalName":  "ollama-dark.svg",
+        "cleanName":  "ollama-dark.svg",
+        "byteSize":  8830
+    },
+    {
+        "originalName":  "openai (2).svg",
+        "cleanName":  "openai.svg",
+        "byteSize":  1687
+    },
+    {
+        "originalName":  "openai-light.svg",
+        "cleanName":  "openai-light.svg",
+        "byteSize":  1309
+    },
+    {
+        "originalName":  "openclaw-color (1).svg",
+        "cleanName":  "openclaw.svg",
+        "byteSize":  2096
+    },
+    {
+        "originalName":  "openhab.svg",
+        "cleanName":  "openhab.svg",
+        "byteSize":  427
+    },
+    {
+        "originalName":  "oracle.svg",
+        "cleanName":  "oracle.svg",
+        "byteSize":  166
+    },
+    {
+        "originalName":  "pi-hole.svg",
+        "cleanName":  "pi-hole.svg",
+        "byteSize":  1434
+    },
+    {
+        "originalName":  "pinterest (1).svg",
+        "cleanName":  "pinterest.svg",
+        "byteSize":  992
+    },
+    {
+        "originalName":  "playstation.svg",
+        "cleanName":  "playstation.svg",
+        "byteSize":  1240
+    },
+    {
+        "originalName":  "plex (1).svg",
+        "cleanName":  "plex.svg",
+        "byteSize":  191
+    },
+    {
+        "originalName":  "portainer-be-dark.svg",
+        "cleanName":  "portainer-be-dark.svg",
+        "byteSize":  687
+    },
+    {
+        "originalName":  "postgres.svg",
+        "cleanName":  "postgres.svg",
+        "byteSize":  3944
+    },
+    {
+        "originalName":  "postman.svg",
+        "cleanName":  "postman.svg",
+        "byteSize":  1383
+    },
+    {
+        "originalName":  "prometheus.svg",
+        "cleanName":  "prometheus.svg",
+        "byteSize":  764
+    },
+    {
+        "originalName":  "python.svg",
+        "cleanName":  "python.svg",
+        "byteSize":  1469
+    },
+    {
+        "originalName":  "pytorch.svg",
+        "cleanName":  "pytorch.svg",
+        "byteSize":  701
+    },
+    {
+        "originalName":  "raspberry-pi.svg",
+        "cleanName":  "raspberry-pi.svg",
+        "byteSize":  4552
+    },
+    {
+        "originalName":  "reactjs.svg",
+        "cleanName":  "reactjs.svg",
+        "byteSize":  375
+    },
+    {
+        "originalName":  "redis.svg",
+        "cleanName":  "redis.svg",
+        "byteSize":  2682
+    },
+    {
+        "originalName":  "robinhood.svg",
+        "cleanName":  "robinhood.svg",
+        "byteSize":  2024
+    },
+    {
+        "originalName":  "rocket-money.svg",
+        "cleanName":  "rocket-money.svg",
+        "byteSize":  771
+    },
+    {
+        "originalName":  "ruby.svg",
+        "cleanName":  "ruby.svg",
+        "byteSize":  8340
+    },
+    {
+        "originalName":  "safari.svg",
+        "cleanName":  "safari.svg",
+        "byteSize":  1628
+    },
+    {
+        "originalName":  "slack.svg",
+        "cleanName":  "slack.svg",
+        "byteSize":  968
+    },
+    {
+        "originalName":  "spotify (1).svg",
+        "cleanName":  "spotify.svg",
+        "byteSize":  867
+    },
+    {
+        "originalName":  "swift.svg",
+        "cleanName":  "swift.svg",
+        "byteSize":  1572
+    },
+    {
+        "originalName":  "telegram.svg",
+        "cleanName":  "telegram.svg",
+        "byteSize":  1007
+    },
+    {
+        "originalName":  "twitch.svg",
+        "cleanName":  "twitch.svg",
+        "byteSize":  599
+    },
+    {
+        "originalName":  "udemy-light.svg",
+        "cleanName":  "udemy-light.svg",
+        "byteSize":  460
+    },
+    {
+        "originalName":  "upwork.svg",
+        "cleanName":  "upwork.svg",
+        "byteSize":  923
+    },
+    {
+        "originalName":  "vscode.svg",
+        "cleanName":  "vscode.svg",
+        "byteSize":  3275
+    },
+    {
+        "originalName":  "whatsapp.svg",
+        "cleanName":  "whatsapp.svg",
+        "byteSize":  2061
+    },
+    {
+        "originalName":  "windows-10.svg",
+        "cleanName":  "windows-10.svg",
+        "byteSize":  277
+    },
+    {
+        "originalName":  "windows-explorer.svg",
+        "cleanName":  "windows-explorer.svg",
+        "byteSize":  2502
+    },
+    {
+        "originalName":  "windows-terminal.svg",
+        "cleanName":  "windows-terminal.svg",
+        "byteSize":  2139
+    },
+    {
+        "originalName":  "xbox.svg",
+        "cleanName":  "xbox.svg",
+        "byteSize":  1166
+    },
+    {
+        "originalName":  "xbox-game-pass.svg",
+        "cleanName":  "xbox-game-pass.svg",
+        "byteSize":  2810
+    },
+    {
+        "originalName":  "youtube (1).svg",
+        "cleanName":  "youtube.svg",
+        "byteSize":  479
+    },
+    {
+        "originalName":  "zoom.svg",
+        "cleanName":  "zoom.svg",
+        "byteSize":  393
+    }
+]

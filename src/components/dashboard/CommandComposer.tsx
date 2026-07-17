@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   ChartIcon,
   CheckIcon,
@@ -15,6 +16,7 @@ import {
   ZapIcon,
 } from "../Icons";
 import { addActivity } from "../../stores/appStore";
+import { parseOverlayIntent } from "../../features/top-overlay/iconResolver";
 
 const QUICK_ACTIONS: {
   label: string;
@@ -106,6 +108,26 @@ export function CommandComposer() {
     if (!text) return;
     addActivity(`Command (${mode.name}): "${text}"`, "command");
     setValue("");
+
+    // Testing hook: drive the top overlay for open/search/action phrases.
+    const intent = parseOverlayIntent(text);
+    const drivesOverlay =
+      intent.kind === "open" ||
+      intent.kind === "search" ||
+      intent.kind === "draft-email" ||
+      intent.kind === "schedule-meeting" ||
+      intent.kind === "create-task" ||
+      intent.kind === "screen-context" ||
+      intent.kind === "mention" ||
+      intent.kind === "clarify";
+
+    if (drivesOverlay) {
+      void invoke("overlay_queue_command", { transcript: text })
+        .then(() => invoke("show_overlay"))
+        .catch((err) =>
+          console.error("[ArcSonare] failed to drive overlay from composer:", err),
+        );
+    }
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {

@@ -2,21 +2,18 @@
 
 use tauri::{AppHandle, LogicalSize, Monitor, PhysicalPosition, WebviewWindow};
 
-// Overlay geometry in logical pixels. The native window is larger than the
-// visible capsule so the CSS drop shadow has room to render; SIDE_PAD must
-// match the horizontal padding in overlay.css.
-pub const OVERLAY_WINDOW_WIDTH: f64 = 600.0;
-pub const OVERLAY_WINDOW_HEIGHT: f64 = 94.0;
-const OVERLAY_SIDE_PAD: f64 = 10.0;
-const OVERLAY_EDGE_MARGIN: f64 = 24.0;
+use crate::top_overlay::monitor_position::{
+    OVERLAY_SHADOW_GUTTER, OVERLAY_TOP_OFFSET, OVERLAY_WINDOW_HEIGHT, OVERLAY_WINDOW_WIDTH,
+};
 
 pub const QUICK_MENU_WIDTH: f64 = 300.0;
 pub const QUICK_MENU_HEIGHT: f64 = 420.0;
 
-/// Places the overlay against the top edge of the active monitor, honoring
-/// the configured horizontal position ("top-center" | "top-left" |
-/// "top-right"), negative monitor coordinates and DPI scaling. The capsule's
-/// top edge touches the physical top edge of the monitor.
+const OVERLAY_EDGE_MARGIN: f64 = 24.0;
+
+/// Places the overlay below the top edge of the active monitor (≈16px),
+/// horizontally centered (or left/right per settings), honoring negative
+/// monitor coordinates and DPI scaling.
 pub fn position_overlay(
     app: &AppHandle,
     window: &WebviewWindow,
@@ -27,20 +24,29 @@ pub fn position_overlay(
     let mon_pos = monitor.position();
     let mon_size = monitor.size();
 
-    let win_w = (OVERLAY_WINDOW_WIDTH * scale).round() as i32;
+    // Use the window's current logical height so expanded panels stay anchored.
+    let logical_h = window
+        .inner_size()
+        .ok()
+        .map(|s| s.height as f64 / scale)
+        .filter(|h| *h > 0.0)
+        .unwrap_or(OVERLAY_WINDOW_HEIGHT);
+    let logical_w = OVERLAY_WINDOW_WIDTH;
+
+    let win_w = (logical_w * scale).round() as i32;
     let x = match position {
-        // The capsule (not the transparent shadow padding) should sit
-        // OVERLAY_EDGE_MARGIN from the monitor edge.
-        "top-left" => mon_pos.x + ((OVERLAY_EDGE_MARGIN - OVERLAY_SIDE_PAD) * scale).round() as i32,
+        "top-left" => {
+            mon_pos.x + ((OVERLAY_EDGE_MARGIN - OVERLAY_SHADOW_GUTTER) * scale).round() as i32
+        }
         "top-right" => {
             mon_pos.x + mon_size.width as i32 - win_w
-                + ((OVERLAY_SIDE_PAD - OVERLAY_EDGE_MARGIN) * scale).round() as i32
+                + ((OVERLAY_SHADOW_GUTTER - OVERLAY_EDGE_MARGIN) * scale).round() as i32
         }
         _ => mon_pos.x + (mon_size.width as i32 - win_w) / 2,
     };
-    let y = mon_pos.y;
+    let y = mon_pos.y + (OVERLAY_TOP_OFFSET * scale).round() as i32;
 
-    move_and_size(window, x, y, OVERLAY_WINDOW_WIDTH, OVERLAY_WINDOW_HEIGHT)
+    move_and_size(window, x, y, logical_w, logical_h)
 }
 
 /// Places the quick menu near the tray click position (the Windows
@@ -92,8 +98,8 @@ fn move_and_size(
     Ok(())
 }
 
-/// Prefers the monitor containing the mouse cursor; falls back to the primary
-/// monitor, then to whichever monitor the window currently occupies.
+/// Prefers the monitor containing the mouse cursor; falls back to the
+/// monitor containing the overlay window, then the primary monitor.
 fn pick_monitor(app: &AppHandle, window: &WebviewWindow) -> Result<Monitor, String> {
     if let Ok(cursor) = app.cursor_position() {
         if let Ok(monitors) = window.available_monitors() {
@@ -109,16 +115,17 @@ fn pick_monitor(app: &AppHandle, window: &WebviewWindow) -> Result<Monitor, Stri
                 }
             }
         }
-        log::debug!("cursor not inside any known monitor; falling back to primary");
+        log::debug!("cursor not inside any known monitor; falling back");
     } else {
-        log::debug!("cursor position unavailable; falling back to primary monitor");
+        log::debug!("cursor position unavailable; falling back");
     }
 
-    if let Ok(Some(primary)) = window.primary_monitor() {
-        return Ok(primary);
-    }
+    // Prefer the monitor currently hosting the window (often the foreground).
     if let Ok(Some(current)) = window.current_monitor() {
         return Ok(current);
+    }
+    if let Ok(Some(primary)) = window.primary_monitor() {
+        return Ok(primary);
     }
     Err("no monitor could be determined".into())
 }

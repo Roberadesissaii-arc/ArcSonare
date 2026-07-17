@@ -45,6 +45,9 @@ pub fn open_overlay(app: &AppHandle) {
         return;
     };
 
+    // Always start collapsed so a previous expanded session cannot leak size.
+    let _ = crate::top_overlay::overlay_window::resize_overlay(app.clone(), 0.0);
+
     let position = crate::settings::current(app).overlay_position;
     // Positioning failures are non-fatal: the window keeps its last position.
     if let Err(e) = window_position::position_overlay(app, &window, &position) {

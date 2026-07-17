@@ -1,9 +1,9 @@
 /* ---------------------------------------------------------------------------
- * Global voice overlay (window `sonare-overlay`, 600 x 94 native).
- * The visible capsule is 580 x 84 attached to the very top of the window —
- * and the window sits at the monitor's top edge, so the capsule descends
- * from behind the display edge. 10px transparent gutters remain for the
- * shadow. Layout: [marble orb][name + state][divider][waveform][close].
+ * Global top overlay (window `sonare-overlay`).
+ * Collapsed native size: 620 × 98 (600×88 capsule + 10px shadow gutters).
+ * Floats ~16px below the monitor top; all four corners fully rounded ~32px.
+ * No full-window background — only the capsule / expanded panel has surface.
+ * Layout: [marble][name+state] | [waveform] [action]
  * ------------------------------------------------------------------------- */
 
 .overlay-root {
@@ -12,57 +12,481 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  overflow: hidden;
 }
 
-.voice-overlay {
-  display: grid;
-  grid-template-columns: 58px minmax(125px, auto) 1px minmax(180px, 1fr) 44px;
-  column-gap: 16px;
-  align-items: center;
-  width: 580px;
-  height: 84px;
-  padding: 13px 16px 13px 20px;
-  border-radius: 6px 6px 30px 30px;
+/* Kill any WebView clear-color / theme bleed that paints a square behind the capsule. */
+html.overlay-window,
+html.overlay-window body,
+html.overlay-window #root {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.voice-overlay-shell {
+  display: flex;
+  flex-direction: column;
+  width: 600px;
+  margin-top: 0;
+  border-radius: 32px;
   background: linear-gradient(
     145deg,
-    rgba(27, 32, 39, 0.98) 0%,
-    rgba(13, 17, 22, 0.99) 52%,
-    rgba(8, 11, 15, 0.99) 100%
+    rgba(28, 34, 40, 0.99) 0%,
+    rgba(15, 20, 26, 0.995) 50%,
+    rgba(8, 11, 16, 1) 100%
   );
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  /* Prefer inset depth — large outer shadows paint a visible rectangular layer
+     on Windows transparent WebViews. */
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 24px 60px rgba(0, 0, 0, 0.42),
-    0 8px 22px rgba(0, 0, 0, 0.3),
-    0 0 30px rgba(131, 92, 255, 0.08);
-  color: #f1f2f4;
-  will-change: transform, opacity;
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.36),
+    0 8px 18px rgba(0, 0, 0, 0.35);
+  color: #f1f3f4;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Subtle upper-left reflection */
+.voice-overlay-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 80% at 12% 0%,
+    rgba(255, 255, 255, 0.055) 0%,
+    rgba(255, 255, 255, 0) 42%
+  );
+}
+
+.voice-overlay-shell.is-expanded {
+  border-radius: 32px 32px 26px 26px;
+}
+
+/* -------------------------- header (collapsed row) ------------------------ */
+
+.overlay-header {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 52px minmax(140px, auto) 1px minmax(205px, 1fr) 46px;
+  column-gap: 16px;
+  align-items: center;
+  width: 100%;
+  height: 88px;
+  padding: 13px 14px 13px 18px;
+  box-sizing: border-box;
+}
+
+.overlay-header.is-expanded {
+  border-radius: 32px 32px 12px 12px;
+}
+
+.overlay-divider {
+  width: 1px;
+  height: 42px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 255, 255, 0.13),
+    transparent
+  );
+}
+
+.overlay-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* ----------------------------- status text -------------------------------- */
+
+.overlay-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.ost-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f1f3f4;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.ost-status {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-listening,
+.status-responding {
+  color: #c39bff;
+}
+
+.status-thinking {
+  color: #ac8bef;
+}
+
+.status-working {
+  color: #b38cfa;
+}
+
+.status-success {
+  /* Success text stays titanium/neutral — green is reserved for the checkmark. */
+  color: #aeb5bf;
+}
+
+.status-error {
+  color: #ee7a82;
+}
+
+.status-neutral {
+  color: #87909a;
+}
+
+/* --------------------------- right action circle -------------------------- */
+
+.overlay-action-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #aeb5bf;
+  flex-shrink: 0;
+  padding: 8px;
+  box-sizing: border-box;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+.overlay-action-circle img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+  display: block;
+}
+
+.overlay-action-close:hover {
+  background: rgba(255, 255, 255, 0.085);
+  color: #ffffff;
+}
+
+.overlay-action-app {
+  animation: overlay-icon-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.overlay-action-success {
+  color: #62dea0;
+  border-color: rgba(98, 222, 160, 0.28);
+}
+
+.overlay-action-error {
+  color: #ee7a82;
+  border-color: rgba(238, 122, 130, 0.28);
+}
+
+@keyframes overlay-icon-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* -------------------------- expanded panel -------------------------------- */
+
+.overlay-panel-separator {
+  height: 1px;
+  margin: 0 18px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+}
+
+.overlay-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 14px 18px 16px;
+  box-sizing: border-box;
+  animation: overlay-panel-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes overlay-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-title-row {
+  margin-bottom: 12px;
+}
+
+.panel-heading {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f3f4;
+}
+
+.panel-muted {
+  margin-left: auto;
+  font-size: 12px;
+  color: #87909a;
+}
+
+.panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.panel-field > span,
+.panel-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #87909a;
+}
+
+.panel-field input,
+.panel-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.28);
+  color: #f1f3f4;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.panel-field input:focus,
+.panel-field textarea:focus,
+.confirm-option:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible,
+.overlay-action-circle:focus-visible {
+  outline: 2px solid rgba(195, 155, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.panel-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.panel-meta strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e8eaed;
+}
+
+.panel-body {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #c5cad1;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+
+.panel-note {
+  font-size: 12px;
+  color: #87909a;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-warning {
+  font-size: 12px;
+  color: #ee7a82;
+  margin-bottom: 10px;
+}
+
+.panel-sys-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c39bff;
+}
+
+.panel-sys-icon.success {
+  color: #62dea0;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-ghost,
+.btn-secondary,
+.btn-primary {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.btn-ghost {
+  color: #aeb5bf;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.btn-secondary {
+  color: #e8eaed;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.btn-primary {
+  color: #0b0d10;
+  background: linear-gradient(135deg, #d4b8ff, #b38cfa);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+}
+
+.confirm-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.confirm-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.22);
+  color: #f1f3f4;
+  text-align: left;
+}
+
+.confirm-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.screen-preview {
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 10px;
+}
+
+.screen-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.screen-preview-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #87909a;
+  font-size: 13px;
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #62dea0;
+  box-shadow: 0 0 8px rgba(98, 222, 160, 0.5);
 }
 
 /* -------------------------- animation state machine ---------------------- */
 
-.phase-hidden .voice-overlay {
+.phase-hidden .voice-overlay-shell {
   opacity: 0;
   pointer-events: none;
 }
 
-.phase-opening .voice-overlay {
-  animation: sonare-in 220ms var(--sonare-ease-out) both;
+.phase-opening .voice-overlay-shell {
+  animation: sonare-in 230ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.phase-visible .voice-overlay {
+.phase-visible .voice-overlay-shell {
   opacity: 1;
 }
 
-.phase-closing .voice-overlay {
-  animation: sonare-out 200ms cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
+.phase-closing .voice-overlay-shell {
+  animation: sonare-out 210ms cubic-bezier(0.55, 0.06, 0.68, 0.19) both;
   pointer-events: none;
 }
 
 @keyframes sonare-in {
   from {
     opacity: 0;
-    transform: translateY(-88px) scale(0.985);
+    transform: translateY(-18px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -77,26 +501,33 @@
   }
   to {
     opacity: 0;
-    transform: translateY(-88px) scale(0.985);
+    transform: translateY(-18px) scale(0.985);
   }
 }
 
-/* Reduced motion: keep a tiny fade so animation events still fire and the
- * open/close state machine advances normally. */
-.reduce-motion .phase-opening .voice-overlay {
+.reduce-motion .phase-opening .voice-overlay-shell {
   animation: sonare-fade-in 80ms linear both;
 }
 
-.reduce-motion .phase-closing .voice-overlay {
+.reduce-motion .phase-closing .voice-overlay-shell {
   animation: sonare-fade-out 80ms linear both;
 }
 
+.reduce-motion .overlay-panel,
+.reduce-motion .overlay-action-app {
+  animation: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .phase-opening .voice-overlay {
+  .phase-opening .voice-overlay-shell {
     animation: sonare-fade-in 80ms linear both;
   }
-  .phase-closing .voice-overlay {
+  .phase-closing .voice-overlay-shell {
     animation: sonare-fade-out 80ms linear both;
+  }
+  .overlay-panel,
+  .overlay-action-app {
+    animation: none !important;
   }
 }
 
@@ -118,7 +549,10 @@
   }
 }
 
-/* ----------------------------- name and status ---------------------------- */
+/* Legacy class hooks used by older voice surfaces */
+.voice-overlay {
+  display: contents;
+}
 
 .voice-status-text {
   display: flex;
@@ -130,43 +564,37 @@
 .vst-name {
   font-size: 16px;
   font-weight: 600;
-  color: #f1f2f4;
+  color: #f1f3f4;
   line-height: 20px;
-  white-space: nowrap;
 }
 
 .vst-status {
   font-size: 13px;
   font-weight: 500;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.vst-idle,
-.vst-cancelled {
-  color: #8a929d;
+  line-height: 18px;
 }
 
 .vst-listening,
 .vst-responding {
-  color: #c29aff;
+  color: #c39bff;
 }
 
 .vst-thinking {
-  color: #a98bee;
+  color: #ac8bef;
 }
 
 .vst-success {
-  color: #72dfa8;
+  color: #aeb5bf;
 }
 
 .vst-error {
-  color: #ef7a81;
+  color: #ee7a82;
 }
 
-/* --------------------------------- divider -------------------------------- */
+.vst-idle,
+.vst-cancelled {
+  color: #87909a;
+}
 
 .voice-overlay-divider {
   width: 1px;
@@ -174,12 +602,10 @@
   background: linear-gradient(
     180deg,
     transparent,
-    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.13),
     transparent
   );
 }
-
-/* -------------------------------- waveform area --------------------------- */
 
 .voice-overlay-wave {
   display: flex;
@@ -188,28 +614,14 @@
   min-width: 0;
 }
 
-/* ------------------------------- close button ----------------------------- */
-
 .voice-overlay-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   color: #aeb5bf;
-  transition:
-    background 150ms ease,
-    color 150ms ease;
-}
-
-.voice-overlay-close:hover {
-  background: rgba(255, 255, 255, 0.085);
-  color: #ffffff;
-}
-
-.voice-overlay-close:active {
-  background: rgba(255, 255, 255, 0.11);
 }
