@@ -18,7 +18,12 @@ import {
 import { getPrefs, usePrefs } from "../../stores/settingsStore";
 import { playEventSound } from "../../services/SoundService";
 import { PENDING_ANNOTATION_KEY, savePackage } from "./screenContextStore";
-import type { AnnotationTool, ScreenAnnotation } from "./types";
+import { focusRegionsFromAnnotations } from "./focusRegions";
+import type {
+  AnnotationTool,
+  Point,
+  ScreenAnnotation,
+} from "./types";
 
 const COLORS = ["#A576FF", "#FFFFFF", "#E56C73", "#E7AD54", "#59D999", "#6696E4"];
 
@@ -32,7 +37,6 @@ function readPending(): Pending | null {
     const raw = window.localStorage.getItem(PENDING_ANNOTATION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Pending & { at: number };
-    // Stale requests (>5 min) are ignored.
     if (Date.now() - parsed.at > 5 * 60_000) return null;
     return parsed;
   } catch {
@@ -40,69 +44,64 @@ function readPending(): Pending | null {
   }
 }
 
+function boundsFromPoints(a: Point, b: Point) {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(b.x - a.x),
+    height: Math.abs(b.y - a.y),
+  };
+}
+
 function drawAnnotation(
   ctx: CanvasRenderingContext2D,
   a: ScreenAnnotation,
   glow: boolean,
 ) {
-  if (a.points.length === 0) return;
   ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = a.thickness;
-  ctx.strokeStyle = a.color;
-  ctx.fillStyle = a.color;
-  if (glow && a.tool !== "redact" && a.tool !== "highlighter") {
-    ctx.shadowColor = "rgba(165, 118, 255, 0.55)";
-    ctx.shadowBlur = 7;
+  if (a.type !== "blur" && a.type !== "redact" && a.type !== "focus-point") {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = a.style.strokeWidth;
+    ctx.strokeStyle = a.style.color;
+    ctx.fillStyle = a.style.color;
+    ctx.globalAlpha = a.style.opacity;
+    if (glow && a.type !== "highlighter") {
+      ctx.shadowColor = "rgba(165, 118, 255, 0.55)";
+      ctx.shadowBlur = 7;
+    }
   }
-  const [first] = a.points;
-  const last = a.points[a.points.length - 1];
 
-  switch (a.tool) {
-    case "pen": {
+  switch (a.type) {
+    case "freehand": {
+      if (a.points.length === 0) break;
       ctx.beginPath();
-      ctx.moveTo(first.x, first.y);
+      ctx.moveTo(a.points[0].x, a.points[0].y);
       for (const p of a.points.slice(1)) ctx.lineTo(p.x, p.y);
       ctx.stroke();
       break;
     }
     case "highlighter": {
-      ctx.globalAlpha = 0.32;
-      ctx.lineWidth = Math.max(a.thickness * 5, 14);
+      if (a.points.length === 0) break;
+      ctx.globalAlpha = Math.min(0.4, a.style.opacity);
+      ctx.lineWidth = Math.max(a.style.strokeWidth * 5, 14);
       ctx.beginPath();
-      ctx.moveTo(first.x, first.y);
+      ctx.moveTo(a.points[0].x, a.points[0].y);
       for (const p of a.points.slice(1)) ctx.lineTo(p.x, p.y);
       ctx.stroke();
       break;
     }
     case "rectangle": {
-      ctx.strokeRect(
-        Math.min(first.x, last.x),
-        Math.min(first.y, last.y),
-        Math.abs(last.x - first.x),
-        Math.abs(last.y - first.y),
-      );
-      break;
-    }
-    case "redact": {
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#0A0D12";
-      ctx.fillRect(
-        Math.min(first.x, last.x),
-        Math.min(first.y, last.y),
-        Math.abs(last.x - first.x),
-        Math.abs(last.y - first.y),
-      );
+      ctx.strokeRect(a.bounds.x, a.bounds.y, a.bounds.width, a.bounds.height);
       break;
     }
     case "ellipse": {
       ctx.beginPath();
       ctx.ellipse(
-        (first.x + last.x) / 2,
-        (first.y + last.y) / 2,
-        Math.abs(last.x - first.x) / 2,
-        Math.abs(last.y - first.y) / 2,
+        a.bounds.x + a.bounds.width / 2,
+        a.bounds.y + a.bounds.height / 2,
+        a.bounds.width / 2,
+        a.bounds.height / 2,
         0,
         0,
         Math.PI * 2,
@@ -112,22 +111,48 @@ function drawAnnotation(
     }
     case "arrow": {
       ctx.beginPath();
-      ctx.moveTo(first.x, first.y);
-      ctx.lineTo(last.x, last.y);
+      ctx.moveTo(a.start.x, a.start.y);
+      ctx.lineTo(a.end.x, a.end.y);
       ctx.stroke();
-      const angle = Math.atan2(last.y - first.y, last.x - first.x);
-      const head = Math.max(12, a.thickness * 4);
+      const angle = Math.atan2(a.end.y - a.start.y, a.end.x - a.start.x);
+      const head = Math.max(12, a.style.strokeWidth * 4);
       ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
+      ctx.moveTo(a.end.x, a.end.y);
       ctx.lineTo(
-        last.x - head * Math.cos(angle - Math.PI / 6),
-        last.y - head * Math.sin(angle - Math.PI / 6),
+        a.end.x - head * Math.cos(angle - Math.PI / 6),
+        a.end.y - head * Math.sin(angle - Math.PI / 6),
       );
-      ctx.moveTo(last.x, last.y);
+      ctx.moveTo(a.end.x, a.end.y);
       ctx.lineTo(
-        last.x - head * Math.cos(angle + Math.PI / 6),
-        last.y - head * Math.sin(angle + Math.PI / 6),
+        a.end.x - head * Math.cos(angle + Math.PI / 6),
+        a.end.y - head * Math.sin(angle + Math.PI / 6),
       );
+      ctx.stroke();
+      break;
+    }
+    case "redact": {
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#0A0D12";
+      ctx.fillRect(a.bounds.x, a.bounds.y, a.bounds.width, a.bounds.height);
+      break;
+    }
+    case "blur": {
+      // Approximate privacy blur as a frosted violet-tinted block in-export.
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.72;
+      ctx.fillStyle = "rgba(18, 22, 30, 0.82)";
+      ctx.fillRect(a.bounds.x, a.bounds.y, a.bounds.width, a.bounds.height);
+      ctx.strokeStyle = "rgba(149, 101, 255, 0.35)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(a.bounds.x, a.bounds.y, a.bounds.width, a.bounds.height);
+      break;
+    }
+    case "focus-point": {
+      ctx.strokeStyle = "rgba(149, 101, 255, 0.8)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(a.point.x, a.point.y, a.radius, 0, Math.PI * 2);
       ctx.stroke();
       break;
     }
@@ -136,10 +161,8 @@ function drawAnnotation(
 }
 
 /**
- * Fullscreen annotation surface inside the `sonare-annotate` window: the
- * frozen capture, a compact floating toolbar and vector drawing. Confirm
- * stores the annotated PNG + a local context package; no model analyzes
- * anything — the completion message says so explicitly.
+ * Fullscreen annotation surface inside the `sonare-annotate` window.
+ * Stores structured vector annotations separately from the exported PNG.
  */
 export function ScreenAnnotationCanvas() {
   const prefs = usePrefs();
@@ -157,6 +180,7 @@ export function ScreenAnnotationCanvas() {
   const [redoStack, setRedoStack] = useState<ScreenAnnotation[]>([]);
   const [draft, setDraft] = useState<ScreenAnnotation | null>(null);
   const [busy, setBusy] = useState(false);
+  const draftStart = useRef<Point | null>(null);
 
   const close = useCallback(() => {
     invoke("close_annotation").catch(() => undefined);
@@ -170,7 +194,6 @@ export function ScreenAnnotationCanvas() {
     close();
   }, [pending, close]);
 
-  // Load the capture image.
   useEffect(() => {
     if (!pending) {
       setError("No pending capture was found for annotation.");
@@ -194,7 +217,6 @@ export function ScreenAnnotationCanvas() {
       );
   }, [pending]);
 
-  // Redraw on every change.
   useEffect(() => {
     const canvas = canvasRef.current;
     const img = imageRef.current;
@@ -205,14 +227,30 @@ export function ScreenAnnotationCanvas() {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-    // Slight dim so annotations pop without obscuring content.
     ctx.fillStyle = "rgba(5, 9, 12, 0.08)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     for (const a of annotations) drawAnnotation(ctx, a, true);
     if (draft) drawAnnotation(ctx, draft, true);
   }, [annotations, draft, imageReady]);
 
-  // Keyboard: Escape cancels, Ctrl+Z / Ctrl+Y undo/redo.
+  const undo = useCallback(() => {
+    setAnnotations((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setRedoStack((r) => [...r, last]);
+      return prev.slice(0, -1);
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setRedoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setAnnotations((a) => [...a, last]);
+      return prev.slice(0, -1);
+    });
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") cancel();
@@ -221,10 +259,9 @@ export function ScreenAnnotationCanvas() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cancel, annotations, redoStack]);
+  }, [cancel, undo, redo]);
 
-  const toCanvasPoint = (e: React.PointerEvent) => {
+  const toCanvasPoint = (e: React.PointerEvent): Point => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     return {
@@ -233,28 +270,87 @@ export function ScreenAnnotationCanvas() {
     };
   };
 
+  const style = () => ({
+    color: tool === "redact" ? "#0A0D12" : color,
+    strokeWidth: annotationPrefs.thickness,
+    opacity: 1,
+  });
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (tool === "pointer" || !imageReady) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     const p = toCanvasPoint(e);
-    setDraft({
-      id: `ann-${Date.now().toString(36)}`,
-      tool: tool as ScreenAnnotation["tool"],
-      color: tool === "redact" ? "#0A0D12" : color,
-      thickness: annotationPrefs.thickness,
-      points: [p, p],
-    });
+    draftStart.current = p;
+    const createdAt = new Date().toISOString();
+    const id = `ann-${Date.now().toString(36)}`;
+    switch (tool) {
+      case "pen":
+        setDraft({ id, type: "freehand", points: [p], style: style(), createdAt });
+        break;
+      case "highlighter":
+        setDraft({ id, type: "highlighter", points: [p], style: style(), createdAt });
+        break;
+      case "rectangle":
+        setDraft({
+          id,
+          type: "rectangle",
+          bounds: { x: p.x, y: p.y, width: 0, height: 0 },
+          style: style(),
+          createdAt,
+        });
+        break;
+      case "ellipse":
+        setDraft({
+          id,
+          type: "ellipse",
+          bounds: { x: p.x, y: p.y, width: 0, height: 0 },
+          style: style(),
+          createdAt,
+        });
+        break;
+      case "arrow":
+        setDraft({ id, type: "arrow", start: p, end: p, style: style(), createdAt });
+        break;
+      case "blur":
+        setDraft({
+          id,
+          type: "blur",
+          bounds: { x: p.x, y: p.y, width: 0, height: 0 },
+          blurRadius: 12,
+          createdAt,
+        });
+        break;
+      case "redact":
+        setDraft({
+          id,
+          type: "redact",
+          bounds: { x: p.x, y: p.y, width: 0, height: 0 },
+          createdAt,
+        });
+        break;
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!draft) return;
+    if (!draft || !draftStart.current) return;
     const p = toCanvasPoint(e);
+    const start = draftStart.current;
     setDraft((prev) => {
       if (!prev) return prev;
-      if (prev.tool === "pen" || prev.tool === "highlighter") {
-        return { ...prev, points: [...prev.points, p] };
+      switch (prev.type) {
+        case "freehand":
+        case "highlighter":
+          return { ...prev, points: [...prev.points, p] };
+        case "rectangle":
+        case "ellipse":
+        case "blur":
+        case "redact":
+          return { ...prev, bounds: boundsFromPoints(start, p) };
+        case "arrow":
+          return { ...prev, end: p };
+        default:
+          return prev;
       }
-      return { ...prev, points: [prev.points[0], p] };
     });
   };
 
@@ -263,24 +359,7 @@ export function ScreenAnnotationCanvas() {
     setAnnotations((prev) => [...prev, draft]);
     setRedoStack([]);
     setDraft(null);
-  };
-
-  const undo = () => {
-    setAnnotations((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      setRedoStack((r) => [...r, last]);
-      return prev.slice(0, -1);
-    });
-  };
-
-  const redo = () => {
-    setRedoStack((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      setAnnotations((a) => [...a, last]);
-      return prev.slice(0, -1);
-    });
+    draftStart.current = null;
   };
 
   const confirm = async () => {
@@ -294,31 +373,42 @@ export function ScreenAnnotationCanvas() {
         pngBase64: base64,
       });
 
-      // Region mode: the last rectangle becomes the crop bounds.
+      const img = imageRef.current;
+      const width = img?.naturalWidth ?? 0;
+      const height = img?.naturalHeight ?? 0;
       const lastRect = [...annotations]
         .reverse()
-        .find((a) => a.tool === "rectangle");
+        .find((a) => a.type === "rectangle");
       const cropBounds =
-        pending.mode === "region" && lastRect
-          ? {
-              x: Math.round(Math.min(lastRect.points[0].x, lastRect.points[1].x)),
-              y: Math.round(Math.min(lastRect.points[0].y, lastRect.points[1].y)),
-              width: Math.round(Math.abs(lastRect.points[1].x - lastRect.points[0].x)),
-              height: Math.round(Math.abs(lastRect.points[1].y - lastRect.points[0].y)),
-            }
+        pending.mode === "region" && lastRect && lastRect.type === "rectangle"
+          ? { ...lastRect.bounds }
           : undefined;
 
+      const privacy = getPrefs().screenContext.privacy;
       savePackage({
         id: pending.captureId,
         createdAt: new Date().toISOString(),
         source: pending.mode === "region" ? "region" : "monitor",
         monitorIds: [],
-        cropBounds,
+        capture: {
+          width,
+          height,
+          scaleFactor: 1,
+          format: "png",
+          annotatedImagePath: undefined,
+        },
+        region: cropBounds,
         annotations,
-        retentionPolicy: getPrefs().screenContext.privacy.retention,
+        focusRegions: focusRegionsFromAnnotations(annotations, width, height),
+        privacy: {
+          localOnly: privacy.localOnly,
+          cloudConsentRequired: getPrefs().screenContext.askBeforeCloud,
+          cloudConsentGranted: false,
+          retentionPolicy: privacy.retention,
+        },
+        modelStatus: "not-configured",
       });
       playEventSound("annotation-confirmed");
-      // Tell the main window (separate webview) about the new package.
       await emit("sonare:context-captured", {
         captureId: pending.captureId,
         message: "Screen context captured. Model analysis is not configured yet.",
@@ -330,14 +420,50 @@ export function ScreenAnnotationCanvas() {
     }
   };
 
-  const tools: { id: AnnotationTool; label: string; icon: React.ReactNode; enabled: boolean }[] = [
+  const tools: {
+    id: AnnotationTool;
+    label: string;
+    icon: React.ReactNode;
+    enabled: boolean;
+  }[] = [
     { id: "pointer", label: "Pointer", icon: <CursorIcon size={15} />, enabled: true },
     { id: "pen", label: "Freehand pen", icon: <PenIcon size={15} />, enabled: annotationPrefs.pen },
-    { id: "rectangle", label: "Rectangle", icon: <SquareIcon size={15} />, enabled: annotationPrefs.rectangle },
-    { id: "ellipse", label: "Ellipse", icon: <CircleIcon size={15} />, enabled: annotationPrefs.ellipse },
-    { id: "arrow", label: "Arrow", icon: <ArrowUpRightIcon size={15} />, enabled: annotationPrefs.arrow },
-    { id: "highlighter", label: "Highlighter", icon: <HighlighterIcon size={15} />, enabled: annotationPrefs.highlighter },
-    { id: "redact", label: "Redact", icon: <BlurIcon size={15} />, enabled: annotationPrefs.redact },
+    {
+      id: "rectangle",
+      label: "Rectangle",
+      icon: <SquareIcon size={15} />,
+      enabled: annotationPrefs.rectangle,
+    },
+    {
+      id: "ellipse",
+      label: "Ellipse",
+      icon: <CircleIcon size={15} />,
+      enabled: annotationPrefs.ellipse,
+    },
+    {
+      id: "arrow",
+      label: "Arrow",
+      icon: <ArrowUpRightIcon size={15} />,
+      enabled: annotationPrefs.arrow,
+    },
+    {
+      id: "highlighter",
+      label: "Highlighter",
+      icon: <HighlighterIcon size={15} />,
+      enabled: annotationPrefs.highlighter,
+    },
+    {
+      id: "blur",
+      label: "Blur",
+      icon: <BlurIcon size={15} />,
+      enabled: annotationPrefs.redact,
+    },
+    {
+      id: "redact",
+      label: "Redact",
+      icon: <BlurIcon size={15} />,
+      enabled: annotationPrefs.redact,
+    },
   ];
 
   return (
@@ -391,10 +517,24 @@ export function ScreenAnnotationCanvas() {
             />
           ))}
           <span className="annotate-divider" />
-          <button type="button" className="annotate-tool" aria-label="Undo" title="Undo (Ctrl+Z)" onClick={undo} disabled={annotations.length === 0}>
+          <button
+            type="button"
+            className="annotate-tool"
+            aria-label="Undo"
+            title="Undo (Ctrl+Z)"
+            onClick={undo}
+            disabled={annotations.length === 0}
+          >
             <UndoIcon size={15} />
           </button>
-          <button type="button" className="annotate-tool" aria-label="Redo" title="Redo (Ctrl+Y)" onClick={redo} disabled={redoStack.length === 0}>
+          <button
+            type="button"
+            className="annotate-tool"
+            aria-label="Redo"
+            title="Redo (Ctrl+Y)"
+            onClick={redo}
+            disabled={redoStack.length === 0}
+          >
             <RedoIcon size={15} />
           </button>
           <button
@@ -411,7 +551,13 @@ export function ScreenAnnotationCanvas() {
             <TrashIcon size={15} />
           </button>
           <span className="annotate-divider" />
-          <button type="button" className="annotate-tool annotate-cancel" aria-label="Cancel" title="Cancel (Esc)" onClick={cancel}>
+          <button
+            type="button"
+            className="annotate-tool annotate-cancel"
+            aria-label="Cancel"
+            title="Cancel (Esc)"
+            onClick={cancel}
+          >
             <CloseIcon size={15} />
           </button>
           <button

@@ -5,6 +5,7 @@
 //! app data directory; the frontend labels analysis honestly as unavailable.
 
 pub mod capture;
+pub mod cursor_tracker;
 pub mod monitors;
 pub mod overlay;
 pub mod storage;
@@ -44,7 +45,9 @@ pub fn broadcast_status(app: &AppHandle) {
 /// Stops every capture session and removes all edge overlays. Called on user
 /// request and unconditionally on application exit.
 pub fn stop_all(app: &AppHandle) {
+    cursor_tracker::stop();
     overlay::remove_all_edge_overlays(app);
+    overlay::close_annotation(app.clone());
     app.state::<ScreenContextState>().0.lock().unwrap().clear();
     broadcast_status(app);
 }
@@ -66,6 +69,7 @@ pub fn start_screen_context(app: AppHandle, monitor_ids: Vec<String>) -> Result<
     overlay::remove_all_edge_overlays(&app);
     let shown = overlay::show_edge_overlays(&app, &monitor_ids)?;
     *app.state::<ScreenContextState>().0.lock().unwrap() = shown;
+    cursor_tracker::start(&app);
     broadcast_status(&app);
     Ok(())
 }

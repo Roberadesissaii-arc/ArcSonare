@@ -29,7 +29,15 @@ export type CaptureTarget =
   | "selected-monitor"
   | "all-monitors"
   | "region";
-export type ScreenRetention = "none" | "15m" | "1h" | "1d" | "7d";
+export type ScreenRetention =
+  | "none"
+  | "15m"
+  | "1h"
+  | "1d"
+  | "7d"
+  | "after-processing"
+  | "30d"
+  | "manual";
 export type DataRetention =
   | "never"
   | "after-processing"
@@ -211,6 +219,8 @@ export interface Prefs {
     hideArcSonareWindows: boolean;
     autoDeleteTemp: boolean;
     askBeforeCloud: boolean;
+    cursorCompanionEnabled: boolean;
+    cursorTrailEnabled: boolean;
     defaultTarget: CaptureTarget;
     selectedMonitorIds: string[];
     showLabel: boolean;
@@ -334,7 +344,7 @@ function defaultRetention(): Prefs["dataPrivacy"]["retention"] {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   general: {
     startMinimized: false,
     keepRunningOnClose: true,
@@ -437,6 +447,8 @@ export const DEFAULT_PREFS: Prefs = {
     hideArcSonareWindows: true,
     autoDeleteTemp: true,
     askBeforeCloud: true,
+    cursorCompanionEnabled: true,
+    cursorTrailEnabled: true,
     defaultTarget: "mouse-monitor",
     selectedMonitorIds: [],
     showLabel: true,

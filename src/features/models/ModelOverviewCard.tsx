@@ -33,8 +33,13 @@ export function ModelOverviewCard({
     .join(", ");
 
   return (
-    <section className="models-side-card">
-      <h3 className="models-side-label">Model Overview</h3>
+    <section className="models-side-card models-side-card-overview">
+      <header className="models-side-card-head">
+        <h3 className="models-side-label">Model Overview</h3>
+        <p className="models-side-subtitle">
+          Catalog mix across cloud, local, audio, and vision-capable models.
+        </p>
+      </header>
       <div className="models-overview">
         <div
           className="models-donut"
@@ -61,6 +66,9 @@ export function ModelOverviewCard({
           </li>
         </ul>
       </div>
+      <p className="models-overview-footnote">
+        Assign roles above, then set fallbacks so chat keeps working when a provider is down.
+      </p>
       <button type="button" className="btn models-configure-providers" onClick={onConfigureProviders}>
         Configure providers
       </button>

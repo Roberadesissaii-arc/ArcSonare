@@ -162,6 +162,13 @@ export async function openAnnotationFor(
 export async function captureAndAnnotate(
   override?: "active-window" | "mouse-monitor" | "region",
 ): Promise<void> {
+  const prefs = getPrefs().screenContext;
+  if (prefs.requireConfirmation) {
+    const ok = window.confirm(
+      "Capture the selected screen and open annotation?",
+    );
+    if (!ok) return;
+  }
   const metas = await captureTarget(override);
   if (metas.length > 0) {
     await openAnnotationFor(metas[0], override === "region" ? "region" : "annotate");

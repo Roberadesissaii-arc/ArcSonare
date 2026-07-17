@@ -20,7 +20,17 @@ fn expand_env(path: &str) -> String {
         if bytes[i] == b'%' {
             if let Some(end) = path[i + 1..].find('%') {
                 let name = &path[i + 1..i + 1 + end];
-                if let Ok(val) = std::env::var(name) {
+                // WINDIR / SystemRoot are common on Windows; try both casings.
+                let val = std::env::var(name)
+                    .or_else(|_| std::env::var(name.to_ascii_uppercase()))
+                    .or_else(|_| {
+                        if name.eq_ignore_ascii_case("WINDIR") {
+                            std::env::var("SystemRoot")
+                        } else {
+                            Err(std::env::VarError::NotPresent)
+                        }
+                    });
+                if let Ok(val) = val {
                     out.push_str(&val);
                     i += end + 2;
                     continue;

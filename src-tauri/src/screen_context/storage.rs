@@ -107,12 +107,14 @@ pub fn clear(app: &AppHandle) -> Result<(), String> {
 
 fn retention_secs(retention: &str) -> Option<u64> {
     match retention {
-        "none" => Some(0),
+        "none" | "after-processing" => Some(0),
         "15m" => Some(15 * 60),
         "1h" => Some(60 * 60),
         "1d" => Some(24 * 60 * 60),
         "7d" => Some(7 * 24 * 60 * 60),
-        _ => None, // unknown → keep
+        "30d" => Some(30 * 24 * 60 * 60),
+        "manual" => None, // keep until cleared
+        _ => None,        // unknown → keep
     }
 }
 

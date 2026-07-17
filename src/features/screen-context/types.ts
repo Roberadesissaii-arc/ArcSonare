@@ -1,5 +1,23 @@
 /** Screen Context shared types (frontend side). */
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface AnnotationStyle {
+  color: string;
+  strokeWidth: number;
+  opacity: number;
+}
+
 export interface MonitorInfo {
   id: string;
   name: string;
@@ -10,6 +28,16 @@ export interface MonitorInfo {
   scaleFactor: number;
   isPrimary: boolean;
 }
+
+/** Richer monitor descriptor used by Capture Target cards. */
+export type MonitorDescriptor = MonitorInfo & {
+  selected: boolean;
+  physicalPosition: { x: number; y: number };
+  physicalSize: { width: number; height: number };
+  logicalPosition: { x: number; y: number };
+  logicalSize: { width: number; height: number };
+  refreshRate?: number;
+};
 
 export interface CaptureMeta {
   id: string;
@@ -29,26 +57,131 @@ export type AnnotationTool =
   | "ellipse"
   | "arrow"
   | "highlighter"
+  | "blur"
   | "redact";
 
-export interface ScreenAnnotation {
-  id: string;
-  tool: Exclude<AnnotationTool, "pointer">;
-  color: string;
-  thickness: number;
-  /** Pen/highlighter: polyline; shapes: [start, end]. Image-pixel coords. */
-  points: { x: number; y: number }[];
-}
+export type ScreenAnnotation =
+  | {
+      id: string;
+      type: "freehand";
+      points: Point[];
+      style: AnnotationStyle;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "rectangle";
+      bounds: Bounds;
+      style: AnnotationStyle;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "ellipse";
+      bounds: Bounds;
+      style: AnnotationStyle;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "arrow";
+      start: Point;
+      end: Point;
+      style: AnnotationStyle;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "highlighter";
+      points: Point[];
+      style: AnnotationStyle;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "blur";
+      bounds: Bounds;
+      blurRadius: number;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "redact";
+      bounds: Bounds;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      type: "focus-point";
+      point: Point;
+      radius: number;
+      createdAt: string;
+    };
+
+export type ScreenContextModelStatus =
+  | "not-requested"
+  | "not-configured"
+  | "waiting-for-consent"
+  | "processing"
+  | "completed"
+  | "error";
 
 export interface ScreenContextPackage {
   id: string;
   createdAt: string;
-  source: "active-window" | "monitor" | "multi-monitor" | "region";
+  source:
+    | "active-window"
+    | "monitor"
+    | "multi-monitor"
+    | "entire-desktop"
+    | "region";
   monitorIds: string[];
-  activeWindowTitle?: string;
-  originalImagePath?: string;
-  annotatedImagePath?: string;
-  cropBounds?: { x: number; y: number; width: number; height: number };
+  activeWindow?: {
+    title?: string;
+    processName?: string;
+    applicationId?: string;
+    bounds?: Bounds;
+  };
+  capture: {
+    originalImagePath?: string;
+    annotatedImagePath?: string;
+    thumbnailPath?: string;
+    width: number;
+    height: number;
+    scaleFactor: number;
+    format: "png" | "webp";
+  };
+  region?: Bounds;
+  pointer?: {
+    point: Point;
+    normalizedPoint: Point;
+  };
   annotations: ScreenAnnotation[];
-  retentionPolicy: string;
+  focusRegions: Bounds[];
+  userRequest?: {
+    transcript?: string;
+    text?: string;
+  };
+  privacy: {
+    localOnly: boolean;
+    cloudConsentRequired: boolean;
+    cloudConsentGranted: boolean;
+    retentionPolicy: string;
+    expiresAt?: string;
+  };
+  modelStatus: ScreenContextModelStatus;
+  modelResult?: {
+    provider?: string;
+    model?: string;
+    summary?: string;
+    createdAt?: string;
+  };
+}
+
+/** Map annotation tool id → structured annotation `type`. */
+export function toolToAnnotationType(
+  tool: Exclude<AnnotationTool, "pointer">,
+): ScreenAnnotation["type"] {
+  if (tool === "pen") return "freehand";
+  return tool;
 }

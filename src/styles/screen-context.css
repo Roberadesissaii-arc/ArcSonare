@@ -1,0 +1,275 @@
+/* Screen Context edge indicator + annotation overlay (separate Tauri windows). */
+
+.edge-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  --edge-alpha: 0.78;
+}
+
+.edge-line {
+  position: absolute;
+  background: rgba(154, 112, 255, calc(var(--edge-alpha) * 0.92));
+  box-shadow: 0 0 12px rgba(121, 77, 230, 0.35);
+}
+
+.edge-top,
+.edge-bottom {
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.edge-top {
+  top: 0;
+}
+
+.edge-bottom {
+  bottom: 0;
+}
+
+.edge-left,
+.edge-right {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.edge-left {
+  left: 0;
+}
+
+.edge-right {
+  right: 0;
+}
+
+.edge-corner {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-color: rgba(196, 156, 255, calc(var(--edge-alpha)));
+  border-style: solid;
+  border-width: 0;
+}
+
+.edge-tl {
+  top: 0;
+  left: 0;
+  border-top-width: 3px;
+  border-left-width: 3px;
+  border-top-left-radius: 4px;
+}
+
+.edge-tr {
+  top: 0;
+  right: 0;
+  border-top-width: 3px;
+  border-right-width: 3px;
+  border-top-right-radius: 4px;
+}
+
+.edge-bl {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+  border-bottom-left-radius: 4px;
+}
+
+.edge-br {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+  border-bottom-right-radius: 4px;
+}
+
+.edge-glow {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 48px rgba(121, 77, 230, 0.2);
+  pointer-events: none;
+}
+
+.edge-style-corners .edge-line {
+  opacity: 0.25;
+}
+
+.edge-style-pulse .edge-line,
+.edge-style-pulse .edge-corner {
+  animation: edge-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes edge-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edge-style-pulse .edge-line,
+  .edge-style-pulse .edge-corner {
+    animation: none;
+  }
+}
+
+.edge-label {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  color: #e8ebed;
+  background: linear-gradient(145deg, rgba(28, 36, 44, 0.92), rgba(12, 18, 24, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.spatial-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  margin: -2px 0 0 -2px;
+  filter: drop-shadow(0 0 6px rgba(149, 101, 255, 0.55));
+  will-change: transform;
+  z-index: 3;
+}
+
+.cursor-trail {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.spatial-dwell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(149, 101, 255, 0.75);
+  box-shadow: 0 0 16px rgba(149, 101, 255, 0.35);
+  animation: dwell-pulse 0.9s ease-out infinite;
+  z-index: 2;
+  transform-origin: center center;
+  pointer-events: none;
+}
+
+@keyframes dwell-pulse {
+  from {
+    scale: 0.85;
+    opacity: 0.9;
+  }
+  to {
+    scale: 1.35;
+    opacity: 0;
+  }
+}
+
+.annotate-root {
+  position: fixed;
+  inset: 0;
+  background: #05090c;
+  overflow: hidden;
+}
+
+.annotate-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+  object-fit: contain;
+}
+
+.annotate-toolbar {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 54px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(28, 36, 44, 0.96), rgba(12, 18, 24, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px rgba(0, 0, 0, 0.45);
+  z-index: 5;
+}
+
+.annotate-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #c5ccd2;
+}
+
+.annotate-tool:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8ebed;
+}
+
+.annotate-tool.active {
+  color: #f0e8ff;
+  background: rgba(149, 101, 255, 0.22);
+  border: 1px solid rgba(149, 101, 255, 0.4);
+}
+
+.annotate-tool:disabled {
+  opacity: 0.35;
+}
+
+.annotate-divider {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.annotate-hint {
+  font-size: 11px;
+  color: #a4abb1;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.annotate-confirm {
+  color: #62dea0 !important;
+}
+
+.annotate-cancel {
+  color: #e26d76 !important;
+}
+
+.annotate-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #e8ebed;
+  background: #0b1218;
+}
