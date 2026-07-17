@@ -23,10 +23,9 @@ import {
   requireCenterConfig,
   startCenterWork,
 } from "../../stores/centerStageStore";
-import { modelById } from "../../config/modelRegistry";
-import { deepseekReply } from "../../services/DeepSeekService";
-import { ensureOllamaModel, ollamaReply } from "../../services/OllamaService";
+import { askAssistant } from "../../services/AssistantService";
 import { getPrefs } from "../../stores/settingsStore";
+import { modelById } from "../../config/modelRegistry";
 
 const QUICK_ACTIONS: {
   label: string;
@@ -83,106 +82,42 @@ const MODES: ComposerMode[] = [
   },
 ];
 
-/** Ask Ollama and show the reply in the center stage. */
-async function askLocalAssistant(text: string) {
-  startCenterWork({
-    kind: "generic",
-    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
-    status: "Thinking…",
-    step: "Connecting to Ollama",
-    progress: 24,
-    contextNote: "Local model — nothing leaves this computer.",
-    resultReady: false,
-  });
-
-  const ready = await ensureOllamaModel();
-  if (!ready.ok) {
-    requireCenterConfig(ready.message);
-    return;
-  }
-
-  startCenterWork({
-    kind: "generic",
-    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
-    status: "Thinking…",
-    step: `Asking ${ready.model}`,
-    progress: 55,
-    contextNote: `Ollama · ${ready.model}`,
-    resultReady: false,
-  });
-
-  try {
-    const reply = await ollamaReply(text);
-    completeCenterWork({
-      status: reply,
-      step: `Reply from ${ready.model}`,
-      contextNote: `Ollama · ${ready.model}`,
-    });
-    addActivity(`ArcSonare: ${reply.slice(0, 120)}`, "agent");
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "The local model did not reply.";
-    requireCenterConfig(message);
-  }
-}
-
-/** Ask DeepSeek (cloud) and show the reply in the center stage. */
-async function askDeepSeekAssistant(text: string, modelName: string, displayName: string) {
-  startCenterWork({
-    kind: "generic",
-    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
-    status: "Thinking…",
-    step: "Connecting to DeepSeek",
-    progress: 24,
-    contextNote: "Cloud model — request goes to api.deepseek.com.",
-    resultReady: false,
-  });
-
-  startCenterWork({
-    kind: "generic",
-    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
-    status: "Thinking…",
-    step: `Asking ${displayName}`,
-    progress: 55,
-    contextNote: `DeepSeek · ${modelName}`,
-    resultReady: false,
-  });
-
-  try {
-    const reply = await deepseekReply(text, modelName);
-    completeCenterWork({
-      status: reply,
-      step: `Reply from ${displayName}`,
-      contextNote: `DeepSeek · ${modelName}`,
-    });
-    addActivity(`ArcSonare: ${reply.slice(0, 120)}`, "agent");
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "DeepSeek did not reply.";
-    requireCenterConfig(message);
-  }
-}
-
-/** Route chat to the selected default model (or force Ollama in Local mode). */
-async function askAssistant(text: string, forceLocal: boolean) {
-  if (forceLocal) {
-    await askLocalAssistant(text);
-    return;
-  }
-
+/** Ask the selected default model (or force Ollama in Local mode). */
+async function runAssistant(text: string, forceLocal: boolean) {
   const role = modelById(getPrefs().models.roles.assistant);
-  if (role?.provider === "deepseek") {
-    await askDeepSeekAssistant(text, role.modelName, role.displayName);
-    return;
-  }
-  if (role?.provider === "ollama" || !role) {
-    await askLocalAssistant(text);
-    return;
-  }
+  const title = text.length > 64 ? `${text.slice(0, 61)}…` : text;
 
-  requireCenterConfig(
-    `${role.displayName} is selected, but chat for that provider is not wired yet. Choose Ollama or DeepSeek in Settings → Models.`,
-  );
+  startCenterWork({
+    kind: "generic",
+    title,
+    status: "Thinking…",
+    step: forceLocal
+      ? "Connecting to Ollama"
+      : role
+        ? `Using ${role.displayName}`
+        : "Connecting…",
+    progress: 28,
+    contextNote: forceLocal
+      ? "Local mode — Ollama on this computer."
+      : "Uses your default model from Settings → Models.",
+    resultReady: false,
+  });
+
+  try {
+    const reply = await askAssistant(text, { forceLocal });
+    completeCenterWork({
+      status: reply.text,
+      step: reply.localTool
+        ? `Answered with ${reply.localTool}`
+        : `Reply from ${reply.sourceLabel}`,
+      contextNote: reply.sourceLabel,
+    });
+    addActivity(`ArcSonare: ${reply.text.slice(0, 120)}`, "agent");
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "The assistant did not reply.";
+    requireCenterConfig(message);
+  }
 }
 
 /**
@@ -266,7 +201,7 @@ export function CommandComposer() {
     }
 
     // Everything else — including “hello” — uses the selected default model.
-    void askAssistant(text, mode.id === "local").finally(finish);
+    void runAssistant(text, mode.id === "local").finally(finish);
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -291,7 +226,7 @@ export function CommandComposer() {
         addActivity(`You: "${text}"`, "command");
         setValue("");
         setBusy(true);
-        void askAssistant(text, mode.id === "local").finally(() => setBusy(false));
+        void runAssistant(text, mode.id === "local").finally(() => setBusy(false));
       }, 0);
     }
   };

@@ -36,12 +36,15 @@ import type {
 } from "../../features/models/modelTypes";
 import { deepseekReply } from "../../services/DeepSeekService";
 import {
+  ensureOllamaCloudModel,
   ensureOllamaModel,
+  ollamaCloudChat,
   ollamaReply,
   probeOllama,
   type OllamaStatus,
 } from "../../services/OllamaService";
 import { patchPrefs, updatePrefs, usePrefs } from "../../stores/settingsStore";
+import { assistantSystemContext } from "../../services/assistantTools";
 
 type KeyStatus = Record<ProviderId, boolean>;
 
@@ -149,7 +152,7 @@ export function ModelsSettingsPage() {
 
   const selectAsDefault = async (model: ModelInfo) => {
     setAssignError(null);
-    if (model.provider === "ollama") {
+    if (model.id === "ollama-local") {
       const ready = await ensureOllamaModel();
       if (!ready.ok) {
         setAssignError(ready.message);
@@ -160,18 +163,37 @@ export function ModelsSettingsPage() {
       refreshOllama();
       return;
     }
+    if (model.id === "ollama-cloud") {
+      if (!keys.ollama) {
+        setAssignError(
+          "Save an Ollama Cloud API key first (Configure Ollama → Cloud).",
+        );
+        setProviderPanel("ollama");
+        return;
+      }
+      const ready = await ensureOllamaCloudModel();
+      if (!ready.ok) {
+        setAssignError(ready.message);
+        setProviderPanel("ollama");
+        return;
+      }
+      setRole("assistant", "ollama-cloud");
+      return;
+    }
     setRole("assistant", model.id);
   };
 
   const canTest = (model: ModelInfo) =>
-    model.provider === "ollama" || model.provider === "deepseek";
+    model.id === "ollama-local" ||
+    model.id === "ollama-cloud" ||
+    model.provider === "deepseek";
 
   const runTest = async (model: ModelInfo, prompt: string) => {
     setTesting(true);
     setTestModelId(model.id);
     setTestResult(null);
     try {
-      if (model.provider === "ollama") {
+      if (model.id === "ollama-local") {
         const ready = await ensureOllamaModel();
         if (!ready.ok) {
           setTestResult(ready.message);
@@ -179,6 +201,27 @@ export function ModelsSettingsPage() {
         }
         const reply = await ollamaReply(prompt);
         setTestResult(`✓ ${ready.model}: ${reply}`);
+        markRecent(model.id);
+        return;
+      }
+      if (model.id === "ollama-cloud") {
+        if (!keys.ollama) {
+          setTestResult("Save an Ollama Cloud API key first, then try again.");
+          return;
+        }
+        const ready = await ensureOllamaCloudModel();
+        if (!ready.ok) {
+          setTestResult(ready.message);
+          return;
+        }
+        const reply = await ollamaCloudChat(
+          [
+            { role: "system", content: assistantSystemContext() },
+            { role: "user", content: prompt },
+          ],
+          ready.model,
+        );
+        setTestResult(`✓ Cloud ${ready.model}: ${reply}`);
         markRecent(model.id);
         return;
       }
@@ -197,7 +240,7 @@ export function ModelsSettingsPage() {
       setTestResult(err instanceof Error ? err.message : String(err));
     } finally {
       setTesting(false);
-      if (model.provider === "ollama") refreshOllama();
+      if (model.id === "ollama-local") refreshOllama();
     }
   };
 
@@ -355,6 +398,7 @@ export function ModelsSettingsPage() {
                   keys,
                   ollama,
                   modelsPrefs.ollamaModel,
+                  modelsPrefs.ollamaCloudModel,
                 );
                 const selected = modelsPrefs.roles.assistant === model.id;
                 return (
@@ -365,9 +409,11 @@ export function ModelsSettingsPage() {
                     statusKind={status.kind}
                     statusLabel={status.label}
                     activeModelName={
-                      model.provider === "ollama"
+                      model.id === "ollama-local"
                         ? modelsPrefs.ollamaModel || undefined
-                        : undefined
+                        : model.id === "ollama-cloud"
+                          ? modelsPrefs.ollamaCloudModel || undefined
+                          : undefined
                     }
                     view={view}
                     testing={testing && testModelId === model.id}
@@ -410,16 +456,30 @@ export function ModelsSettingsPage() {
         <ModelDetailDrawer
           model={detailModel}
           statusKind={
-            modelStatus(detailModel, keys, ollama, modelsPrefs.ollamaModel).kind
+            modelStatus(
+              detailModel,
+              keys,
+              ollama,
+              modelsPrefs.ollamaModel,
+              modelsPrefs.ollamaCloudModel,
+            ).kind
           }
           statusLabel={
-            modelStatus(detailModel, keys, ollama, modelsPrefs.ollamaModel).label
+            modelStatus(
+              detailModel,
+              keys,
+              ollama,
+              modelsPrefs.ollamaModel,
+              modelsPrefs.ollamaCloudModel,
+            ).label
           }
           assignedRoles={rolesForModel(detailModel.id, modelsPrefs.roles)}
           activeModelName={
-            detailModel.provider === "ollama"
+            detailModel.id === "ollama-local"
               ? modelsPrefs.ollamaModel || undefined
-              : undefined
+              : detailModel.id === "ollama-cloud"
+                ? modelsPrefs.ollamaCloudModel || undefined
+                : undefined
           }
           testing={testing && testModelId === detailModel.id}
           testResult={testModelId === detailModel.id ? testResult : null}

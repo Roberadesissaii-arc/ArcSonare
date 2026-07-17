@@ -6,6 +6,7 @@ import "./styles/global.css";
 import "./styles/shell.css";
 import "./styles/dashboard.css";
 import "./styles/cards.css";
+import "./styles/agents.css";
 import "./styles/voice.css";
 import "./styles/overlay.css";
 import "./styles/settings.css";

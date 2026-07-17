@@ -56,10 +56,16 @@ export function AgentCreationWizard({ draft, onClose, onCreated }: AgentCreation
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (step === STEPS.length - 1) create();
+        else next();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bind once per step
+  }, [onClose, step, agent]);
 
   const set = (patch: Partial<AgentConfig>) => setAgent((a) => ({ ...a, ...patch }));
   const setInstructions = (patch: Partial<AgentConfig["instructions"]>) =>
@@ -354,6 +360,28 @@ export function AgentCreationWizard({ draft, onClose, onCreated }: AgentCreation
                   label="Local-only"
                 />
               </div>
+              <label className="modal-label">Runtime</label>
+              <SegmentedControl
+                options={[
+                  { value: "manual", label: "Manual" },
+                  { value: "local", label: "Local" },
+                  { value: "cloud", label: "Cloud" },
+                  { value: "hybrid", label: "Hybrid" },
+                ]}
+                value={agent.runtimeType}
+                onChange={(runtimeType) =>
+                  set({
+                    runtimeType: runtimeType as AgentConfig["runtimeType"],
+                    localOnly: runtimeType === "local",
+                  })
+                }
+                ariaLabel="Agent runtime"
+              />
+              <p className="field-help">
+                Manual is available now. Local/Cloud/Hybrid require a connected
+                agent runtime — selecting them saves preference only and does
+                not imply execution is ready.
+              </p>
             </>
           ) : null}
 
@@ -527,6 +555,8 @@ export function AgentCreationWizard({ draft, onClose, onCreated }: AgentCreation
                 <dd>{agent.name || "—"}</dd>
                 <dt>Model</dt>
                 <dd>{model?.displayName ?? "Not assigned"}</dd>
+                <dt>Runtime</dt>
+                <dd>{agent.runtimeType}</dd>
                 <dt>Voice</dt>
                 <dd>
                   {agent.voice.enabled

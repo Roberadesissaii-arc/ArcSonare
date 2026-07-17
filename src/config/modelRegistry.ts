@@ -73,8 +73,9 @@ export const PROVIDERS: ProviderInfo[] = [
     id: "ollama",
     name: "Ollama",
     logo: ollamaLogo,
+    /** Local runtime + optional Cloud API key (configured in the provider panel). */
     configuration: "local-runtime",
-    description: "Private local models running on this computer.",
+    description: "Local models on this computer, or Ollama Cloud with an API key.",
   },
 ];
 
@@ -290,16 +291,34 @@ export const MODELS: ModelInfo[] = [
     modelName: "(installed models)",
     displayName: "Ollama (local)",
     logo: ollamaLogo,
-    description: "Runs models you have installed locally. Private by design.",
-    capabilities: ["Text", "Local"],
+    description: "Runs models you have installed locally via ollama serve. Private by design.",
+    capabilities: ["Text", "Local", "Tools"],
     contextType: "standard",
     supportsText: true,
     supportsImage: false,
     supportsAudioInput: false,
     supportsAudioOutput: false,
-    supportsTools: false,
+    supportsTools: true,
     supportsReasoning: false,
     locality: "local",
+  },
+  {
+    id: "ollama-cloud",
+    provider: "ollama",
+    modelName: "(cloud models)",
+    displayName: "Ollama Cloud",
+    logo: ollamaLogo,
+    description:
+      "Runs larger models on ollama.com with your API key. Same Ollama API, hosted remotely.",
+    capabilities: ["Text", "Cloud", "Tools"],
+    contextType: "long",
+    supportsText: true,
+    supportsImage: false,
+    supportsAudioInput: false,
+    supportsAudioOutput: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    locality: "cloud",
   },
 ];
 

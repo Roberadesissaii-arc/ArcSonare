@@ -75,7 +75,14 @@ export function isModelConnected(
   keys: Record<ProviderId, boolean>,
   ollama: OllamaStatus | null,
   ollamaModel: string,
+  ollamaCloudModel = "",
 ): boolean {
+  if (model.id === "ollama-local") {
+    return Boolean(ollama?.available && ollamaModel.trim());
+  }
+  if (model.id === "ollama-cloud") {
+    return Boolean(keys.ollama && ollamaCloudModel.trim());
+  }
   if (model.provider === "ollama") {
     return Boolean(ollama?.available && ollamaModel.trim());
   }
@@ -87,7 +94,26 @@ export function modelStatus(
   keys: Record<ProviderId, boolean>,
   ollama: OllamaStatus | null,
   ollamaModel: string,
+  ollamaCloudModel = "",
 ): { kind: ModelStatusKind; label: string } {
+  if (model.id === "ollama-local") {
+    if (ollama?.available && ollamaModel.trim()) {
+      return { kind: "running", label: "Running locally" };
+    }
+    if (ollama && !ollama.available) {
+      return { kind: "unavailable", label: "Offline" };
+    }
+    return { kind: "not-configured", label: "Not detected" };
+  }
+  if (model.id === "ollama-cloud") {
+    if (keys.ollama && ollamaCloudModel.trim()) {
+      return { kind: "configured", label: "Cloud configured" };
+    }
+    if (keys.ollama) {
+      return { kind: "not-configured", label: "Model name needed" };
+    }
+    return { kind: "not-configured", label: "API key needed" };
+  }
   if (model.provider === "ollama") {
     if (ollama?.available && ollamaModel.trim()) {
       return { kind: "running", label: "Running locally" };
@@ -98,7 +124,6 @@ export function modelStatus(
     return { kind: "not-configured", label: "Not detected" };
   }
   if (keys[model.provider]) {
-    // Key stored — not a live health check.
     return { kind: "configured", label: "Configured" };
   }
   return { kind: "not-configured", label: "Not configured" };
@@ -111,6 +136,24 @@ export function providerStatuses(
   const ids = Array.from(new Set(MODELS.map((m) => m.provider)));
   return ids.map((providerId) => {
     const provider = providerById(providerId);
+    if (providerId === "ollama") {
+      if (ollama?.available || keys.ollama) {
+        return {
+          providerId,
+          hasKey: Boolean(keys.ollama),
+          label: ollama?.available
+            ? ("Running" as const)
+            : ("Configured" as const),
+          kind: ollama?.available ? ("running" as const) : ("configured" as const),
+        };
+      }
+      return {
+        providerId,
+        hasKey: false,
+        label: ollama ? ("Offline" as const) : ("Not detected" as const),
+        kind: "unavailable" as const,
+      };
+    }
     if (provider.configuration === "local-runtime") {
       if (ollama?.available) {
         return {

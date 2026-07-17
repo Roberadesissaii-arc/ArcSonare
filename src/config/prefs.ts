@@ -194,8 +194,10 @@ export interface Prefs {
 
   models: {
     roles: Record<ModelRole, string | null>;
-    /** Installed Ollama model name, e.g. "llama3.2". */
+    /** Installed local Ollama model name, e.g. "llama3.2". */
     ollamaModel: string;
+    /** Ollama Cloud model name, e.g. "gpt-oss:120b". */
+    ollamaCloudModel: string;
     autoRouting: boolean;
     preferFastSimple: boolean;
     preferLocalPrivate: boolean;
@@ -446,6 +448,7 @@ export const DEFAULT_PREFS: Prefs = {
       background: null,
     },
     ollamaModel: "",
+    ollamaCloudModel: "",
     autoRouting: true,
     preferFastSimple: true,
     preferLocalPrivate: true,

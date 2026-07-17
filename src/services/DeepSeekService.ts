@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getPrefs } from "../stores/settingsStore";
 import { modelById } from "../config/modelRegistry";
 import type { ChatMessage } from "./OllamaService";
+import { assistantSystemContext } from "./assistantTools";
 
 export async function deepseekChat(
   messages: ChatMessage[],
@@ -24,18 +25,14 @@ export async function deepseekChat(
   });
 }
 
-/** Short chat reply for the dashboard composer. */
+/** Short chat reply for settings tests / direct calls. */
 export async function deepseekReply(
   userText: string,
   modelOverride?: string,
 ): Promise<string> {
   return deepseekChat(
     [
-      {
-        role: "system",
-        content:
-          "You are ArcSonare, a helpful desktop assistant. Keep replies concise (1–4 sentences) unless the user asks for more.",
-      },
+      { role: "system", content: assistantSystemContext() },
       { role: "user", content: userText },
     ],
     modelOverride,

@@ -70,6 +70,8 @@ pub fn run() {
             credentials::delete_provider_key,
             ollama::ollama_status,
             ollama::ollama_chat,
+            ollama::ollama_cloud_status,
+            ollama::ollama_cloud_chat,
             deepseek::deepseek_chat,
             data::get_data_usage,
             data::open_data_folder,

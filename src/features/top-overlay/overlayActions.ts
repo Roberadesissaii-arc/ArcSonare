@@ -14,7 +14,8 @@ import {
   resolveDemoContact,
   type ParsedIntent,
 } from "./iconResolver";
-import { ensureOllamaModel, ollamaChat, ollamaDraftEmail } from "../../services/OllamaService";
+import { ollamaDraftEmail } from "../../services/OllamaService";
+import { askAssistant } from "../../services/AssistantService";
 import {
   getOverlayState,
   patchOverlay,
@@ -284,40 +285,20 @@ async function respondWithAssistant(text: string) {
   setOverlayMode("thinking", { status: "Thinking...", expanded: false });
   playEventSound("thinking");
 
-  const ready = await ensureOllamaModel();
-  if (!ready.ok) {
-    setOverlayMode("responding", {
-      status: ready.message.slice(0, 120),
-      expanded: false,
-    });
-    playEventSound("error");
-    return;
-  }
-
   try {
-    const reply = await ollamaChat(
-      [
-        {
-          role: "system",
-          content:
-            "You are ArcSonare, a concise desktop assistant. Keep replies short (1–3 sentences) unless asked for detail.",
-        },
-        { role: "user", content: text },
-      ],
-      ready.model,
-    );
+    const reply = await askAssistant(text.trim());
     setOverlayMode("responding", {
-      status: reply.slice(0, 120),
+      status: reply.text.slice(0, 120),
       expanded: false,
     });
     playEventSound("responding");
   } catch (err) {
-    console.error("[ArcSonare] Ollama respond failed:", err);
+    console.error("[ArcSonare] Assistant respond failed:", err);
     setOverlayMode("responding", {
       status:
         err instanceof Error
           ? err.message.slice(0, 120)
-          : "Local model unavailable",
+          : "Assistant unavailable",
       expanded: false,
     });
     playEventSound("error");

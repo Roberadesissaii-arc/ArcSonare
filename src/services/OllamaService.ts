@@ -1,9 +1,11 @@
 /**
- * Local Ollama bridge (via Rust → http://127.0.0.1:11434).
+ * Local Ollama + Ollama Cloud bridges (via Rust).
+ * Never silently overwrite the user's selected default assistant model.
  */
 import { invoke } from "@tauri-apps/api/core";
 import { getPrefs, updatePrefs } from "../stores/settingsStore";
 import { modelById } from "../config/modelRegistry";
+import { assistantSystemContext } from "./assistantTools";
 
 export interface OllamaStatus {
   available: boolean;
@@ -20,9 +22,13 @@ export async function probeOllama(): Promise<OllamaStatus> {
   return invoke<OllamaStatus>("ollama_status");
 }
 
+export async function probeOllamaCloud(): Promise<OllamaStatus> {
+  return invoke<OllamaStatus>("ollama_cloud_status");
+}
+
 /**
- * Ensure a model name is chosen. Probes Ollama and persists the first
- * installed model when prefs are empty.
+ * Ensure a local Ollama model name is chosen.
+ * Only updates `models.ollamaModel` — never changes `roles.assistant`.
  */
 export async function ensureOllamaModel(): Promise<
   { ok: true; model: string } | { ok: false; message: string }
@@ -50,18 +56,10 @@ export async function ensureOllamaModel(): Promise<
     if (!model || !status.models.includes(model)) {
       model = status.models[0];
     }
-    // Persist selection + prefer Ollama as the everyday assistant.
-    if (
-      prefs.models.ollamaModel !== model ||
-      prefs.models.roles.assistant !== "ollama-local"
-    ) {
+    if (prefs.models.ollamaModel !== model) {
       updatePrefs((p) => ({
         ...p,
-        models: {
-          ...p.models,
-          ollamaModel: model,
-          roles: { ...p.models.roles, assistant: "ollama-local" },
-        },
+        models: { ...p.models, ollamaModel: model },
       }));
     }
     return { ok: true, model };
@@ -72,6 +70,54 @@ export async function ensureOllamaModel(): Promise<
         err instanceof Error
           ? err.message
           : "Could not reach Ollama at http://127.0.0.1:11434.",
+    };
+  }
+}
+
+/**
+ * Ensure an Ollama Cloud model name is set (does not change assistant role).
+ */
+export async function ensureOllamaCloudModel(): Promise<
+  { ok: true; model: string } | { ok: false; message: string }
+> {
+  const prefs = getPrefs();
+  let model = prefs.models.ollamaCloudModel?.trim() ?? "";
+
+  try {
+    const status = await probeOllamaCloud();
+    if (!status.available) {
+      return {
+        ok: false,
+        message:
+          status.message ||
+          "Ollama Cloud is not available. Save an API key in Settings → Models.",
+      };
+    }
+    if (!model) {
+      if (status.models.length) {
+        model = status.models[0];
+      } else {
+        return {
+          ok: false,
+          message:
+            "Enter an Ollama Cloud model name (for example gpt-oss:120b) in Settings → Models.",
+        };
+      }
+    }
+    if (prefs.models.ollamaCloudModel !== model) {
+      updatePrefs((p) => ({
+        ...p,
+        models: { ...p.models, ollamaCloudModel: model },
+      }));
+    }
+    return { ok: true, model };
+  } catch (err) {
+    return {
+      ok: false,
+      message:
+        err instanceof Error
+          ? err.message
+          : "Could not reach Ollama Cloud. Save an API key from ollama.com.",
     };
   }
 }
@@ -92,23 +138,42 @@ export async function ollamaChat(
   });
 }
 
-/** True when prefs point at Ollama with a model name (may still be offline). */
+export async function ollamaCloudChat(
+  messages: ChatMessage[],
+  modelOverride?: string,
+): Promise<string> {
+  const ensured = modelOverride?.trim()
+    ? { ok: true as const, model: modelOverride.trim() }
+    : await ensureOllamaCloudModel();
+  if (!ensured.ok) {
+    throw new Error(ensured.message);
+  }
+  return invoke<string>("ollama_cloud_chat", {
+    model: ensured.model,
+    messages,
+  });
+}
+
+/** True when prefs point at local Ollama with a model name. */
 export function isOllamaAssistantConfigured(): boolean {
   const prefs = getPrefs();
   const role = modelById(prefs.models.roles.assistant);
-  // Prefer Ollama when selected, or when a model name is already saved.
-  if (role?.provider === "ollama") return Boolean(prefs.models.ollamaModel?.trim());
-  return Boolean(prefs.models.ollamaModel?.trim());
+  if (role?.id === "ollama-local") {
+    return Boolean(prefs.models.ollamaModel?.trim());
+  }
+  return false;
 }
 
-/** Short chat reply for the dashboard composer / overlay. */
+export function isOllamaCloudAssistantConfigured(): boolean {
+  const prefs = getPrefs();
+  const role = modelById(prefs.models.roles.assistant);
+  return role?.id === "ollama-cloud";
+}
+
+/** Short chat reply for local Ollama. Prefer AssistantService for routing. */
 export async function ollamaReply(userText: string): Promise<string> {
   return ollamaChat([
-    {
-      role: "system",
-      content:
-        "You are ArcSonare, a helpful desktop assistant. Keep replies concise (1–4 sentences) unless the user asks for more.",
-    },
+    { role: "system", content: assistantSystemContext() },
     { role: "user", content: userText },
   ]);
 }
