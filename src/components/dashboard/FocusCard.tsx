@@ -3,7 +3,7 @@ import { FOCUS } from "../../data/demoData";
 import { addActivity } from "../../stores/appStore";
 import { DotsIcon } from "../Icons";
 
-/** The current focus block with milestone timeline below the actions. */
+/** The current focus block — progress in the middle, actions pinned to the bottom. */
 export function FocusCard() {
   const [subtasks, setSubtasks] = useState(FOCUS.subtasks);
   const [active, setActive] = useState(false);
@@ -50,38 +50,6 @@ export function FocusCard() {
       <h2 className="card-title">{FOCUS.title}</h2>
       <p className="card-text">{FOCUS.description}</p>
 
-      <div className="card-actions">
-        <button type="button" className="btn-pill" onClick={startPreparation}>
-          {active ? "Preparing…" : "Start preparation"}
-        </button>
-        <div style={{ position: "relative" }}>
-          <button
-            type="button"
-            className="text-action"
-            onClick={() => setSnoozeOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={snoozeOpen}
-          >
-            {snoozed ? "Snoozed" : "Snooze"}
-          </button>
-          {snoozeOpen ? (
-            <div className="mode-list" role="menu" style={{ right: 0, left: "auto", minWidth: 140 }}>
-              {[15, 30, 60].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="menuitem"
-                  className="mode-option"
-                  onClick={() => snooze(m)}
-                >
-                  {m} minutes
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
       <div
         className="focus-progress"
         aria-label={`${done} of ${subtasks.length} subtasks done`}
@@ -107,6 +75,38 @@ export function FocusCard() {
             {done} of {subtasks.length} subtasks done
           </span>
           {next ? <span className="focus-next">Next: {next}</span> : null}
+        </div>
+      </div>
+
+      <div className="card-actions focus-actions">
+        <button type="button" className="btn-pill" onClick={startPreparation}>
+          {active ? "Preparing…" : "Start preparation"}
+        </button>
+        <div className="focus-snooze-wrap">
+          <button
+            type="button"
+            className="text-action"
+            onClick={() => setSnoozeOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={snoozeOpen}
+          >
+            {snoozed ? "Snoozed" : "Snooze"}
+          </button>
+          {snoozeOpen ? (
+            <div className="mode-list" role="menu">
+              {[15, 30, 60].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="menuitem"
+                  className="mode-option"
+                  onClick={() => snooze(m)}
+                >
+                  {m} minutes
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

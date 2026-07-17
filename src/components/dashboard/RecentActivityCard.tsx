@@ -1,4 +1,4 @@
-import { BotIcon, ListIcon, PlugIcon } from "../Icons";
+import { BotIcon, ListIcon, MicIcon, PlugIcon, ZapIcon } from "../Icons";
 import { navigate, useAppState, type ActivityEntry } from "../../stores/appStore";
 
 function relativeTime(at: number): string {
@@ -12,6 +12,8 @@ function relativeTime(at: number): string {
 function activityIcon(source: ActivityEntry["source"]) {
   if (source === "task") return <ListIcon size={13} />;
   if (source === "agent") return <BotIcon size={13} />;
+  if (source === "command") return <ZapIcon size={13} />;
+  if (source === "voice") return <MicIcon size={13} />;
   return <PlugIcon size={13} />;
 }
 
@@ -21,6 +23,12 @@ function titleFor(entry: ActivityEntry): string {
   if (entry.source === "voice") return "Voice action";
   if (entry.source === "command") return "Command";
   return "System";
+}
+
+function openActivity(entry: ActivityEntry) {
+  if (entry.source === "task") navigate("tasks");
+  else if (entry.source === "agent") navigate("agent");
+  else navigate("connect");
 }
 
 const DEMO_FALLBACK: ActivityEntry[] = [
@@ -47,7 +55,7 @@ const DEMO_FALLBACK: ActivityEntry[] = [
 /** Third right-column card — local activity feed. */
 export function RecentActivityCard() {
   const { activity } = useAppState();
-  // 156px card: head + 2 rows + footer fit with bottom breathing room; 3 clips.
+  // Fits the bottom side-column card with footer visible.
   const items = (activity.length ? activity : DEMO_FALLBACK).slice(0, 2);
 
   return (
@@ -57,15 +65,22 @@ export function RecentActivityCard() {
       </div>
       <ul className="activity-list">
         {items.map((entry) => (
-          <li key={entry.id} className="activity-row">
-            <span className="activity-icon" aria-hidden="true">
-              {activityIcon(entry.source)}
-            </span>
-            <span className="activity-meta">
-              <span className="activity-title">{titleFor(entry)}</span>
-              <span className="activity-sub">{entry.text}</span>
-            </span>
-            <span className="activity-time">{relativeTime(entry.at)}</span>
+          <li key={entry.id}>
+            <button
+              type="button"
+              className="activity-row"
+              onClick={() => openActivity(entry)}
+              aria-label={`${titleFor(entry)}: ${entry.text}`}
+            >
+              <span className="activity-icon" aria-hidden="true">
+                {activityIcon(entry.source)}
+              </span>
+              <span className="activity-meta">
+                <span className="activity-title">{titleFor(entry)}</span>
+                <span className="activity-sub">{entry.text}</span>
+              </span>
+              <span className="activity-time">{relativeTime(entry.at)}</span>
+            </button>
           </li>
         ))}
       </ul>

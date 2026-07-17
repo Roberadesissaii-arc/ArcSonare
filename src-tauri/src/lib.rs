@@ -1,5 +1,7 @@
 mod credentials;
 mod data;
+mod deepseek;
+mod ollama;
 mod overlay;
 mod panels;
 mod screen_context;
@@ -42,6 +44,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             overlay::request_close,
             overlay::overlay_hidden,
+            overlay::toggle_overlay_cmd,
             top_overlay::overlay_launch_app,
             top_overlay::overlay_open_url,
             top_overlay::overlay_web_search,
@@ -65,6 +68,9 @@ pub fn run() {
             credentials::set_provider_key,
             credentials::has_provider_key,
             credentials::delete_provider_key,
+            ollama::ollama_status,
+            ollama::ollama_chat,
+            deepseek::deepseek_chat,
             data::get_data_usage,
             data::open_data_folder,
             data::open_microphone_privacy_settings,

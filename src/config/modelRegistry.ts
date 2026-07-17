@@ -10,12 +10,19 @@
  */
 import anthropicLogo from "../assets/models/anthropic.svg";
 import claudeLogo from "../assets/models/claude.svg";
+import deepseekLogo from "../assets/models/deepseek.svg";
 import geminiLogo from "../assets/models/gemini.svg";
 import grokLogo from "../assets/models/grok.svg";
 import ollamaLogo from "../assets/models/ollama.svg";
 import openaiLogo from "../assets/models/openai.svg";
 
-export type ProviderId = "anthropic" | "openai" | "google" | "xai" | "ollama";
+export type ProviderId =
+  | "anthropic"
+  | "openai"
+  | "google"
+  | "xai"
+  | "deepseek"
+  | "ollama";
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -54,6 +61,13 @@ export const PROVIDERS: ProviderInfo[] = [
     logo: grokLogo,
     configuration: "api-key",
     description: "Grok models via the xAI API.",
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    logo: deepseekLogo,
+    configuration: "api-key",
+    description: "DeepSeek V4 models via the OpenAI-compatible API.",
   },
   {
     id: "ollama",
@@ -230,6 +244,40 @@ export const MODELS: ModelInfo[] = [
     contextType: "long",
     supportsText: true,
     supportsImage: true,
+    supportsAudioInput: false,
+    supportsAudioOutput: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    locality: "cloud",
+  },
+  {
+    id: "deepseek-v4-flash",
+    provider: "deepseek",
+    modelName: "deepseek-v4-flash",
+    displayName: "DeepSeek V4 Flash",
+    logo: deepseekLogo,
+    description: "Fast DeepSeek model for everyday assistant work.",
+    capabilities: ["Text", "Tools", "Reasoning"],
+    contextType: "long",
+    supportsText: true,
+    supportsImage: false,
+    supportsAudioInput: false,
+    supportsAudioOutput: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    locality: "cloud",
+  },
+  {
+    id: "deepseek-v4-pro",
+    provider: "deepseek",
+    modelName: "deepseek-v4-pro",
+    displayName: "DeepSeek V4 Pro",
+    logo: deepseekLogo,
+    description: "Stronger DeepSeek model for deeper reasoning.",
+    capabilities: ["Text", "Tools", "Reasoning"],
+    contextType: "long",
+    supportsText: true,
+    supportsImage: false,
     supportsAudioInput: false,
     supportsAudioOutput: false,
     supportsTools: true,

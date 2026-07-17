@@ -4,9 +4,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 const appWindow = getCurrentWindow();
 
 /**
- * 44px borderless title bar with macOS-style traffic lights on the left.
- * Red hides ArcSonare to the tray (the app keeps running), yellow minimizes,
- * green toggles maximize. Everything else is a drag region.
+ * Borderless title bar with Windows-style window controls on the right,
+ * smoked-titanium chrome matching ArcSonare (not macOS traffic lights).
+ * Close hides to tray; minimize / maximize behave normally.
  */
 export function CustomTitleBar() {
   const [maximized, setMaximized] = useState(false);
@@ -46,42 +46,46 @@ export function CustomTitleBar() {
 
   return (
     <header className="titlebar" data-tauri-drag-region>
-      <div className="traffic-lights">
+      <div className="titlebar-spacer" data-tauri-drag-region />
+      <div className="window-controls" role="group" aria-label="Window">
         <button
           type="button"
-          className="tl tl-close"
-          onClick={hideToTray}
-          aria-label="Hide ArcSonare to the tray"
-          title="Hide to tray"
-        >
-          <svg viewBox="0 0 8 8" aria-hidden="true">
-            <path d="M1.5 1.5l5 5M6.5 1.5l-5 5" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          className="tl tl-min"
+          className="win-btn win-min"
           onClick={minimize}
           aria-label="Minimize"
           title="Minimize"
         >
-          <svg viewBox="0 0 8 8" aria-hidden="true">
-            <path d="M1.2 4h5.6" />
+          <svg viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M1.5 5h7" />
           </svg>
         </button>
         <button
           type="button"
-          className="tl tl-max"
+          className="win-btn win-max"
           onClick={toggleMaximize}
           aria-label={maximized ? "Restore window" : "Maximize window"}
           title={maximized ? "Restore" : "Maximize"}
         >
-          <svg viewBox="0 0 8 8" aria-hidden="true">
+          <svg viewBox="0 0 10 10" aria-hidden="true">
             {maximized ? (
-              <path d="M2.4 4.8L4 3.2l1.6 1.6M2.4 6.4h3.2" />
+              <>
+                <path d="M3.2 2.2h4.6v4.6" />
+                <rect x="1.6" y="3.4" width="4.6" height="4.6" rx="0.4" />
+              </>
             ) : (
-              <path d="M1.6 4.6V1.6h3M6.4 3.4v3h-3" />
+              <rect x="1.8" y="1.8" width="6.4" height="6.4" rx="0.5" />
             )}
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="win-btn win-close"
+          onClick={hideToTray}
+          aria-label="Hide ArcSonare to the tray"
+          title="Hide to tray"
+        >
+          <svg viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M2.2 2.2l5.6 5.6M7.8 2.2l-5.6 5.6" />
           </svg>
         </button>
       </div>

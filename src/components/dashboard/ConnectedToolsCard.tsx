@@ -21,6 +21,7 @@ export function ConnectedToolsCard() {
             className="tool-item"
             onClick={() => navigate("connect")}
             aria-label={`${tool.name} — open Connect`}
+            title={tool.name}
           >
             <span className="tool-tile">
               <img
@@ -32,7 +33,7 @@ export function ConnectedToolsCard() {
               />
             </span>
             <span className="tool-name">{tool.name}</span>
-            <span className="tool-purpose">{tool.purpose}</span>
+            <span className="tool-meta">Connected</span>
           </button>
         ))}
         <button
@@ -44,7 +45,8 @@ export function ConnectedToolsCard() {
           <span className="tools-view-all-btn">
             <ArrowRightIcon size={15} />
           </span>
-          <span className="tool-purpose">View all</span>
+          <span className="tool-name">All</span>
+          <span className="tool-meta">View</span>
         </button>
       </div>
     </section>

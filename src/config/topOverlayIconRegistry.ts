@@ -27,14 +27,14 @@ export type TopOverlayIconDefinition = {
   supportsApiAction: boolean;
 };
 
-const iconModules = import.meta.glob("../../assets/top-overlay/*.svg", {
+const iconModules = import.meta.glob("../assets/top-overlay/*.svg", {
   eager: true,
   query: "?url",
   import: "default",
 }) as Record<string, string>;
 
 function iconUrl(filename: string): string {
-  const key = `../../assets/top-overlay/${filename}`;
+  const key = `../assets/top-overlay/${filename}`;
   const url = iconModules[key];
   if (!url) {
     console.warn(`[ArcSonare] missing top-overlay icon: ${filename}`);
@@ -55,7 +55,8 @@ export const TOP_OVERLAY_ICONS: TopOverlayIconDefinition[] = [
   def({
     id: "gmail",
     displayName: "Gmail",
-    aliases: ["gmail", "google mail", "googlemail", "my email", "email", "mail"],
+    // Keep “email”/“mail” out of open-aliases — those mean draft-email intents.
+    aliases: ["gmail", "google mail", "googlemail", "my email", "my gmail"],
     iconFile: "gmail.svg",
     type: "web-app",
     webUrl: "https://mail.google.com",

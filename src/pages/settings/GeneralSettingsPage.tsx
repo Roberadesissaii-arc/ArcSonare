@@ -2,6 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SettingRow } from "../../components/settings/SettingRow";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
+import { SettingsPageHeader } from "../../components/settings/SettingsPageHeader";
 import { Toggle } from "../../components/settings/Toggle";
 import { Dropdown } from "../../components/settings/Dropdown";
 import { SegmentedControl } from "../../components/settings/SegmentedControl";
@@ -33,12 +34,10 @@ export function GeneralSettingsPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">General</h1>
-        <p className="page-subtitle">
-          Application behavior, language and startup.
-        </p>
-      </header>
+      <SettingsPageHeader
+        title="General"
+        description="Application behavior, language and startup."
+      />
 
       <SettingsGroup title="Application">
         <SettingRow
@@ -123,6 +122,7 @@ export function GeneralSettingsPage() {
         </SettingRow>
       </SettingsGroup>
 
+      <div className="settings-card-grid">
       <SettingsGroup title="Language and region">
         <SettingRow label="Interface language" description="Language of the ArcSonare interface.">
           <Dropdown
@@ -262,6 +262,7 @@ export function GeneralSettingsPage() {
           </p>
         ) : null}
       </SettingsGroup>
+      </div>
     </div>
   );
 }

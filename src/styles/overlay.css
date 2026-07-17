@@ -1,6 +1,6 @@
 /* ---------------------------------------------------------------------------
  * Global top overlay (window `sonare-overlay`).
- * Collapsed native size: 620 × 98 (600×88 capsule + 10px shadow gutters).
+ * Collapsed native size: 600 × 88 (window matches the capsule exactly).
  * Floats ~16px below the monitor top; all four corners fully rounded ~32px.
  * No full-window background — only the capsule / expanded panel has surface.
  * Layout: [marble][name+state] | [waveform] [action]
@@ -24,6 +24,8 @@ html.overlay-window body,
 html.overlay-window #root {
   background: transparent !important;
   background-color: transparent !important;
+  /* Prevent OS dark-mode chrome from filling the transparent window rect. */
+  color-scheme: only dark;
 }
 
 .voice-overlay-shell {
@@ -32,26 +34,28 @@ html.overlay-window #root {
   width: 600px;
   margin-top: 0;
   border-radius: 32px;
+  /* Match main window page dark (#05090c) — fully opaque so WebView2
+     anti-aliases cleanly to transparent at the rounded corners. */
   background: linear-gradient(
-    145deg,
-    rgba(28, 34, 40, 0.99) 0%,
-    rgba(15, 20, 26, 0.995) 50%,
-    rgba(8, 11, 16, 1) 100%
+    180deg,
+    #080d11 0%,
+    #05090c 55%,
+    #04070a 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  /* Prefer inset depth — large outer shadows paint a visible rectangular layer
-     on Windows transparent WebViews. */
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  /* NEVER use outer box-shadow here — on Windows transparent WebViews it
+     paints a visible rectangular “sharpening” behind the rounded corners. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.36),
-    0 8px 18px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
   color: #f1f3f4;
   position: relative;
   overflow: hidden;
-  isolation: isolate;
+  /* Clip any child glow strictly to the pill (helps corner AA). */
+  clip-path: inset(0 round 32px);
 }
 
-/* Subtle upper-left reflection */
+/* Soft top sheen — kept inside the pill, no outer glow. */
 .voice-overlay-shell::before {
   content: "";
   position: absolute;
@@ -59,14 +63,16 @@ html.overlay-window #root {
   border-radius: inherit;
   pointer-events: none;
   background: radial-gradient(
-    120% 80% at 12% 0%,
-    rgba(255, 255, 255, 0.055) 0%,
-    rgba(255, 255, 255, 0) 42%
+    110% 70% at 14% -8%,
+    rgba(255, 255, 255, 0.035) 0%,
+    rgba(255, 255, 255, 0) 48%
   );
+  z-index: 0;
 }
 
 .voice-overlay-shell.is-expanded {
   border-radius: 32px 32px 26px 26px;
+  clip-path: inset(0 round 32px 32px 26px 26px);
 }
 
 /* -------------------------- header (collapsed row) ------------------------ */
@@ -75,8 +81,9 @@ html.overlay-window #root {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 52px minmax(140px, auto) 1px minmax(205px, 1fr) 46px;
-  column-gap: 16px;
+  /* Fixed columns so the divider never drifts when status text grows. */
+  grid-template-columns: 52px 158px 1px minmax(0, 1fr) 56px;
+  column-gap: 14px;
   align-items: center;
   width: 100%;
   height: 88px;
@@ -88,9 +95,70 @@ html.overlay-window #root {
   border-radius: 32px 32px 12px 12px;
 }
 
+/* Marble hover — 3D lift without fighting the breathe animation. */
+.overlay-marble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.overlay-marble:hover {
+  transform: scale(1.04);
+}
+
+.overlay-marble:hover .marble-orb {
+  animation-play-state: paused;
+  transform: scale(1.02);
+}
+
+.overlay-marble:hover .morb-halo {
+  opacity: 0.75;
+  filter: blur(5px);
+  background: radial-gradient(
+    circle,
+    rgba(168, 120, 255, 0.28) 0%,
+    rgba(140, 94, 255, 0.12) 42%,
+    rgba(116, 72, 244, 0) 72%
+  );
+}
+
+.overlay-marble:hover .morb-sphere {
+  box-shadow:
+    inset -8px -10px 15px rgba(0, 0, 0, 0.56),
+    inset 5px 5px 9px rgba(201, 171, 255, 0.16),
+    0 0 10px rgba(145, 104, 255, 0.4),
+    0 0 18px rgba(103, 58, 217, 0.22);
+}
+
+.overlay-marble:hover .morb-highlight {
+  opacity: 1.05;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0) 70%
+  );
+}
+
+.reduce-motion .overlay-marble:hover,
+.reduce-motion .overlay-marble:hover .marble-orb {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-marble:hover,
+  .overlay-marble:hover .marble-orb {
+    transform: none;
+  }
+}
+
 .overlay-divider {
   width: 1px;
   height: 42px;
+  justify-self: center;
   background: linear-gradient(
     180deg,
     transparent,
@@ -113,6 +181,8 @@ html.overlay-window #root {
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  max-width: 158px;
+  overflow: hidden;
 }
 
 .ost-name {
@@ -121,6 +191,8 @@ html.overlay-window #root {
   color: #f1f3f4;
   line-height: 20px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ost-status {
@@ -194,6 +266,46 @@ html.overlay-window #root {
 
 .overlay-action-app {
   animation: overlay-icon-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Gemini-style app chip (gradient ring + chevron) while a draft is open. */
+.overlay-action-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 40px;
+  padding: 1px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    135deg,
+    #c39bff 0%,
+    #8b6cff 35%,
+    #ff8a65 70%,
+    #ffb347 100%
+  );
+  box-shadow: 0 0 18px rgba(145, 104, 255, 0.35);
+  animation: overlay-icon-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.overlay-action-chip-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #1a2126 0%, #0e1418 100%);
+  color: #c8cdd2;
+}
+
+.overlay-action-chip-inner img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
 }
 
 .overlay-action-success {
@@ -373,6 +485,103 @@ html.overlay-window #root {
   margin-top: 4px;
 }
 
+/* Reference draft-email dropdown (scenario 6). */
+.email-panel.email-panel-ref {
+  padding: 16px 18px 14px;
+}
+
+.email-panel-ref .email-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.email-panel-ref .email-meta-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.email-panel-ref .email-meta-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #87909a;
+}
+
+.email-panel-ref .email-meta-value {
+  font-size: 13.5px;
+  color: #e8eaed;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+}
+
+.email-panel-ref .email-meta-value:focus {
+  outline: none;
+  color: #ffffff;
+}
+
+.email-panel-ref .email-body {
+  width: 100%;
+  min-height: 88px;
+  max-height: 140px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #d7dbe0;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.45;
+  resize: none;
+}
+
+.email-panel-ref .email-body:focus {
+  outline: none;
+  color: #f1f3f4;
+}
+
+.email-panel-ref .email-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.email-sparkle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  color: #ffffff;
+  background: linear-gradient(145deg, #b388ff 0%, #7c4dff 55%, #6a3de8 100%);
+  box-shadow:
+    0 0 0 1px rgba(195, 155, 255, 0.35),
+    0 0 22px rgba(145, 104, 255, 0.55);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.email-sparkle-btn:hover {
+  transform: scale(1.05);
+  box-shadow:
+    0 0 0 1px rgba(195, 155, 255, 0.5),
+    0 0 28px rgba(145, 104, 255, 0.7);
+}
+
+.email-sparkle-btn:disabled {
+  opacity: 0.45;
+  transform: none;
+}
+
 .btn-ghost,
 .btn-secondary,
 .btn-primary {
@@ -486,22 +695,22 @@ html.overlay-window #root {
 @keyframes sonare-in {
   from {
     opacity: 0;
-    transform: translateY(-18px) scale(0.985);
+    transform: translateY(-14px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes sonare-out {
   from {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   to {
     opacity: 0;
-    transform: translateY(-18px) scale(0.985);
+    transform: translateY(-14px);
   }
 }
 

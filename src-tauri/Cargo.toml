@@ -29,6 +29,8 @@ base64 = "0.22"
 # Safe default-browser / file opening (never raw shell with spoken input).
 open = "5"
 percent-encoding = "2"
+# Local Ollama HTTP API (localhost only).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [profile.release]
 panic = "abort"

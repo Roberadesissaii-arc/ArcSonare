@@ -13,6 +13,14 @@ export type ResponseLength = "brief" | "balanced" | "detailed";
 export type VoiceActivationMode = "push-to-talk" | "toggle" | "hands-free";
 export type TurnDetectionMode = "push-release" | "silence" | "semantic";
 export type FollowUpWindow = "off" | "30s" | "1m" | "2m" | "5m";
+/** Where speech-to-text runs. Local uses Whisper; cloud arrives later. */
+export type SttEngine = "local" | "cloud";
+export type WhisperModelSize =
+  | "tiny"
+  | "base"
+  | "small"
+  | "medium"
+  | "turbo";
 export type CostPreference = "economy" | "balanced" | "best";
 export type CaptureTarget =
   | "active-window"
@@ -152,6 +160,9 @@ export interface Prefs {
     minSpeechMs: number; // 100..2000
     cancelAccidental: boolean;
     followUpWindow: FollowUpWindow;
+    /** Speech-to-text engine. Local → Whisper; cloud is reserved. */
+    sttEngine: SttEngine;
+    whisperModel: WhisperModelSize;
   };
 
   wakeWord: {
@@ -169,6 +180,8 @@ export interface Prefs {
 
   models: {
     roles: Record<ModelRole, string | null>;
+    /** Installed Ollama model name, e.g. "llama3.2". */
+    ollamaModel: string;
     autoRouting: boolean;
     preferFastSimple: boolean;
     preferLocalPrivate: boolean;
@@ -216,6 +229,8 @@ export interface Prefs {
 
   appearance: {
     accent: AccentMode;
+    /** Swatch id used when accent is violet (violet/blue/cyan/green/orange/red). */
+    accentColor: string;
     density: Density;
     textScale: number; // 85..125 (%)
     cardContrast: number; // 0..100
@@ -308,7 +323,7 @@ function defaultRetention(): Prefs["dataPrivacy"]["retention"] {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  schemaVersion: 1,
+  schemaVersion: 4,
   general: {
     startMinimized: false,
     keepRunningOnClose: true,
@@ -358,6 +373,8 @@ export const DEFAULT_PREFS: Prefs = {
     minSpeechMs: 300,
     cancelAccidental: true,
     followUpWindow: "30s",
+    sttEngine: "local",
+    whisperModel: "base",
   },
   wakeWord: {
     enabled: false,
@@ -373,7 +390,7 @@ export const DEFAULT_PREFS: Prefs = {
   },
   models: {
     roles: {
-      assistant: null,
+      assistant: "ollama-local",
       fast: null,
       reasoning: null,
       research: null,
@@ -383,9 +400,10 @@ export const DEFAULT_PREFS: Prefs = {
       speech: null,
       background: null,
     },
+    ollamaModel: "",
     autoRouting: true,
     preferFastSimple: true,
-    preferLocalPrivate: false,
+    preferLocalPrivate: true,
     askBeforeScreenCloud: true,
     fallbackWhenUnavailable: true,
     costPreference: "balanced",
@@ -428,6 +446,7 @@ export const DEFAULT_PREFS: Prefs = {
   },
   appearance: {
     accent: "violet",
+    accentColor: "violet",
     density: "comfortable",
     textScale: 100,
     cardContrast: 50,

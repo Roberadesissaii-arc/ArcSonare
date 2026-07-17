@@ -6,13 +6,27 @@
 const SERVICE: &str = "ArcSonare";
 
 /// Provider ids we accept credentials for; rejects arbitrary account names.
-const KNOWN_PROVIDERS: &[&str] = &["anthropic", "openai", "google", "xai", "ollama"];
+const KNOWN_PROVIDERS: &[&str] = &[
+    "anthropic",
+    "openai",
+    "google",
+    "xai",
+    "deepseek",
+    "ollama",
+];
 
 fn entry(provider: &str) -> Result<keyring::Entry, String> {
     if !KNOWN_PROVIDERS.contains(&provider) {
         return Err(format!("Unknown provider '{provider}'."));
     }
     keyring::Entry::new(SERVICE, provider).map_err(|e| format!("Credential store unavailable: {e}"))
+}
+
+/// Read a stored key for server-side use only. Never exposed to the frontend.
+pub(crate) fn get_provider_key(provider: &str) -> Result<String, String> {
+    entry(provider)?
+        .get_password()
+        .map_err(|_| format!("No API key saved for {provider}. Add one in Settings → Models."))
 }
 
 #[tauri::command]

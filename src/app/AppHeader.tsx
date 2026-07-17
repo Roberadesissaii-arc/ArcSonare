@@ -67,7 +67,7 @@ function relativeTime(at: number): string {
 
 /** Brand · primary navigation · search + quick actions. */
 export function AppHeader({ onCreateTask }: AppHeaderProps) {
-  const { status } = useVoiceState();
+  const { status, isOverlayVisible } = useVoiceState();
   const { activity, page, notificationsReadAt } = useAppState();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>("all");
@@ -100,14 +100,14 @@ export function AppHeader({ onCreateTask }: AppHeaderProps) {
   // Settings is a route inside this window, not a separate native window.
   const openSettings = () => navigate("settings");
 
-  // Voice activation lives in the global overlay window.
-  const openVoiceOverlay = () => {
-    invoke("show_overlay").catch((err) =>
-      console.error("[ArcSonare] failed to open voice overlay:", err),
+  // Voice activation lives in the global overlay window — press again to close.
+  const toggleVoiceOverlay = () => {
+    invoke("toggle_overlay_cmd").catch((err) =>
+      console.error("[ArcSonare] failed to toggle voice overlay:", err),
     );
   };
 
-  const voiceActive = status !== "idle";
+  const voiceActive = status !== "idle" || isOverlayVisible;
 
   return (
     <div className="app-header">
@@ -148,9 +148,9 @@ export function AppHeader({ onCreateTask }: AppHeaderProps) {
         <button
           type="button"
           className={`header-action${voiceActive ? " voice-active" : ""}`}
-          onClick={openVoiceOverlay}
-          aria-label="Activate voice mode"
-          title="Voice"
+          onClick={toggleVoiceOverlay}
+          aria-label={voiceActive ? "Deactivate voice mode" : "Activate voice mode"}
+          title={voiceActive ? "Stop voice" : "Voice"}
         >
           <WaveIcon size={18} />
         </button>

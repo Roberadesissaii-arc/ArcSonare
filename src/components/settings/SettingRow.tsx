@@ -7,7 +7,7 @@ interface SettingRowProps {
   disabled?: boolean;
 }
 
-/** A standard settings row: label + optional description, control at right. */
+/** Label + description on the left; control on the right. */
 export function SettingRow({
   label,
   description,
@@ -18,9 +18,7 @@ export function SettingRow({
     <div className={`setting-row${disabled ? " is-disabled" : ""}`}>
       <div className="setting-meta">
         <div className="setting-label">{label}</div>
-        {description ? (
-          <div className="setting-desc">{description}</div>
-        ) : null}
+        {description ? <div className="setting-desc">{description}</div> : null}
       </div>
       {children ? <div className="setting-control">{children}</div> : null}
     </div>

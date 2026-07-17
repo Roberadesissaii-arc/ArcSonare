@@ -27,7 +27,7 @@ fn is_open(app: &AppHandle) -> bool {
     *app.state::<OverlayState>().0.lock().unwrap()
 }
 
-/// Toggles the overlay; bound to the global shortcut.
+/// Toggles the overlay; bound to the global shortcut and header Voice button.
 pub fn toggle_overlay(app: &AppHandle) {
     log::info!("toggle requested (currently open: {})", is_open(app));
     if is_open(app) {
@@ -35,6 +35,12 @@ pub fn toggle_overlay(app: &AppHandle) {
     } else {
         open_overlay(app);
     }
+}
+
+/// Frontend command — same toggle as the global voice shortcut.
+#[tauri::command]
+pub fn toggle_overlay_cmd(app: AppHandle) {
+    toggle_overlay(&app);
 }
 
 /// Positions the window on the active monitor, shows it and triggers the

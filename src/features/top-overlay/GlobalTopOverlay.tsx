@@ -24,6 +24,11 @@ import {
 } from "./overlayStore";
 import { playEventSound } from "../../services/SoundService";
 import {
+  startSpeechListening,
+  stopSpeechListening,
+} from "../../services/SpeechRecognitionService";
+import { getPrefs } from "../../stores/settingsStore";
+import {
   setVoiceStatus,
   voiceSessionEnded,
 } from "../../stores/voiceStore";
@@ -78,6 +83,47 @@ export function GlobalTopOverlay() {
       overlay.mode === "success" ? overlay.status : "",
     );
   }, [overlay.mode, overlay.status]);
+
+  // Local STT: listen while idle/listening, and while an email draft is open
+  // so “send” can confirm. Cloud STT is not wired yet.
+  useEffect(() => {
+    const listenModes =
+      overlay.mode === "listening" ||
+      overlay.mode === "entering" ||
+      overlay.mode === "drafting-email" ||
+      overlay.mode === "confirmation" ||
+      overlay.mode === "success";
+    const listening = phase === "visible" && listenModes;
+    if (!listening) {
+      stopSpeechListening();
+      return;
+    }
+    const prefs = getPrefs();
+    if (prefs.voice.sttEngine === "cloud") {
+      return;
+    }
+    const drafting =
+      overlay.mode === "drafting-email" || overlay.mode === "confirmation";
+    startSpeechListening({
+      onFinal: (text) => {
+        void commitOverlayTranscript(text);
+      },
+      onPartial: (text) => {
+        // Don't overwrite “Draft ready…” with interim speech while reviewing.
+        if (!drafting) {
+          patchOverlay({ transcript: text, status: text }, false);
+        }
+      },
+      onError: (message) => {
+        if (message === "not-allowed") {
+          patchOverlay({
+            status: "Microphone permission needed",
+          });
+        }
+      },
+    });
+    return () => stopSpeechListening();
+  }, [phase, overlay.mode]);
 
   // Escape: confirmation first, then cancel/close.
   useEffect(() => {

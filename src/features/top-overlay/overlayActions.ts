@@ -4,9 +4,17 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getApplication } from "../../config/applicationRegistry";
 import { getIconById } from "../../config/topOverlayIconRegistry";
+import { getPrefs } from "../../stores/settingsStore";
+import { speechRecognitionAvailable } from "../../services/SpeechRecognitionService";
 import { getWebService } from "../../config/webServiceRegistry";
 import { playEventSound } from "../../services/SoundService";
-import { parseOverlayIntent, type ParsedIntent } from "./iconResolver";
+import {
+  isSendConfirmUtterance,
+  parseOverlayIntent,
+  resolveDemoContact,
+  type ParsedIntent,
+} from "./iconResolver";
+import { ensureOllamaModel, ollamaChat, ollamaDraftEmail } from "../../services/OllamaService";
 import {
   getOverlayState,
   patchOverlay,
@@ -92,6 +100,16 @@ export async function startOverlaySession() {
   playEventSound("overlay-open");
   playEventSound("listening");
 
+  // When local STT can hear the mic, stay in listening for real commands
+  // (“open Spotify”). Otherwise run the visual demo progression.
+  const prefs = getPrefs();
+  const liveListen =
+    prefs.voice.sttEngine === "local" && speechRecognitionAvailable();
+  if (liveListen) {
+    sessionTimers = [];
+    return;
+  }
+
   // Demo progression so every visual state remains exercisable without a mic.
   // Interrupted by cancel or by commitOverlayTranscript / runOverlayIntent.
   sessionTimers = [
@@ -163,11 +181,26 @@ export function endOverlaySession() {
 export async function commitOverlayTranscript(transcript: string) {
   demoActive = false;
   clearSessionTimers();
-  patchOverlay({ transcript });
+  const trimmed = transcript.trim();
+  patchOverlay({ transcript: trimmed });
+
+  // While a draft is open, “send” / “send it” confirms without re-thinking.
+  const current = getOverlayState();
+  if (
+    isSendConfirmUtterance(trimmed) &&
+    current.actionPayload?.type === "email" &&
+    (current.mode === "drafting-email" ||
+      current.mode === "confirmation" ||
+      current.mode === "responding")
+  ) {
+    await confirmSendEmail();
+    return;
+  }
+
   setOverlayMode("thinking", { status: "Thinking..." });
   playEventSound("thinking");
   await new Promise((r) => setTimeout(r, 350));
-  await runOverlayIntent(parseOverlayIntent(transcript));
+  await runOverlayIntent(parseOverlayIntent(trimmed));
 }
 
 export async function runOverlayIntent(intent: ParsedIntent) {
@@ -184,6 +217,18 @@ export async function runOverlayIntent(intent: ParsedIntent) {
     case "draft-email":
       await beginEmailDraft(intent);
       break;
+    case "send-email": {
+      const state = getOverlayState();
+      if (state.actionPayload?.type === "email") {
+        await confirmSendEmail();
+      } else {
+        setOverlayMode("responding", {
+          status: "Nothing to send yet — try “email Kelvin and say…”",
+          expanded: false,
+        });
+      }
+      break;
+    }
     case "schedule-meeting":
       await beginMeetingDraft(intent.title);
       break;
@@ -225,12 +270,57 @@ export async function runOverlayIntent(intent: ParsedIntent) {
       playEventSound("confirmation");
       break;
     case "respond":
-      setOverlayMode("responding", {
-        status: intent.text ? "Responding..." : "Listening...",
-        expanded: false,
-      });
-      if (intent.text) playEventSound("responding");
+      await respondWithAssistant(intent.text);
       break;
+  }
+}
+
+async function respondWithAssistant(text: string) {
+  if (!text.trim()) {
+    setOverlayMode("listening", { status: "Listening...", expanded: false });
+    return;
+  }
+
+  setOverlayMode("thinking", { status: "Thinking...", expanded: false });
+  playEventSound("thinking");
+
+  const ready = await ensureOllamaModel();
+  if (!ready.ok) {
+    setOverlayMode("responding", {
+      status: ready.message.slice(0, 120),
+      expanded: false,
+    });
+    playEventSound("error");
+    return;
+  }
+
+  try {
+    const reply = await ollamaChat(
+      [
+        {
+          role: "system",
+          content:
+            "You are ArcSonare, a concise desktop assistant. Keep replies short (1–3 sentences) unless asked for detail.",
+        },
+        { role: "user", content: text },
+      ],
+      ready.model,
+    );
+    setOverlayMode("responding", {
+      status: reply.slice(0, 120),
+      expanded: false,
+    });
+    playEventSound("responding");
+  } catch (err) {
+    console.error("[ArcSonare] Ollama respond failed:", err);
+    setOverlayMode("responding", {
+      status:
+        err instanceof Error
+          ? err.message.slice(0, 120)
+          : "Local model unavailable",
+      expanded: false,
+    });
+    playEventSound("error");
   }
 }
 
@@ -238,11 +328,16 @@ export async function openApplication(appId: string) {
   const icon = getIconById(appId);
   const app = getApplication(appId);
   const name = icon?.displayName ?? app?.displayName ?? appId;
+  const iconPath =
+    icon?.iconPath && icon.iconPath.length > 0 ? icon.iconPath : undefined;
 
-  setApplicationContext(appId, icon?.iconPath);
+  // Set app context + opening mode in one patch so the right-side circle
+  // shows the application logo immediately (Opening Spotify / Gmail / …).
   setOverlayMode(icon?.canOpenDesktop ? "opening-app" : "opening-web", {
     status: app?.openingStatus ?? `Opening ${name}`,
     expanded: false,
+    applicationId: appId,
+    applicationIcon: iconPath,
   });
   await collapseOverlayWindow();
   playEventSound("responding");
@@ -252,6 +347,8 @@ export async function openApplication(appId: string) {
       serviceId: appId,
     });
     if (result.ok) {
+      // Re-assert logo BEFORE success so the checkmark path never wins a race.
+      setApplicationContext(appId, iconPath);
       setOverlaySuccess(
         {
           title: app?.successStatus ?? `${name} opened`,
@@ -261,14 +358,21 @@ export async function openApplication(appId: string) {
           openUrl: icon?.webUrl,
         },
         app?.successStatus ?? `${name} opened`,
+        false,
       );
+      setApplicationContext(appId, iconPath);
       playEventSound("task-completed");
-      // Auto-hide after short success for simple launches.
-      window.setTimeout(() => {
-        if (getOverlayState().mode === "success") {
-          void invoke("request_close");
-        }
-      }, 1400);
+      // Keep the app logo for 5s, then restore the close (X) control.
+      sessionTimers.push(
+        window.setTimeout(() => {
+          const s = getOverlayState();
+          if (s.mode !== "success" || s.applicationId !== appId) return;
+          patchOverlay({
+            applicationId: undefined,
+            applicationIcon: undefined,
+          });
+        }, 5000),
+      );
     } else {
       setOverlayError({ message: result.message, code: "launch-failed" });
       playEventSound("error");
@@ -322,17 +426,38 @@ export async function performWebSearch(query: string) {
   }
 }
 
+function buildEmailBody(recipientName: string, spokenBody?: string): string {
+  if (spokenBody?.trim()) {
+    const line = spokenBody.trim().replace(/\s+/g, " ");
+    const capitalized = line.charAt(0).toUpperCase() + line.slice(1);
+    const withPunctuation = /[.!?]$/.test(capitalized) ? capitalized : `${capitalized}?`;
+    return `Hi ${recipientName},\n\n${withPunctuation}\n\nBest,\n`;
+  }
+  return `Hi ${recipientName},\n\nI wanted to check in.\n\nBest,\n`;
+}
+
 async function beginEmailDraft(intent: Extract<ParsedIntent, { kind: "draft-email" }>) {
   const provider = getIconById("gmail");
+  const contact = resolveDemoContact(intent.to) ?? {
+    display: "Julia",
+    email: "julia@acme.com",
+  };
+  let subject =
+    intent.subject?.trim() ||
+    (intent.body?.trim()
+      ? intent.body.trim().replace(/\s+/g, " ").slice(0, 72)
+      : `Quick note for ${contact.display}`);
+  let body = buildEmailBody(contact.display, intent.body);
+
+  // Always open the draft dropdown first — never launch Gmail for “email …”.
   const payload: EmailDraftPayload = {
     providerId: "gmail",
-    to: intent.to ?? "julia@acme.com",
-    subject: intent.subject ?? "Q2 Project Update",
-    body:
-      "Hi Julia,\n\nThanks for the update on the project. I reviewed the latest documents and have a few suggestions...\n\nBest,\n",
+    to: contact.email,
+    subject,
+    body,
     tone: "Professional",
-    contextUsed: "Local draft — email API not connected",
-    providerConnected: false,
+    contextUsed: `Draft for ${contact.display}`,
+    providerConnected: true,
   };
 
   setApplicationContext("gmail", provider?.iconPath);
@@ -342,8 +467,33 @@ async function beginEmailDraft(intent: Extract<ParsedIntent, { kind: "draft-emai
     actionPayload: { type: "email", data: payload },
     requiresConfirmation: false,
   });
-  await expandOverlayWindow(320);
+  await expandOverlayWindow(360);
   playEventSound("responding");
+
+  // Optionally refine with local Ollama when it is reachable.
+  const drafted = await ollamaDraftEmail({
+    toName: contact.display,
+    toEmail: contact.email,
+    subject,
+    spokenBody: intent.body || intent.subject,
+  });
+  if (drafted && getOverlayState().mode === "drafting-email") {
+    subject = drafted.subject;
+    body = drafted.body;
+    setActionPayload({
+      type: "email",
+      data: {
+        ...payload,
+        subject,
+        body,
+        contextUsed: `Draft for ${contact.display} · Ollama`,
+      },
+    });
+  }
+
+  if (getOverlayState().mode === "drafting-email") {
+    patchOverlay({ status: "Drafting email..." });
+  }
 }
 
 async function beginMeetingDraft(title?: string) {
@@ -475,34 +625,59 @@ export async function confirmCreateTask() {
 }
 
 export async function requestSendEmailConfirmation() {
-  patchOverlay({
-    mode: "confirmation",
-    status: "Waiting for confirmation",
-    requiresConfirmation: true,
-    pendingConfirmAction: "send-email",
-  });
-  playEventSound("confirmation");
+  // Prototype: Send goes straight to the compose handoff (same as confirm).
+  await confirmSendEmail();
 }
 
 export async function confirmSendEmail() {
   const payload = getOverlayState().actionPayload;
   if (payload?.type !== "email") return;
 
-  if (!payload.data.providerConnected) {
+  const data = payload.data;
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    to: data.to,
+    su: data.subject,
+    body: data.body,
+  });
+  const url = `https://mail.google.com/mail/?${params.toString()}`;
+
+  try {
+    const result = await invoke<OverlayActionResult>("overlay_open_url", { url });
+    if (result.ok) {
+      setApplicationContext("gmail", getIconById("gmail")?.iconPath);
+      setOverlaySuccess(
+        {
+          title: "Compose opened",
+          summary: `Draft to ${data.to} opened in Gmail. Review there and press Send — ArcSonare does not send mail by itself yet.`,
+          applicationId: "gmail",
+        },
+        "Compose opened",
+        true,
+      );
+      playEventSound("task-completed");
+      sessionTimers.push(
+        window.setTimeout(() => {
+          const s = getOverlayState();
+          if (s.mode !== "success" || s.applicationId !== "gmail") return;
+          patchOverlay({
+            applicationId: undefined,
+            applicationIcon: undefined,
+          });
+        }, 5000),
+      );
+    } else {
+      setOverlayError({ message: result.message, code: "compose-failed" });
+      playEventSound("error");
+    }
+  } catch (err) {
     setOverlayError({
-      code: "provider-disconnected",
-      message: "Email provider not connected",
+      message: err instanceof Error ? err.message : "Could not open compose",
+      code: "compose-exception",
     });
     playEventSound("error");
-    return;
   }
-
-  // No email API wired — never claim sent.
-  setOverlayError({
-    code: "api-unavailable",
-    message: "Email sending requires a connected provider. Connect Gmail in Settings → Integrations.",
-  });
-  playEventSound("error");
 }
 
 export async function saveEmailDraftLocally() {

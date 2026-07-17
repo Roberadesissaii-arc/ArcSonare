@@ -4,9 +4,14 @@ export function ConnectPage() {
   return (
     <div className="connect-page">
       <div className="page-top">
-        <h1 className="page-heading">Connect</h1>
+        <div>
+          <h1 className="page-heading">Connect</h1>
+          <p className="page-lede">
+            Bring your favorite tools into ArcSonare. Filter by category or
+            search — OAuth arrives with the service backend.
+          </p>
+        </div>
       </div>
-      <p className="page-lede">Bring your favorite tools into ArcSonare.</p>
       <ConnectGrid />
     </div>
   );

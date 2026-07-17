@@ -4,7 +4,8 @@ import { useSettings } from "../../hooks/useSettings";
 import { shortcutKeys } from "../../services/shortcutFormat";
 import { getPrefs } from "../../stores/settingsStore";
 import { navigateSettings } from "../../stores/appStore";
-import { useVoiceState } from "../../stores/voiceStore";
+import { useVoiceState, VOICE_STATUS_TEXT } from "../../stores/voiceStore";
+import { VOICE_PROFILES } from "../../features/voice/VoiceSelector";
 import { SonareLiveWaveform } from "./SonareLiveWaveform";
 import { SonareMarbleOrb } from "./SonareMarbleOrb";
 
@@ -16,12 +17,18 @@ export function VoiceActionCard() {
   const prefs = getPrefs();
   const [voiceOpen, setVoiceOpen] = useState(false);
 
-  const voiceConfigured = Boolean(prefs.voice.voiceId?.trim());
-  const voiceName = voiceConfigured ? prefs.voice.voiceId : null;
+  const profile = VOICE_PROFILES.find((v) => v.id === prefs.voice.voiceId);
+  // Local AI identity — always Sonare until a profile is chosen.
+  const voiceName = profile?.name ?? "Sonare";
 
   const openVoiceSettings = () => {
     navigateSettings("voice");
   };
+
+  const prompt =
+    status === "idle" || status === "cancelled"
+      ? "Talk with Sonare"
+      : VOICE_STATUS_TEXT[status];
 
   return (
     <section className="card sonare-card voice-action-card">
@@ -39,18 +46,12 @@ export function VoiceActionCard() {
         />
         <div className="voice-action-voice-meta">
           <span className="voice-action-voice-label">Current voice</span>
-          <span className="voice-action-voice-name">
-            {voiceName ? String(voiceName) : "No speech provider configured"}
-          </span>
+          <span className="voice-action-voice-name">{voiceName}</span>
         </div>
         <button
           type="button"
           className="text-action"
           onClick={() => {
-            if (!voiceName) {
-              openVoiceSettings();
-              return;
-            }
             setVoiceOpen((v) => !v);
           }}
         >
@@ -59,7 +60,12 @@ export function VoiceActionCard() {
       </div>
 
       {voiceOpen ? (
-        <div className="mode-list" role="dialog" aria-label="Voice selector" style={{ position: "relative", marginBottom: 8 }}>
+        <div
+          className="mode-list"
+          role="dialog"
+          aria-label="Voice selector"
+          style={{ position: "relative", marginBottom: 8 }}
+        >
           <p className="card-text" style={{ margin: "8px 10px" }}>
             Configure voices in Settings → Voice.
           </p>
@@ -69,7 +75,7 @@ export function VoiceActionCard() {
         </div>
       ) : null}
 
-      <h2 className="card-title">Schedule deep work block</h2>
+      <h2 className="card-title">{prompt}</h2>
 
       <div className="voice-action-wave">
         <SonareLiveWaveform

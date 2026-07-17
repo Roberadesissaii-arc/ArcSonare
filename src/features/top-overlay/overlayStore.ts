@@ -117,6 +117,11 @@ export function setOverlayError(error: OverlayError) {
 }
 
 export function setOverlaySuccess(result: SuccessPayload, status?: string, expand = false) {
+  const applicationId = result.applicationId ?? state.applicationId;
+  const keptIcon =
+    state.applicationIcon && state.applicationIcon.length > 0
+      ? state.applicationIcon
+      : undefined;
   patchOverlay({
     mode: "success",
     expanded: expand && Boolean(result.summary),
@@ -124,7 +129,9 @@ export function setOverlaySuccess(result: SuccessPayload, status?: string, expan
     result,
     actionPayload: expand ? { type: "success", data: result } : undefined,
     requiresConfirmation: false,
-    applicationId: result.applicationId ?? state.applicationId,
+    applicationId,
+    // Keep the right-side app icon through the success state.
+    applicationIcon: keptIcon,
   });
 }
 

@@ -20,62 +20,89 @@
 .titlebar {
   position: relative;
   display: flex;
-  align-items: center;
-  height: 44px;
+  align-items: stretch;
+  justify-content: flex-end;
+  height: 36px;
   flex-shrink: 0;
-  padding-left: 20px;
+  padding: 0 8px 0 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 55%), #0a0f13;
   border-bottom: 1px solid rgba(255, 255, 255, 0.035);
 }
 
-.traffic-lights {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.titlebar-spacer {
+  flex: 1;
+  min-width: 0;
 }
 
-.tl {
+.window-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 100%;
+  gap: 2px;
+  padding: 5px 0;
+}
+
+.win-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
+  width: 38px;
+  height: 26px;
   padding: 0;
-  transition: filter 150ms ease;
+  color: rgba(210, 218, 224, 0.62);
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  border-radius: 8px;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
-.tl svg {
-  width: 8px;
-  height: 8px;
-  stroke: rgba(0, 0, 0, 0.55);
-  stroke-width: 1.2;
+.win-btn svg {
+  width: 11px;
+  height: 11px;
+  stroke: currentColor;
+  stroke-width: 1.45;
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
-  opacity: 0;
-  transition: opacity 140ms ease;
 }
 
-.traffic-lights:hover .tl svg,
-.tl:focus-visible svg {
-  opacity: 1;
+.win-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f2f5f7;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.tl:active {
-  filter: brightness(0.82);
+.win-btn:active {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.tl-close {
-  background: #ff5f57;
+.win-btn:focus-visible {
+  outline: 2px solid rgba(195, 155, 255, 0.5);
+  outline-offset: 1px;
 }
 
-.tl-min {
-  background: #febb2e;
+.win-close:hover {
+  background: linear-gradient(180deg, #d45a60, #b83d44);
+  border-color: rgba(255, 140, 146, 0.35);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 12px rgba(196, 72, 78, 0.25);
 }
 
-.tl-max {
-  background: #28c840;
+.win-close:active {
+  background: linear-gradient(180deg, #c24a50, #a3343a);
+}
+
+/* Legacy aliases (unused) */
+.traffic-lights {
+  display: none;
 }
 
 /* --------------------------------- header -------------------------------- */
@@ -699,6 +726,28 @@
 :root[data-theme="light"] .titlebar {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 55%), #eef0f3;
   border-bottom: 1px solid rgba(9, 11, 14, 0.06);
+}
+
+:root[data-theme="light"] .win-btn {
+  color: rgba(40, 48, 56, 0.55);
+  background: rgba(9, 11, 14, 0.04);
+  border-color: rgba(9, 11, 14, 0.08);
+}
+
+:root[data-theme="light"] .win-btn:hover {
+  background: rgba(9, 11, 14, 0.08);
+  border-color: rgba(9, 11, 14, 0.12);
+  color: #12161a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+:root[data-theme="light"] .win-close:hover {
+  background: linear-gradient(180deg, #d45a60, #b83d44);
+  border-color: rgba(196, 72, 78, 0.35);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 12px rgba(196, 72, 78, 0.2);
 }
 
 :root[data-theme="light"] .main-nav,

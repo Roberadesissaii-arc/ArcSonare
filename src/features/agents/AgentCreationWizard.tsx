@@ -128,10 +128,22 @@ export function AgentCreationWizard({ draft, onClose, onCreated }: AgentCreation
     <div className="modal-backdrop">
       <div className="modal wizard" role="dialog" aria-label="Create agent">
         <div className="modal-head">
-          <span className="modal-title">Create agent</span>
+          <div>
+            <span className="modal-title">Create agent</span>
+            <p className="wizard-step-caption">
+              Step {step + 1} of {STEPS.length} · {STEPS[step]}
+            </p>
+          </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close wizard">
             <CloseIcon size={15} />
           </button>
+        </div>
+
+        <div className="wizard-progress" aria-hidden="true">
+          <span
+            className="wizard-progress-fill"
+            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+          />
         </div>
 
         <div className="wizard-steps" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
@@ -140,7 +152,8 @@ export function AgentCreationWizard({ draft, onClose, onCreated }: AgentCreation
               key={label}
               className={`wizard-step${index === step ? " active" : ""}${index < step ? " done" : ""}`}
             >
-              {label}
+              <span className="wizard-step-index">{index + 1}</span>
+              <span className="wizard-step-label">{label}</span>
             </span>
           ))}
         </div>

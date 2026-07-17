@@ -6,8 +6,7 @@ interface ToggleProps {
 }
 
 /**
- * Monochrome switch. Off: dark track, off-white thumb. On: light track,
- * near-black thumb. No accent colors.
+ * ArcSonare toggle — violet gradient when on, smoked charcoal when off.
  */
 export function Toggle({ checked, onChange, label, disabled }: ToggleProps) {
   return (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
+import { SettingsPageHeader } from "../../components/settings/SettingsPageHeader";
 import { ShortcutRecorder } from "../../components/settings/ShortcutRecorder";
 import { useSettings } from "../../hooks/useSettings";
 import { usePrefs } from "../../stores/settingsStore";
@@ -57,13 +58,10 @@ export function ShortcutsSettingsPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">Shortcuts</h1>
-        <p className="page-subtitle">
-          Global shortcuts work anywhere in Windows. A binding is saved only
-          after Windows accepts it; failures keep the previous shortcut.
-        </p>
-      </header>
+      <SettingsPageHeader
+        title="Shortcuts"
+        description="Global shortcuts work anywhere in Windows. A binding is saved only after Windows accepts it; failures keep the previous shortcut."
+      />
 
       <SettingsGroup
         title="Actions"

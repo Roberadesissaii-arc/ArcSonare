@@ -3,6 +3,9 @@ import { listen } from "@tauri-apps/api/event";
 import { useSettings } from "../hooks/useSettings";
 import { useAppearance } from "../hooks/useTheme";
 import { navigate, openPalette, useAppState } from "../stores/appStore";
+import { hydrateProfileDisplayName } from "../features/account/accountProfile";
+import { usePrefs } from "../stores/settingsStore";
+import { ACCENT_SWATCHES } from "../components/settings/ColorPicker";
 import { CustomTitleBar } from "./CustomTitleBar";
 import { AppHeader } from "./AppHeader";
 import { CommandPalette } from "../components/command/CommandPalette";
@@ -17,10 +20,32 @@ import { SettingsPage } from "../pages/SettingsPage";
 /** The main Command Center window. */
 export function AppShell() {
   const { settings } = useSettings();
+  const prefs = usePrefs();
   useAppearance(settings, { applyTheme: true });
   const { page } = useAppState();
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [hidden, setHidden] = useState(document.hidden);
+
+  useEffect(() => {
+    hydrateProfileDisplayName();
+  }, []);
+
+  // Apply accent swatch to CSS variables (selected controls / indicators).
+  useEffect(() => {
+    const root = document.documentElement;
+    if (prefs.appearance.accent === "monochrome") {
+      root.style.removeProperty("--sonare-violet");
+      root.style.removeProperty("--sonare-violet-light");
+      root.style.removeProperty("--sonare-violet-glow");
+      return;
+    }
+    const swatch =
+      ACCENT_SWATCHES.find((s) => s.id === prefs.appearance.accentColor) ??
+      ACCENT_SWATCHES[0];
+    root.style.setProperty("--sonare-violet", swatch.color);
+    root.style.setProperty("--sonare-violet-light", swatch.color);
+    root.style.setProperty("--sonare-violet-glow", `${swatch.color}4d`);
+  }, [prefs.appearance.accent, prefs.appearance.accentColor]);
 
   // Ctrl+K opens the command palette from anywhere in the window.
   useEffect(() => {

@@ -105,12 +105,18 @@ export const UP_NEXT: UpNextEvent[] = [
   {
     time: "10:00 AM",
     title: "Launch briefing",
-    place: "Conference Room · Microsoft Teams",
+    place: "Conference Room · Teams",
     integration: "teams",
   },
   { time: "11:30 AM", title: "Review market data", place: "Workspace" },
   { time: "01:00 PM", title: "Client sync", place: "Zoom", integration: "zoom" },
   { time: "03:30 PM", title: "Quarterly planning", place: "Workspace" },
+  {
+    time: "05:00 PM",
+    title: "Design review",
+    place: "Figma",
+    integration: "figma",
+  },
 ];
 
 export interface FocusSubtask {
@@ -139,23 +145,24 @@ export interface ConnectedTool {
 }
 
 export const CONNECTED_TOOLS: ConnectedTool[] = [
-  { id: "notion", name: "Notion", purpose: "Workspace" },
-  { id: "slack", name: "Slack", purpose: "ArcSonare" },
-  { id: "googleDrive", name: "Google Drive", purpose: "Documents" },
-  { id: "outlook", name: "Outlook", purpose: "Mail" },
+  { id: "notion", name: "Notion", purpose: "Connected" },
+  { id: "slack", name: "Slack", purpose: "Connected" },
+  { id: "googleDrive", name: "Google Drive", purpose: "Connected" },
+  { id: "outlook", name: "Outlook", purpose: "Connected" },
 ];
 
 export interface OrbitChip {
-  icon: "search" | "tasks" | "calendar";
+  icon: "search" | "tasks" | "calendar" | "agent";
   label: string;
   status: string;
 }
 
-/** The three objects orbiting the core; orbit geometry lives in the map. */
+/** Objects orbiting the core; orbit geometry lives in the map. */
 export const ORBIT_CHIPS: OrbitChip[] = [
   { icon: "search", label: "Market scan", status: "Updating" },
   { icon: "tasks", label: "Strategy deck", status: "In progress" },
   { icon: "calendar", label: "Client sync", status: "In 15 min" },
+  { icon: "agent", label: "Inbox triage", status: "Queued" },
 ];
 
 export type AgentStatus =

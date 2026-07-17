@@ -23,9 +23,12 @@ import { playOutputTestTone } from "../../services/SoundService";
 import type {
   FollowUpWindow,
   ResponseLength,
+  SttEngine,
   TurnDetectionMode,
   VoiceActivationMode,
+  WhisperModelSize,
 } from "../../config/prefs";
+import { speechRecognitionAvailable } from "../../services/SpeechRecognitionService";
 
 const PERMISSION_TEXT: Record<MicPermission, string> = {
   granted: "Microphone permission: granted",
@@ -150,9 +153,9 @@ export function VoiceSettingsPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">Voice</h1>
-        <p className="page-subtitle">
+      <header className="page-header settings-page-header">
+        <h1 className="page-title settings-page-title">Voice</h1>
+        <p className="page-subtitle settings-page-subtitle">
           Input, output, voice character and turn detection. Speech models are
           configured under Models.
         </p>
@@ -406,6 +409,54 @@ export function VoiceSettingsPage() {
         </SettingRow>
       </SettingsGroup>
 
+      <SettingsGroup
+        title="Speech to text"
+        description="How ArcSonare turns what you say into commands. Local uses Whisper (openai/whisper). Cloud arrives later."
+      >
+        <SettingRow
+          label="Recognition engine"
+          description={
+            voice.sttEngine === "local"
+              ? "Whisper is selected for local recognition. Speak after activating voice — try “open Spotify”."
+              : "Cloud speech-to-text is not connected in this build."
+          }
+        >
+          <SegmentedControl<SttEngine>
+            options={[
+              { value: "local", label: "Local (Whisper)" },
+              { value: "cloud", label: "Cloud" },
+            ]}
+            value={voice.sttEngine}
+            onChange={(sttEngine) => set({ sttEngine })}
+            ariaLabel="Speech-to-text engine"
+          />
+        </SettingRow>
+        {voice.sttEngine === "local" ? (
+          <SettingRow
+            label="Whisper model"
+            description="Smaller models are faster; larger models are more accurate. Offline weights ship with the Whisper runtime."
+          >
+            <Dropdown<WhisperModelSize>
+              options={[
+                { value: "tiny", label: "tiny — fastest" },
+                { value: "base", label: "base — balanced" },
+                { value: "small", label: "small" },
+                { value: "medium", label: "medium" },
+                { value: "turbo", label: "turbo — recommended" },
+              ]}
+              value={voice.whisperModel}
+              onChange={(whisperModel) => set({ whisperModel })}
+              ariaLabel="Whisper model"
+            />
+          </SettingRow>
+        ) : null}
+        <p className="field-help">
+          {speechRecognitionAvailable()
+            ? "Listening is active when you open voice. Final phrases run as ArcSonare commands."
+            : "This WebView has no speech recognizer yet. The Whisper offline runtime will provide capture when bundled."}
+        </p>
+      </SettingsGroup>
+
       <SettingsGroup title="Turn detection">
         <SettingRow
           label="End-of-speech detection"
@@ -423,35 +474,50 @@ export function VoiceSettingsPage() {
           />
         </SettingRow>
         <SettingRow label="Silence duration">
-          <Slider
-            value={voice.silenceDurationMs}
-            min={300}
-            max={3000}
-            step={100}
-            onChange={(silenceDurationMs) => set({ silenceDurationMs })}
-            label="Silence duration"
-            format={(v) => `${(v / 1000).toFixed(1)}s`}
+          <Dropdown
+            options={[
+              { value: "400", label: "0.4 s — quick" },
+              { value: "700", label: "0.7 s" },
+              { value: "900", label: "0.9 s — default" },
+              { value: "1200", label: "1.2 s" },
+              { value: "1800", label: "1.8 s" },
+              { value: "2500", label: "2.5 s — patient" },
+            ]}
+            value={String(voice.silenceDurationMs)}
+            onChange={(v) => set({ silenceDurationMs: Number(v) })}
+            ariaLabel="Silence duration"
           />
         </SettingRow>
         <SettingRow label="Interruption sensitivity">
-          <Slider
-            value={voice.interruptionSensitivity}
-            min={0}
-            max={100}
-            onChange={(interruptionSensitivity) => set({ interruptionSensitivity })}
-            label="Interruption sensitivity"
-            format={(v) => `${v}%`}
+          <SegmentedControl
+            options={[
+              { value: "25", label: "Low" },
+              { value: "50", label: "Medium" },
+              { value: "75", label: "High" },
+            ]}
+            value={
+              voice.interruptionSensitivity <= 37
+                ? "25"
+                : voice.interruptionSensitivity >= 63
+                  ? "75"
+                  : "50"
+            }
+            onChange={(v) => set({ interruptionSensitivity: Number(v) })}
+            ariaLabel="Interruption sensitivity"
           />
         </SettingRow>
         <SettingRow label="Minimum speech duration">
-          <Slider
-            value={voice.minSpeechMs}
-            min={100}
-            max={2000}
-            step={100}
-            onChange={(minSpeechMs) => set({ minSpeechMs })}
-            label="Minimum speech duration"
-            format={(v) => `${v}ms`}
+          <Dropdown
+            options={[
+              { value: "100", label: "100 ms" },
+              { value: "300", label: "300 ms — default" },
+              { value: "500", label: "500 ms" },
+              { value: "800", label: "800 ms" },
+              { value: "1200", label: "1.2 s" },
+            ]}
+            value={String(voice.minSpeechMs)}
+            onChange={(v) => set({ minSpeechMs: Number(v) })}
+            ariaLabel="Minimum speech duration"
           />
         </SettingRow>
         <SettingRow label="Cancel accidental activation">

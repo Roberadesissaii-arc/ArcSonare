@@ -48,7 +48,7 @@ function loadSettingsSection(): SettingsSection {
   } catch {
     // localStorage unavailable — fall back to the first section.
   }
-  return "general";
+  return "account";
 }
 
 export interface ActivityEntry {

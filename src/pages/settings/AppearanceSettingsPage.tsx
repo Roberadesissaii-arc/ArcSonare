@@ -1,8 +1,10 @@
 import { SettingRow } from "../../components/settings/SettingRow";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
+import { SettingsPageHeader } from "../../components/settings/SettingsPageHeader";
 import { Toggle } from "../../components/settings/Toggle";
 import { Dropdown } from "../../components/settings/Dropdown";
 import { SegmentedControl } from "../../components/settings/SegmentedControl";
+import { ColorPicker } from "../../components/settings/ColorPicker";
 import { Slider } from "../../components/settings/Slider";
 import { useSettings } from "../../hooks/useSettings";
 import { patchPrefs, usePrefs } from "../../stores/settingsStore";
@@ -19,12 +21,10 @@ export function AppearanceSettingsPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">Appearance</h1>
-        <p className="page-subtitle">
-          Theme, density and motion. Changes apply immediately.
-        </p>
-      </header>
+      <SettingsPageHeader
+        title="Appearance"
+        description="Theme, density and motion. Changes apply immediately."
+      />
 
       <SettingsGroup title="Theme">
         <SettingRow label="Theme" description="Dark is the primary experience.">
@@ -40,17 +40,26 @@ export function AppearanceSettingsPage() {
           />
         </SettingRow>
         <SettingRow
-          label="Accent"
-          description="Violet marks intelligence moments; monochrome removes it."
+          label="Accent color"
+          description="Used for selected controls, focus rings, and intelligence highlights."
+        >
+          <ColorPicker
+            value={appearance.accentColor || "violet"}
+            onChange={(accentColor) => set({ accent: "violet", accentColor })}
+          />
+        </SettingRow>
+        <SettingRow
+          label="Accent mode"
+          description="Monochrome removes violet intelligence accents."
         >
           <SegmentedControl<AccentMode>
             options={[
-              { value: "violet", label: "ArcSonare violet" },
+              { value: "violet", label: "Colored" },
               { value: "monochrome", label: "Monochrome" },
             ]}
             value={appearance.accent}
             onChange={(accent) => set({ accent })}
-            ariaLabel="Accent"
+            ariaLabel="Accent mode"
           />
         </SettingRow>
         <SettingRow label="Interface density">
@@ -104,6 +113,7 @@ export function AppearanceSettingsPage() {
           />
         </SettingRow>
       </SettingsGroup>
+
 
       <SettingsGroup title="Motion and effects">
         <SettingRow

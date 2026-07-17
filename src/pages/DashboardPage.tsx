@@ -37,19 +37,35 @@ export function DashboardPage(_props: DashboardPageProps) {
   const { view, work } = useCenterStage();
   const urgentCount = activity.filter((a) => a.source === "task").length;
 
-  let title = `${greetingForNow()}, ${profileName}`;
+  const greeting = greetingForNow();
+  let title = `${greeting}, ${profileName}`;
   let subtitle = "Here’s what’s moving. Want me to take the lead?";
 
-  if (view === "active-work" && work) {
-    title = "ArcSonare is working";
-    subtitle = work.step || work.status;
-  } else if (view === "review" && work) {
-    title = work.configRequired ? "Configuration needed" : "Your draft is ready";
-    subtitle = work.configRequired
-      ? work.configMessage ?? "Review the requirements before continuing."
-      : "Review it before anything is sent.";
-  } else if (urgentCount >= 3) {
-    subtitle = "Three items need attention. Want me to prioritize them?";
+  if (view === "overview") {
+    title = `${greeting}, ${profileName}`;
+    subtitle =
+      urgentCount >= 3
+        ? "Three items need attention. Want me to prioritize them?"
+        : "Here’s what’s moving. Want me to take the lead?";
+  } else if (view === "active-work") {
+    if (work) {
+      title = "ArcSonare is working";
+      subtitle = work.step || work.status;
+    } else {
+      title = "Active Work";
+      subtitle = "Nothing is running right now. Ask ArcSonare to take the lead.";
+    }
+  } else if (view === "review") {
+    if (work?.configRequired) {
+      title = "Configuration needed";
+      subtitle = work.configMessage ?? "Review the requirements before continuing.";
+    } else if (work?.resultReady) {
+      title = "Your draft is ready";
+      subtitle = "Review it before anything is sent.";
+    } else {
+      title = "Review";
+      subtitle = "Finished drafts and results will show up here for confirmation.";
+    }
   }
 
   return (
@@ -75,109 +91,120 @@ export function DashboardPage(_props: DashboardPageProps) {
           <OrbitalCommandMap />
         </div>
 
-        {view === "active-work" && work ? (
-          <div className="center-work-panel card sonare-card">
-            <span className="card-label">Active Work</span>
-            <h2 className="card-title">{work.title}</h2>
-            <p className="card-text">{work.status}</p>
-            <p className="card-text">{work.step}</p>
-            <div className="focus-track" style={{ marginTop: 12 }} aria-hidden="true">
-              <span className="focus-line" style={{ width: `${work.progress}%` }} />
-            </div>
-            <p className="card-text" style={{ marginTop: 10 }}>
-              {work.contextNote}
-            </p>
-            <div className="card-actions">
-              <button type="button" className="text-action" onClick={clearCenterWork}>
-                Cancel
-              </button>
-              <button type="button" className="text-action" onClick={() => setCenterView("overview")}>
-                Minimize to orbit
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {view === "review" && work ? (
-          <div className="center-work-panel card sonare-card">
-            <span className="card-label">Review</span>
-            <h2 className="card-title">{work.title}</h2>
-            {work.configRequired ? (
-              <>
-                <p className="card-text">{work.configMessage}</p>
-                <div className="card-actions">
-                  <button
-                    type="button"
-                    className="btn-pill"
-                    onClick={() => navigateSettings("models")}
-                  >
-                    Open Models Settings
-                  </button>
-                  <button type="button" className="text-action" onClick={clearCenterWork}>
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : work.draft ? (
-              <>
-                <p className="card-text">
-                  <strong>To</strong> {work.draft.to}
-                </p>
-                <p className="card-text">
-                  <strong>Subject</strong> {work.draft.subject}
-                </p>
-                <p className="card-text" style={{ whiteSpace: "pre-wrap" }}>
-                  {work.draft.body}
-                </p>
-                <p className="card-text">Tone: {work.draft.tone}</p>
-                <div className="card-actions">
-                  <button type="button" className="btn-pill" disabled title="Requires email provider">
-                    Send (requires confirmation)
-                  </button>
-                  <button type="button" className="text-action" onClick={clearCenterWork}>
-                    Close
-                  </button>
-                </div>
-                <p className="card-text" style={{ marginTop: 8, fontSize: 11 }}>
-                  Email is not sent unless a connected provider confirms it.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="card-text">{work.status}</p>
-                <button type="button" className="text-action" onClick={clearCenterWork}>
-                  Back to Overview
-                </button>
-              </>
-            )}
-          </div>
-        ) : null}
-
         <div className="dashboard-greeting">
           <h1 className="greeting-title">{title}</h1>
           <p className="greeting-sub">{subtitle}</p>
           <div className="greeting-indicator" role="tablist" aria-label="Center stage views">
-            {VIEW_META.map((item) => {
-              const disabled =
-                (item.id === "active-work" && !work) ||
-                (item.id === "review" && !work?.resultReady && !work?.configRequired);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={view === item.id}
-                  aria-label={item.label}
-                  title={item.label}
-                  disabled={disabled}
-                  className={view === item.id ? "violet" : undefined}
-                  onClick={() => setCenterView(item.id)}
-                />
-              );
-            })}
+            {VIEW_META.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={view === item.id}
+                aria-label={item.label}
+                title={item.label}
+                className={view === item.id ? "violet" : undefined}
+                onClick={() => setCenterView(item.id)}
+              />
+            ))}
           </div>
         </div>
-        <CommandComposer />
+
+        <div className="composer-stage">
+          {view === "active-work" && work ? (
+            <div className="center-work-panel card sonare-card">
+              <span className="card-label">Active Work</span>
+              <h2 className="card-title">{work.title}</h2>
+              <p className="card-text">{work.status}</p>
+              <p className="card-text">{work.step}</p>
+              <div className="focus-track" style={{ marginTop: 12 }} aria-hidden="true">
+                <span className="focus-line" style={{ width: `${work.progress}%` }} />
+              </div>
+              <p className="card-text" style={{ marginTop: 10 }}>
+                {work.contextNote}
+              </p>
+              <div className="card-actions">
+                <button type="button" className="text-action" onClick={clearCenterWork}>
+                  Cancel
+                </button>
+                <button type="button" className="text-action" onClick={() => setCenterView("overview")}>
+                  Minimize to orbit
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {view === "review" && work ? (
+            <div className="center-work-panel card sonare-card">
+              <span className="card-label">Review</span>
+              <h2 className="card-title">{work.title}</h2>
+              {work.configRequired ? (
+                <>
+                  <p className="card-text">{work.configMessage}</p>
+                  <div className="card-actions">
+                    <button
+                      type="button"
+                      className="btn-pill"
+                      onClick={() => navigateSettings("models")}
+                    >
+                      Open Models Settings
+                    </button>
+                    <button type="button" className="text-action" onClick={clearCenterWork}>
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : work.draft ? (
+                <>
+                  <p className="card-text">
+                    <strong>To</strong> {work.draft.to}
+                  </p>
+                  <p className="card-text">
+                    <strong>Subject</strong> {work.draft.subject}
+                  </p>
+                  <p className="card-text" style={{ whiteSpace: "pre-wrap" }}>
+                    {work.draft.body}
+                  </p>
+                  <p className="card-text">Tone: {work.draft.tone}</p>
+                  <div className="card-actions">
+                    <button type="button" className="btn-pill" disabled title="Requires email provider">
+                      Send (requires confirmation)
+                    </button>
+                    <button type="button" className="text-action" onClick={clearCenterWork}>
+                      Close
+                    </button>
+                  </div>
+                  <p className="card-text" style={{ marginTop: 8, fontSize: 11 }}>
+                    Email is not sent unless a connected provider confirms it.
+                  </p>
+                </>
+              ) : (
+                <>
+                  {work.step ? (
+                    <p className="card-text" style={{ fontSize: 11, marginBottom: 6 }}>
+                      {work.step}
+                    </p>
+                  ) : null}
+                  <p className="card-text" style={{ whiteSpace: "pre-wrap" }}>
+                    {work.status}
+                  </p>
+                  {work.contextNote ? (
+                    <p className="card-text" style={{ marginTop: 8, fontSize: 11 }}>
+                      {work.contextNote}
+                    </p>
+                  ) : null}
+                  <div className="card-actions">
+                    <button type="button" className="text-action" onClick={clearCenterWork}>
+                      Back to Overview
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          <CommandComposer />
+        </div>
       </div>
 
       <div className="dashboard-col side-column dashboard-right">

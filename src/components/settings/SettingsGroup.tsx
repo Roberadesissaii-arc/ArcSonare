@@ -1,22 +1,19 @@
 import type { ReactNode } from "react";
+import { SettingsCard } from "./SettingsCard";
 
 interface SettingsGroupProps {
   title: string;
   description?: string;
   children: ReactNode;
+  footer?: ReactNode;
+  icon?: ReactNode;
 }
 
-/** A refined smoked-titanium section card grouping related settings rows. */
-export function SettingsGroup({ title, description, children }: SettingsGroupProps) {
+/** @deprecated Prefer SettingsCard — kept as a thin alias for existing pages. */
+export function SettingsGroup({ title, description, children, footer, icon }: SettingsGroupProps) {
   return (
-    <section className="settings-group">
-      <div className="settings-group-head">
-        <h2 className="settings-group-title">{title}</h2>
-        {description ? (
-          <p className="settings-group-desc">{description}</p>
-        ) : null}
-      </div>
-      <div className="settings-group-body">{children}</div>
-    </section>
+    <SettingsCard title={title} description={description} footer={footer} icon={icon}>
+      {children}
+    </SettingsCard>
   );
 }

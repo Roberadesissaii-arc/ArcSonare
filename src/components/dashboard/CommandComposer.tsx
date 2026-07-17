@@ -19,10 +19,14 @@ import { SonareSparkle } from "../brand/SonareSparkle";
 import { addActivity } from "../../stores/appStore";
 import { parseOverlayIntent } from "../../features/top-overlay/iconResolver";
 import {
+  completeCenterWork,
   requireCenterConfig,
   startCenterWork,
-  completeCenterWork,
 } from "../../stores/centerStageStore";
+import { modelById } from "../../config/modelRegistry";
+import { deepseekReply } from "../../services/DeepSeekService";
+import { ensureOllamaModel, ollamaReply } from "../../services/OllamaService";
+import { getPrefs } from "../../stores/settingsStore";
 
 const QUICK_ACTIONS: {
   label: string;
@@ -40,7 +44,6 @@ interface ComposerMode {
   name: string;
   description: string;
   icon: ComponentType<{ size?: number }>;
-  /** No mode backend exists yet; only honest labels ship. */
   comingLater?: boolean;
 }
 
@@ -48,7 +51,7 @@ const MODES: ComposerMode[] = [
   {
     id: "smart",
     name: "Smart mode",
-    description: "Automatically chooses the best approach",
+    description: "Uses your default model from Settings → Models",
     icon: SparkleIcon,
   },
   {
@@ -75,21 +78,123 @@ const MODES: ComposerMode[] = [
   {
     id: "local",
     name: "Local mode",
-    description: "Uses available private local models",
+    description: "Always uses Ollama on this computer",
     icon: CpuIcon,
-    comingLater: true,
   },
 ];
 
+/** Ask Ollama and show the reply in the center stage. */
+async function askLocalAssistant(text: string) {
+  startCenterWork({
+    kind: "generic",
+    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
+    status: "Thinking…",
+    step: "Connecting to Ollama",
+    progress: 24,
+    contextNote: "Local model — nothing leaves this computer.",
+    resultReady: false,
+  });
+
+  const ready = await ensureOllamaModel();
+  if (!ready.ok) {
+    requireCenterConfig(ready.message);
+    return;
+  }
+
+  startCenterWork({
+    kind: "generic",
+    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
+    status: "Thinking…",
+    step: `Asking ${ready.model}`,
+    progress: 55,
+    contextNote: `Ollama · ${ready.model}`,
+    resultReady: false,
+  });
+
+  try {
+    const reply = await ollamaReply(text);
+    completeCenterWork({
+      status: reply,
+      step: `Reply from ${ready.model}`,
+      contextNote: `Ollama · ${ready.model}`,
+    });
+    addActivity(`ArcSonare: ${reply.slice(0, 120)}`, "agent");
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "The local model did not reply.";
+    requireCenterConfig(message);
+  }
+}
+
+/** Ask DeepSeek (cloud) and show the reply in the center stage. */
+async function askDeepSeekAssistant(text: string, modelName: string, displayName: string) {
+  startCenterWork({
+    kind: "generic",
+    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
+    status: "Thinking…",
+    step: "Connecting to DeepSeek",
+    progress: 24,
+    contextNote: "Cloud model — request goes to api.deepseek.com.",
+    resultReady: false,
+  });
+
+  startCenterWork({
+    kind: "generic",
+    title: text.length > 64 ? `${text.slice(0, 61)}…` : text,
+    status: "Thinking…",
+    step: `Asking ${displayName}`,
+    progress: 55,
+    contextNote: `DeepSeek · ${modelName}`,
+    resultReady: false,
+  });
+
+  try {
+    const reply = await deepseekReply(text, modelName);
+    completeCenterWork({
+      status: reply,
+      step: `Reply from ${displayName}`,
+      contextNote: `DeepSeek · ${modelName}`,
+    });
+    addActivity(`ArcSonare: ${reply.slice(0, 120)}`, "agent");
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "DeepSeek did not reply.";
+    requireCenterConfig(message);
+  }
+}
+
+/** Route chat to the selected default model (or force Ollama in Local mode). */
+async function askAssistant(text: string, forceLocal: boolean) {
+  if (forceLocal) {
+    await askLocalAssistant(text);
+    return;
+  }
+
+  const role = modelById(getPrefs().models.roles.assistant);
+  if (role?.provider === "deepseek") {
+    await askDeepSeekAssistant(text, role.modelName, role.displayName);
+    return;
+  }
+  if (role?.provider === "ollama" || !role) {
+    await askLocalAssistant(text);
+    return;
+  }
+
+  requireCenterConfig(
+    `${role.displayName} is selected, but chat for that provider is not wired yet. Choose Ollama or DeepSeek in Settings → Models.`,
+  );
+}
+
 /**
- * The floating bottom command composer. Submissions are recorded to the
- * local activity log only — no remote model is connected in this phase.
+ * Bottom command composer. General chat goes to Ollama; app/email intents
+ * also drive the top overlay when relevant.
  */
 export function CommandComposer() {
   const [value, setValue] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [mode, setMode] = useState<ComposerMode>(MODES[0]);
   const [modeOpen, setModeOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modeRef = useRef<HTMLDivElement>(null);
 
@@ -111,61 +216,36 @@ export function CommandComposer() {
 
   const submit = () => {
     const text = value.trim();
-    if (!text) return;
-    addActivity(`Command (${mode.name}): "${text}"`, "command");
+    if (!text || busy) return;
+    addActivity(`You: "${text}"`, "command");
     setValue("");
+    setBusy(true);
 
     const lower = text.toLowerCase();
     const intent = parseOverlayIntent(text);
 
-    // Dashboard center-stage workflows (draft / summarize / insights / task).
-    if (lower.startsWith("draft an email") || lower.startsWith("draft email")) {
-      startCenterWork({
-        kind: "draft-email",
-        title: "Drafting email",
-        status: "Understanding your request",
-        step: "Reviewing the provided context",
-        progress: 28,
-        contextNote: "Local composer context only — no model is connected yet.",
-        resultReady: false,
-      });
-      window.setTimeout(() => {
-        requireCenterConfig(
-          "Draft workflow prepared. Configure a model to generate the email.",
-        );
-      }, 900);
-    } else if (lower.startsWith("summarize")) {
-      startCenterWork({
-        kind: "summarize",
-        title: "Summarizing updates",
-        status: "Gathering local updates",
-        step: "Preparing summary",
-        progress: 40,
-        contextNote: "Using local demo activity — no remote sources connected.",
-        resultReady: false,
-      });
-      window.setTimeout(() => {
-        completeCenterWork({
-          status: "Summary ready (demo)",
-          step: "Review the key points below.",
-        });
-      }, 900);
-    } else if (lower.startsWith("find insights") || lower.startsWith("find insight")) {
-      startCenterWork({
-        kind: "find-insights",
-        title: "Finding insights",
-        status: "Scanning connected sources",
-        step: "No live sources connected — preparing demo scope",
-        progress: 35,
-        contextNote: "Insight search requires connected knowledge sources.",
-        resultReady: false,
-      });
-      window.setTimeout(() => {
-        requireCenterConfig(
-          "Insight search requires connected sources and a configured model.",
-        );
-      }, 900);
-    } else if (lower.startsWith("create a task") || lower.startsWith("create task")) {
+    const finish = () => setBusy(false);
+
+    // Structured intents that should open the overlay.
+    if (
+      intent.kind === "open" ||
+      intent.kind === "search" ||
+      intent.kind === "draft-email" ||
+      intent.kind === "schedule-meeting" ||
+      intent.kind === "screen-context" ||
+      intent.kind === "mention" ||
+      intent.kind === "clarify"
+    ) {
+      void invoke("overlay_queue_command", { transcript: text })
+        .then(() => invoke("show_overlay"))
+        .catch((err) =>
+          console.error("[ArcSonare] failed to drive overlay from composer:", err),
+        )
+        .finally(finish);
+      return;
+    }
+
+    if (lower.startsWith("create a task") || lower.startsWith("create task")) {
       startCenterWork({
         kind: "create-task",
         title: "Creating task",
@@ -180,33 +260,13 @@ export function CommandComposer() {
           status: "Open Tasks to finish creating this item.",
           step: "Task draft prepared locally.",
         });
+        finish();
       }, 700);
+      return;
     }
 
-    const drivesOverlay =
-      intent.kind === "open" ||
-      intent.kind === "search" ||
-      intent.kind === "draft-email" ||
-      intent.kind === "schedule-meeting" ||
-      intent.kind === "create-task" ||
-      intent.kind === "screen-context" ||
-      intent.kind === "mention" ||
-      intent.kind === "clarify";
-
-    // Open-app phrases also drive the top overlay for visual QA.
-    if (intent.kind === "open" || intent.kind === "search") {
-      void invoke("overlay_queue_command", { transcript: text })
-        .then(() => invoke("show_overlay"))
-        .catch((err) =>
-          console.error("[ArcSonare] failed to drive overlay from composer:", err),
-        );
-    } else if (drivesOverlay && intent.kind !== "draft-email" && intent.kind !== "create-task") {
-      void invoke("overlay_queue_command", { transcript: text })
-        .then(() => invoke("show_overlay"))
-        .catch((err) =>
-          console.error("[ArcSonare] failed to drive overlay from composer:", err),
-        );
-    }
+    // Everything else — including “hello” — uses the selected default model.
+    void askAssistant(text, mode.id === "local").finally(finish);
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -223,7 +283,16 @@ export function CommandComposer() {
       setValue(prompt);
       textareaRef.current?.focus();
     } else {
-      addActivity(`Command (${mode.name}): "${prompt}"`, "command");
+      setValue(prompt);
+      window.setTimeout(() => {
+        // Let state settle then submit.
+        const text = prompt.trim();
+        if (!text || busy) return;
+        addActivity(`You: "${text}"`, "command");
+        setValue("");
+        setBusy(true);
+        void askAssistant(text, mode.id === "local").finally(() => setBusy(false));
+      }, 0);
     }
   };
 
@@ -252,10 +321,11 @@ export function CommandComposer() {
           className="composer-input"
           rows={1}
           value={value}
-          placeholder="Ask ArcSonare anything..."
+          placeholder={busy ? "ArcSonare is thinking…" : "Ask ArcSonare anything..."}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
           aria-label="Ask ArcSonare"
+          disabled={busy}
         />
         <button
           type="button"
@@ -276,6 +346,7 @@ export function CommandComposer() {
               type="button"
               className="quick-action"
               onClick={() => applyQuickAction(qa.prompt)}
+              disabled={busy}
             >
               <qa.icon size={14} />
               {qa.label}
@@ -303,7 +374,9 @@ export function CommandComposer() {
                       role="option"
                       aria-selected={m.id === mode.id}
                       className={`mode-option${m.id === mode.id ? " selected" : ""}`}
+                      disabled={m.comingLater}
                       onClick={() => {
+                        if (m.comingLater) return;
                         setMode(m);
                         setModeOpen(false);
                       }}
@@ -335,7 +408,7 @@ export function CommandComposer() {
             type="button"
             className="composer-send"
             onClick={submit}
-            disabled={!value.trim()}
+            disabled={!value.trim() || busy}
             aria-label="Send command"
             title="Send"
           >

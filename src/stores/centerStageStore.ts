@@ -51,8 +51,6 @@ export function getCenterStage(): CenterStageState {
 }
 
 export function setCenterView(view: CenterStageView) {
-  if (view === "active-work" && !state.work) return;
-  if (view === "review" && !state.work?.resultReady && !state.work?.configRequired) return;
   state = { ...state, view };
   notify();
 }
