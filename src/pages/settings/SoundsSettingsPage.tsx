@@ -1,33 +1,64 @@
-import { PlayIcon } from "../../components/Icons";
-import { SettingRow } from "../../components/settings/SettingRow";
-import { SettingsGroup } from "../../components/settings/SettingsGroup";
-import { Toggle } from "../../components/settings/Toggle";
-import { Slider } from "../../components/settings/Slider";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { SettingsPageHeader } from "../../components/settings/SettingsPageHeader";
+import {
+  DEFAULT_PREFS,
+  type SoundEvent,
+} from "../../config/prefs";
+import { listAudioDevices } from "../../services/DeviceService";
+import {
+  getSoundPlaybackState,
+  playEventSound,
+  previewAllSounds,
+  stopAllSounds,
+  stopPreview,
+  subscribeSoundPlayback,
+} from "../../services/SoundService";
 import { patchPrefs, updatePrefs, usePrefs } from "../../stores/settingsStore";
-import { playEventSound, previewAllSounds } from "../../services/SoundService";
-import { DEFAULT_PREFS, SOUND_EVENTS, type SoundEvent } from "../../config/prefs";
+import { EventSoundsCard } from "../../features/sounds/EventSoundsCard";
+import { MasterSoundCard } from "../../features/sounds/MasterSoundCard";
+import { QuietHoursCard } from "../../features/sounds/QuietHoursCard";
+import { SoundProfileCard } from "../../features/sounds/SoundProfileCard";
 
-const EVENT_LABELS: Record<SoundEvent, string> = {
-  "overlay-open": "Voice overlay opens",
-  "overlay-close": "Voice overlay closes",
-  listening: "Listening begins",
-  thinking: "Thinking begins",
-  responding: "Response begins",
-  "task-completed": "Task completed",
-  confirmation: "Confirmation required",
-  error: "Error",
-  notification: "Notification received",
-  "screen-context-start": "Screen Context activates",
-  "screen-context-stop": "Screen Context stops",
-  "annotation-confirmed": "Annotation confirmed",
-  "wake-word": "Wake word detected",
-};
+function useSoundPlayback() {
+  return useSyncExternalStore(subscribeSoundPlayback, getSoundPlaybackState, getSoundPlaybackState);
+}
 
 export function SoundsSettingsPage() {
   const prefs = usePrefs();
   const sounds = prefs.sounds;
+  const quietHours = prefs.notifications.quietHours;
+  const playback = useSoundPlayback();
+  const [outputs, setOutputs] = useState<{ id: string; label: string }[]>([]);
 
-  const set = (patch: Partial<typeof sounds>) => patchPrefs("sounds", patch);
+  useEffect(() => {
+    listAudioDevices()
+      .then((list) =>
+        setOutputs(
+          list.outputs.map((d) => ({
+            id: d.deviceId,
+            label: d.label || "Output device",
+          })),
+        ),
+      )
+      .catch(() => setOutputs([]));
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") stopPreview();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      stopAllSounds();
+    };
+  }, []);
+
+  const setSounds = (patch: Partial<typeof sounds>) => {
+    if (patch.enabled === false) stopAllSounds();
+    patchPrefs("sounds", patch);
+  };
+
   const setEvent = (id: SoundEvent, patch: Partial<{ enabled: boolean; volume: number }>) =>
     updatePrefs((p) => ({
       ...p,
@@ -40,117 +71,77 @@ export function SoundsSettingsPage() {
       },
     }));
 
+  const setQuiet = (patch: Partial<typeof quietHours>) =>
+    updatePrefs((p) => ({
+      ...p,
+      notifications: {
+        ...p.notifications,
+        quietHours: { ...p.notifications.quietHours, ...patch },
+      },
+    }));
+
+  const outputOptions = useMemo(() => {
+    const base = [
+      { value: "system-default", label: "Default output" },
+      { value: "follow-voice-output", label: "Follow Voice output" },
+    ];
+    for (const d of outputs) {
+      if (!d.id || d.id === "default") continue;
+      base.push({ value: `device:${d.id}`, label: d.label });
+    }
+    return base;
+  }, [outputs]);
+
+  const resetDefaults = () => {
+    const ok = window.confirm(
+      "Reset sound settings?\n\nThis restores master volume, sound profile, event toggles, event volumes, and output behavior.\n\nVoice and Notification settings are not changed.",
+    );
+    if (!ok) return;
+    stopAllSounds();
+    updatePrefs((p) => ({ ...p, sounds: { ...DEFAULT_PREFS.sounds } }));
+  };
+
+  const handlePreview = (id: SoundEvent) => {
+    if (playback.currentlyPreviewing === id && !playback.previewAllActive) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+    playEventSound(id, { preview: true });
+  };
+
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1 className="page-title">Sounds</h1>
-        <p className="page-subtitle">
-          Restrained interface sounds, generated locally — nothing is bundled
-          or downloaded.
-        </p>
-      </header>
+    <div className="sounds-settings-page page">
+      <SettingsPageHeader
+        title="Sounds"
+        description="Restrained interface sounds, generated locally — nothing is bundled or downloaded."
+      />
 
-      <SettingsGroup title="Master">
-        <SettingRow label="Enable interface sounds">
-          <Toggle
-            checked={sounds.enabled}
-            onChange={(enabled) => set({ enabled })}
-            label="Enable interface sounds"
-          />
-        </SettingRow>
-        <SettingRow label="Master sound volume">
-          <Slider
-            value={sounds.masterVolume}
-            min={0}
-            max={100}
-            onChange={(masterVolume) => set({ masterVolume })}
-            label="Master sound volume"
-            format={(v) => `${v}%`}
-            disabled={!sounds.enabled}
-          />
-        </SettingRow>
-        <SettingRow
-          label="Mute during quiet hours"
-          description="Uses the quiet hours configured under Notifications."
-        >
-          <Toggle
-            checked={sounds.respectQuietHours}
-            onChange={(respectQuietHours) => set({ respectQuietHours })}
-            label="Mute during quiet hours"
-            disabled={!sounds.enabled}
-          />
-        </SettingRow>
-        <SettingRow
-          label="Mute while another application is presenting"
-          description="Presentation detection is not available yet; the preference applies once it is."
-        >
-          <Toggle
-            checked={sounds.muteWhilePresenting}
-            onChange={(muteWhilePresenting) => set({ muteWhilePresenting })}
-            label="Mute while presenting"
-            disabled={!sounds.enabled}
-          />
-        </SettingRow>
-        <SettingRow label="Preview all sounds">
-          <button
-            type="button"
-            className="btn"
-            onClick={previewAllSounds}
-            disabled={!sounds.enabled && sounds.masterVolume === 0}
-          >
-            Preview all
-          </button>
-        </SettingRow>
-        <SettingRow label="Reset sound defaults">
-          <button
-            type="button"
-            className="btn"
-            onClick={() =>
-              updatePrefs((p) => ({ ...p, sounds: { ...DEFAULT_PREFS.sounds } }))
-            }
-          >
-            Reset
-          </button>
-        </SettingRow>
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="Event sounds"
-        description="Each event can be enabled and adjusted independently. Custom sound files are not supported yet — all sounds are generated by the local sound engine."
-      >
-        {SOUND_EVENTS.map((id) => {
-          const event = sounds.events[id];
-          return (
-            <div className="sound-event-row" key={id}>
-              <Toggle
-                checked={event.enabled}
-                onChange={(enabled) => setEvent(id, { enabled })}
-                label={`Enable sound: ${EVENT_LABELS[id]}`}
-                disabled={!sounds.enabled}
-              />
-              <span className="sound-event-name">{EVENT_LABELS[id]}</span>
-              <Slider
-                value={event.volume}
-                min={0}
-                max={100}
-                onChange={(volume) => setEvent(id, { volume })}
-                label={`Volume: ${EVENT_LABELS[id]}`}
-                format={(v) => `${v}%`}
-                disabled={!sounds.enabled || !event.enabled}
-              />
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`Preview ${EVENT_LABELS[id]}`}
-                title="Preview"
-                onClick={() => playEventSound(id, { preview: true })}
-              >
-                <PlayIcon size={13} />
-              </button>
-            </div>
-          );
-        })}
-      </SettingsGroup>
+      <div className="sounds-page-grid">
+        <MasterSoundCard
+          sounds={sounds}
+          previewAllActive={playback.previewAllActive}
+          onChange={setSounds}
+          onPreviewAll={previewAllSounds}
+          onReset={resetDefaults}
+        />
+        <SoundProfileCard
+          sounds={sounds}
+          amplitude={playback.amplitude}
+          previewing={playback.currentlyPreviewing != null || playback.previewAllActive}
+          outputOptions={outputOptions}
+          onChange={setSounds}
+        />
+        <EventSoundsCard
+          masterEnabled={sounds.enabled}
+          events={sounds.events}
+          currentlyPreviewing={playback.currentlyPreviewing}
+          onToggle={(id, enabled) => setEvent(id, { enabled })}
+          onVolume={(id, volume) => setEvent(id, { volume })}
+          onPreview={handlePreview}
+        />
+        <QuietHoursCard quietHours={quietHours} onChange={setQuiet} />
+      </div>
     </div>
   );
 }

@@ -83,6 +83,12 @@ export const SOUND_EVENTS = [
 ] as const;
 export type SoundEvent = (typeof SOUND_EVENTS)[number];
 
+export type SoundProfileId = "calm" | "balanced" | "crisp" | "cinematic";
+export type SoundOutputMode =
+  | "system-default"
+  | "follow-voice-output"
+  | "specific-device";
+
 /** Notification categories. */
 export const NOTIFICATION_CATEGORIES = [
   "task-created",
@@ -269,6 +275,9 @@ export interface Prefs {
     masterVolume: number; // 0..100
     respectQuietHours: boolean;
     muteWhilePresenting: boolean;
+    profile: SoundProfileId;
+    outputMode: SoundOutputMode;
+    outputDeviceId: string | null;
     events: Record<SoundEvent, { enabled: boolean; volume: number }>;
   };
 
@@ -316,9 +325,24 @@ export interface Prefs {
 }
 
 function defaultSoundEvents(): Prefs["sounds"]["events"] {
+  const defaults: Partial<Record<SoundEvent, number>> = {
+    "overlay-open": 70,
+    "overlay-close": 65,
+    listening: 70,
+    thinking: 55,
+    responding: 60,
+    "task-completed": 72,
+    confirmation: 75,
+    error: 78,
+    notification: 65,
+    "screen-context-start": 65,
+    "screen-context-stop": 58,
+    "annotation-confirmed": 68,
+    "wake-word": 62,
+  };
   const events = {} as Prefs["sounds"]["events"];
   for (const id of SOUND_EVENTS) {
-    events[id] = { enabled: true, volume: 70 };
+    events[id] = { enabled: true, volume: defaults[id] ?? 70 };
   }
   return events;
 }
@@ -344,7 +368,7 @@ function defaultRetention(): Prefs["dataPrivacy"]["retention"] {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  schemaVersion: 6,
+  schemaVersion: 7,
   general: {
     startMinimized: false,
     keepRunningOnClose: true,
@@ -494,6 +518,9 @@ export const DEFAULT_PREFS: Prefs = {
     masterVolume: 60,
     respectQuietHours: true,
     muteWhilePresenting: false,
+    profile: "balanced",
+    outputMode: "system-default",
+    outputDeviceId: null,
     events: defaultSoundEvents(),
   },
   notifications: {

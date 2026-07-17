@@ -499,7 +499,9 @@ pub static APP_REGISTRY: &[AppEntry] = &[
         display_name: "Microsoft To Do",
         can_open_desktop: true,
         web_url: Some("https://to-do.office.com"),
-        exe_candidates: &[r"%LOCALAPPDATA%\Microsoft\WindowsApps\Microsoft.Todos_8wekyb3d8bbwe\Todo.exe"],
+        exe_candidates: &[
+            r"%LOCALAPPDATA%\Microsoft\WindowsApps\Microsoft.Todos_8wekyb3d8bbwe\Todo.exe",
+        ],
         process_names: &["Todo.exe"],
     },
     AppEntry {

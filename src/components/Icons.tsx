@@ -428,6 +428,23 @@ export function WaveIcon({ size }: IconProps) {
   );
 }
 
+export function MoonIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 7 7 0 1 0 20 14.5z" />
+    </svg>
+  );
+}
+
+export function WarningIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M12 3l9.5 17h-19L12 3z" />
+      <path d="M12 10v4M12 17h.01" />
+    </svg>
+  );
+}
+
 export function DotsIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
