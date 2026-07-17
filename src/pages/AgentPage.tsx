@@ -122,15 +122,31 @@ export function AgentPage() {
             <span className="agent-rail-label">Prime agent</span>
             <strong>{primeAgent?.name ?? "Not assigned"}</strong>
             <p>Receives new work, selects specialists, and supervises every handoff.</p>
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => {
-                if (primeAgent) setOpenAgentId(primeAgent.id);
-              }}
-            >
-              Open command profile
-            </button>
+            <div className="agent-card-actions">
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => setTemplatesOpen(true)}
+              >
+                Templates
+              </button>
+              <button
+                type="button"
+                className="btn btn-small btn-primary"
+                onClick={() => setWizardDraft(blankAgent())}
+              >
+                <PlusIcon size={12} /> Create
+              </button>
+            </div>
+            {primeAgent ? (
+              <button
+                type="button"
+                className="agent-rail-link agent-prime-open"
+                onClick={() => setOpenAgentId(primeAgent.id)}
+              >
+                Open command profile
+              </button>
+            ) : null}
           </section>
           <section className="agent-side-feature agent-surface tone-blue">
             <span className="agent-rail-label">Delegation flow</span>
@@ -157,10 +173,6 @@ export function AgentPage() {
             <span>Agent command constellation</span>
             <strong>Your team, coordinated in real time</strong>
             <p>Specialists orbit the Prime Agent. Select any profile to inspect its role, workload, and permissions.</p>
-            <div className="agent-command-actions">
-              <button type="button" className="btn btn-small" onClick={() => setTemplatesOpen(true)}>Templates</button>
-              <button type="button" className="btn btn-small btn-primary" onClick={() => setWizardDraft(blankAgent())}><PlusIcon size={12} /> Create</button>
-            </div>
           </div>
           <AgentConstellation
             agents={agents}

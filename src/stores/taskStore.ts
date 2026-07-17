@@ -285,6 +285,30 @@ function patchTask(
   emit();
 }
 
+/**
+ * Re-read tasks from localStorage. Used by the capability engine when a
+ * different window (voice overlay) may have written tasks, and to verify
+ * persistence after a capability-driven mutation.
+ */
+export function reloadTasksFromStorage() {
+  tasks = load();
+  listeners.forEach((l) => l());
+}
+
+/** Read the persisted task list directly (verification readback). */
+export function readPersistedTasks(): ArcSonareTask[] {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { tasks?: unknown };
+      if (Array.isArray(parsed?.tasks)) return parsed.tasks as ArcSonareTask[];
+    }
+  } catch (err) {
+    console.error("[ArcSonare] failed to read persisted tasks:", err);
+  }
+  return [];
+}
+
 export function newTaskId(): string {
   return `task-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }

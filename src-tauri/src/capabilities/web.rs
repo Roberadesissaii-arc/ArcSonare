@@ -41,11 +41,9 @@ pub fn search(args: SearchArgs) -> ToolResult {
     }
     // Site-scoped searches use validated official templates only.
     if let Some(site) = args.site.as_deref() {
-        let encoded = percent_encoding::utf8_percent_encode(
-            query,
-            percent_encoding::NON_ALPHANUMERIC,
-        )
-        .to_string();
+        let encoded =
+            percent_encoding::utf8_percent_encode(query, percent_encoding::NON_ALPHANUMERIC)
+                .to_string();
         let url = match site {
             "youtube" => format!("https://www.youtube.com/results?search_query={encoded}"),
             "google" => format!("https://www.google.com/search?q={encoded}"),

@@ -8,6 +8,7 @@ import {
   TOP_OVERLAY_ICONS,
   type TopOverlayIconDefinition,
 } from "../../config/topOverlayIconRegistry";
+import { blocksBareAppOpen } from "../orchestration/IntentClassifier";
 
 function normalize(text: string): string {
   return text
@@ -282,16 +283,19 @@ export function parseOverlayIntent(utterance: string): ParsedIntent {
   }
 
   // Bare app name → treat as open (common voice shortcut).
-  const bare = resolveApplicationPhrase(text.replace(/\.$/, ""));
-  if (bare.kind === "exact") {
-    return { kind: "open", appId: bare.entry.id, entry: bare.entry };
-  }
-  if (bare.kind === "ambiguous") {
-    return {
-      kind: "clarify",
-      question: bare.question,
-      options: bare.candidates.map((c) => ({ id: c.id, label: c.displayName })),
-    };
+  // Never open from a read/query utterance (“what's on my calendar?”).
+  if (!blocksBareAppOpen(text)) {
+    const bare = resolveApplicationPhrase(text.replace(/\.$/, ""));
+    if (bare.kind === "exact") {
+      return { kind: "open", appId: bare.entry.id, entry: bare.entry };
+    }
+    if (bare.kind === "ambiguous") {
+      return {
+        kind: "clarify",
+        question: bare.question,
+        options: bare.candidates.map((c) => ({ id: c.id, label: c.displayName })),
+      };
+    }
   }
 
   return { kind: "respond", text };

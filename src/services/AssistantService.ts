@@ -16,6 +16,9 @@ import {
   assistantSystemContext,
   tryLocalAssistantTools,
 } from "./assistantTools";
+import { handleOrchestratedRequest } from "../features/orchestration/IntentOrchestrator";
+import { ORCHESTRATION_SYSTEM_RULES } from "../features/orchestration/ModelCapabilityMatrix";
+import { navigate } from "../stores/appStore";
 
 export interface AssistantReply {
   text: string;
@@ -23,6 +26,8 @@ export interface AssistantReply {
   sourceLabel: string;
   /** True when answered by a local deterministic tool (no LLM). */
   localTool?: string;
+  /** Optional Connect action label for UI. */
+  connectionActionLabel?: string;
 }
 
 export interface AssistantRouteInfo {
@@ -66,7 +71,10 @@ export function getAssistantRoute(): AssistantRouteInfo {
 
 function buildMessages(userText: string): ChatMessage[] {
   return [
-    { role: "system", content: assistantSystemContext() },
+    {
+      role: "system",
+      content: `${assistantSystemContext()}\n\n${ORCHESTRATION_SYSTEM_RULES}`,
+    },
     { role: "user", content: userText },
   ];
 }
@@ -90,6 +98,22 @@ export async function askAssistant(
       text: local.reply,
       sourceLabel: "Local tools",
       localTool: local.toolId,
+    };
+  }
+
+  // Intent Precision — connected-service read/open before any model call.
+  const orchestrated = await handleOrchestratedRequest(text);
+  if (orchestrated.handled) {
+    if (orchestrated.navigatePage) {
+      navigate(orchestrated.navigatePage);
+    }
+    return {
+      text: orchestrated.action
+        ? `${orchestrated.text} (${orchestrated.action.label})`
+        : orchestrated.text,
+      sourceLabel: "Intent orchestration",
+      localTool: orchestrated.capabilityId,
+      connectionActionLabel: orchestrated.action?.label,
     };
   }
 

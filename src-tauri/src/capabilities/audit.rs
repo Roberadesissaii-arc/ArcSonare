@@ -79,7 +79,11 @@ impl AuditStore {
 
     pub fn list(&self, app: &AppHandle, limit: usize) -> Vec<CapabilityAuditRecord> {
         self.with(app, |records| {
-            records.iter().take(limit.clamp(1, MAX_RECORDS)).cloned().collect()
+            records
+                .iter()
+                .take(limit.clamp(1, MAX_RECORDS))
+                .cloned()
+                .collect()
         })
     }
 

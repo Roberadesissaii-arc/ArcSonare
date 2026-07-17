@@ -212,7 +212,7 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
 
   return (
     <div className={`tasks-page${selected ? " has-detail" : ""}`}>
-      <header className="tasks-hero">
+      <header className="tasks-hero task-legacy-hero">
         <div className="tasks-hero-copy">
           <p className="tasks-kicker">Workspace</p>
           <h1 className="page-heading tasks-heading">Tasks</h1>
@@ -237,8 +237,51 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
         onFilter={setTaskFilter}
       />
 
-      <div className="tasks-workspace">
+      <div className="tasks-workspace task-command-shell">
+        <aside className="task-command-rail card sonare-card task-surface">
+          <div className="task-command-brand">
+            <span className="task-command-mark" aria-hidden="true"><SparkleIcon size={16} /></span>
+            <div>
+              <p className="tasks-kicker">Task command</p>
+              <h1 className="page-heading tasks-heading">Mission control</h1>
+            </div>
+          </div>
+          <button type="button" className="btn btn-primary tasks-create" onClick={onCreateTask}>
+            <PlusIcon size={14} /> Create task
+          </button>
+          <div className="task-rail-section">
+            <p className="task-rail-label">Views</p>
+            <div className="task-rail-filters" role="radiogroup" aria-label="Task filter">
+              {FILTERS.map((f) => (
+                <button key={f.id} type="button" role="radio" aria-checked={taskFilter === f.id}
+                  className={`task-rail-filter${taskFilter === f.id ? " active" : ""}`}
+                  onClick={() => setTaskFilter(f.id)}>
+                  <span className="task-rail-filter-dot" aria-hidden="true" />
+                  <span>{f.label}</span>
+                  <span className="task-rail-filter-count">{filterCount(f.id)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="task-pulse">
+            <div className="task-pulse-head"><span>Daily pulse</span><span>{summary.completed}/{tasks.length}</span></div>
+            <div className="task-pulse-track"><span style={{ width: `${tasks.length ? (summary.completed / tasks.length) * 100 : 0}%` }} /></div>
+            <div className="task-pulse-grid">
+              <span><b>{summary.open}</b> Open</span>
+              <span><b>{summary.today}</b> Today</span>
+              <span><b>{summary.urgent}</b> Urgent</span>
+            </div>
+          </div>
+        </aside>
         <div className="tasks-main" ref={listRef}>
+          <header className="task-mission-header">
+            <div>
+              <p className="tasks-kicker">Active workspace</p>
+              <h2 className="task-mission-title">Mission queue</h2>
+              <p className="task-mission-subtitle">{visible.length} tasks in this view · choose one to inspect or delegate</p>
+            </div>
+            <span className="task-mission-orb" aria-hidden="true"><BotIcon size={20} /></span>
+          </header>
           <div className="tasks-toolbar card sonare-card task-surface">
             <div className="task-toolbar-top">
               <div className="tasks-search">

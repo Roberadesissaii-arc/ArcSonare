@@ -142,7 +142,10 @@ pub fn list_displays() -> ToolResult {
                 .collect();
             let count = items.len();
             rb.success(
-                format!("{count} display{} detected.", if count == 1 { "" } else { "s" }),
+                format!(
+                    "{count} display{} detected.",
+                    if count == 1 { "" } else { "s" }
+                ),
                 json!({ "displays": items, "count": count }),
                 VerificationEvidence::verified("state-readback"),
             )
@@ -168,9 +171,9 @@ pub fn get_active_window() -> ToolResult {
         Err(e) => return rb.error("window-enumeration-failed", e.to_string(), true),
     };
     let own_pid = std::process::id();
-    let active = windows.into_iter().find(|w| {
-        w.pid().unwrap_or(0) != own_pid && w.is_focused().unwrap_or(false)
-    });
+    let active = windows
+        .into_iter()
+        .find(|w| w.pid().unwrap_or(0) != own_pid && w.is_focused().unwrap_or(false));
     match active {
         Some(w) => {
             let data = json!({
@@ -277,11 +280,7 @@ pub fn running_processes() -> Result<Vec<ProcessInfo>, String> {
 /// True when a process with this executable name is currently running.
 pub fn process_running(exe_name: &str) -> bool {
     running_processes()
-        .map(|procs| {
-            procs
-                .iter()
-                .any(|p| p.name.eq_ignore_ascii_case(exe_name))
-        })
+        .map(|procs| procs.iter().any(|p| p.name.eq_ignore_ascii_case(exe_name)))
         .unwrap_or(false)
 }
 
@@ -295,7 +294,10 @@ pub fn get_running_processes() -> ToolResult {
     let window_pids: std::collections::HashMap<u32, String> = xcap::Window::all()
         .map(|ws| {
             ws.iter()
-                .filter(|w| !w.is_minimized().unwrap_or(false) || w.title().map(|t| !t.is_empty()).unwrap_or(false))
+                .filter(|w| {
+                    !w.is_minimized().unwrap_or(false)
+                        || w.title().map(|t| !t.is_empty()).unwrap_or(false)
+                })
                 .filter_map(|w| Some((w.pid().ok()?, w.title().unwrap_or_default())))
                 .collect()
         })
@@ -322,7 +324,10 @@ pub fn get_running_processes() -> ToolResult {
     items.dedup_by(|a, b| a["pid"] == b["pid"]);
     let count = items.len();
     rb.success(
-        format!("{count} application process{} with windows.", if count == 1 { "" } else { "es" }),
+        format!(
+            "{count} application process{} with windows.",
+            if count == 1 { "" } else { "es" }
+        ),
         json!({ "processes": items, "count": count, "scope": "windowed-applications" }),
         VerificationEvidence::verified("process-detected"),
     )
@@ -354,7 +359,11 @@ pub fn get_battery_status() -> ToolResult {
     };
     let ok = unsafe { GetSystemPowerStatus(&mut status) };
     if ok == 0 {
-        return rb.error("power-status-failed", "Windows did not return power status.", true);
+        return rb.error(
+            "power-status-failed",
+            "Windows did not return power status.",
+            true,
+        );
     }
     if status.battery_flag == 128 {
         return rb.success(
@@ -395,7 +404,6 @@ pub fn get_battery_status() -> ToolResult {
 
 pub fn get_audio_status() -> ToolResult {
     // Honest: WASAPI volume readout is not implemented yet. Do not fake it.
-    ResultBuilder::new("system.get_audio_status").unsupported(
-        "Audio device status is not implemented yet on this build.",
-    )
+    ResultBuilder::new("system.get_audio_status")
+        .unsupported("Audio device status is not implemented yet on this build.")
 }

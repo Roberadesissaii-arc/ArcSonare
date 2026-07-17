@@ -93,3 +93,53 @@ pub async fn deepseek_chat(model: String, messages: Vec<ChatMessage>) -> Result<
         .filter(|s| !s.is_empty())
         .ok_or_else(|| "DeepSeek returned an empty reply.".into())
 }
+
+/// Tool-calling chat: messages/tools pass through in OpenAI format and the
+/// raw assistant message (content and/or tool_calls) is returned as JSON so
+/// the frontend provider adapter can parse structured tool calls.
+#[tauri::command]
+pub async fn deepseek_chat_tools(
+    model: String,
+    messages: serde_json::Value,
+    tools: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    let model = validate_model(&model)?;
+    if !messages.is_array() || messages.as_array().map(|a| a.is_empty()).unwrap_or(true) {
+        return Err("No messages to send.".into());
+    }
+
+    let api_key = credentials::get_provider_key("deepseek")?;
+    let client = client()?;
+    let mut payload = serde_json::json!({
+        "model": model,
+        "messages": messages,
+        "stream": false,
+    });
+    if let Some(tools) = tools {
+        if tools.as_array().map(|a| !a.is_empty()).unwrap_or(false) {
+            payload["tools"] = tools;
+        }
+    }
+    let res = client
+        .post(format!("{DEEPSEEK_BASE}/chat/completions"))
+        .bearer_auth(api_key)
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("DeepSeek request failed: {e}"))?;
+
+    let status = res.status();
+    let body: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| format!("invalid DeepSeek response: {e}"))?;
+    if let Some(message) = body.pointer("/error/message").and_then(|m| m.as_str()) {
+        return Err(message.to_string());
+    }
+    if !status.is_success() {
+        return Err(format!("DeepSeek error {status}"));
+    }
+    body.pointer("/choices/0/message")
+        .cloned()
+        .ok_or_else(|| "DeepSeek returned no assistant message.".into())
+}

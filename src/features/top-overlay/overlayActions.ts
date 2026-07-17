@@ -17,6 +17,17 @@ import {
 import { ollamaDraftEmail } from "../../services/OllamaService";
 import { askAssistant } from "../../services/AssistantService";
 import {
+  handleCapabilityRequest,
+  resolvePendingConfirmation,
+} from "../capabilities/capabilityEngine";
+import { getIconById as getOverlayIcon } from "../../config/topOverlayIconRegistry";
+import type {
+  CapabilityConfirmation,
+  ToolResult,
+} from "../capabilities/capabilityTypes";
+import { handleOrchestratedRequest } from "../orchestration/IntentOrchestrator";
+import { navigate } from "../../stores/appStore";
+import {
   getOverlayState,
   patchOverlay,
   resetOverlay,
@@ -212,7 +223,45 @@ export async function commitOverlayTranscript(transcript: string) {
     applicationIcon: undefined,
   });
   playEventSound("thinking");
+
+  // Local capability engine FIRST — real Windows actions (time, desktop,
+  // open apps, folders, screenshots, tasks, navigation) with verification.
+  const engineHandled = await driveOverlayFromEngine(trimmed);
+  if (engineHandled) return;
+
   await new Promise((r) => setTimeout(r, 350));
+
+  // Intent Precision layer — calendar/email/drive/nav before bare app-open.
+  const orchestrated = await handleOrchestratedRequest(trimmed);
+  if (orchestrated.handled) {
+    if (orchestrated.navigatePage) {
+      navigate(orchestrated.navigatePage);
+    }
+    if (orchestrated.openAppId) {
+      await openApplication(orchestrated.openAppId);
+      return;
+    }
+    setOverlayMode("responding", {
+      status: orchestrated.text.slice(0, 120),
+      expanded: false,
+      applicationId: undefined,
+      applicationIcon: undefined,
+      actionPayload: orchestrated.action
+        ? {
+            type: "none",
+          }
+        : undefined,
+    });
+    playEventSound("responding");
+    if (orchestrated.action?.navigateTo === "connect") {
+      // Keep response visible; user can open Connect from the hint text.
+      patchOverlay({
+        status: `${orchestrated.text.slice(0, 90)} · Connect in ArcSonare`,
+      });
+    }
+    return;
+  }
+
   await runOverlayIntent(parseOverlayIntent(trimmed));
 }
 

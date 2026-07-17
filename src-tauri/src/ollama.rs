@@ -195,3 +195,50 @@ pub async fn ollama_cloud_chat(
 
     parse_chat(res, "Ollama Cloud").await
 }
+
+/// Tool-calling chat (local Ollama). Messages/tools pass through in Ollama's
+/// OpenAI-style format; the raw assistant message is returned as JSON.
+#[tauri::command]
+pub async fn ollama_chat_tools(
+    model: String,
+    messages: serde_json::Value,
+    tools: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    if model.trim().is_empty() {
+        return Err("No Ollama model selected. Choose one in Settings → Models.".into());
+    }
+    if !messages.is_array() || messages.as_array().map(|a| a.is_empty()).unwrap_or(true) {
+        return Err("No messages to send.".into());
+    }
+    let client = local_client()?;
+    let mut payload = serde_json::json!({
+        "model": model.trim(),
+        "messages": messages,
+        "stream": false,
+    });
+    if let Some(tools) = tools {
+        if tools.as_array().map(|a| !a.is_empty()).unwrap_or(false) {
+            payload["tools"] = tools;
+        }
+    }
+    let res = client
+        .post(format!("{OLLAMA_LOCAL}/api/chat"))
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("Ollama local chat failed: {e}"))?;
+    let status = res.status();
+    let body: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| format!("invalid Ollama chat response: {e}"))?;
+    if let Some(err) = body.get("error").and_then(|e| e.as_str()) {
+        return Err(format!("Ollama local: {err}"));
+    }
+    if !status.is_success() {
+        return Err(format!("Ollama local error {status}"));
+    }
+    body.get("message")
+        .cloned()
+        .ok_or_else(|| "Ollama returned no assistant message.".into())
+}

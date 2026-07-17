@@ -20,7 +20,9 @@ pub fn validate_item_name(name: &str) -> Result<(), String> {
     if trimmed == "." || trimmed == ".." {
         return Err("Name may not be a relative path component.".into());
     }
-    if trimmed.chars().any(|c| matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
+    if trimmed
+        .chars()
+        .any(|c| matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
     {
         return Err(r#"Name contains characters not allowed on Windows (<>:"/\|?*)."#.into());
     }
@@ -31,10 +33,7 @@ pub fn validate_item_name(name: &str) -> Result<(), String> {
         return Err("Name may not end with a dot or space on Windows.".into());
     }
     let stem = trimmed.split('.').next().unwrap_or(trimmed);
-    if RESERVED_NAMES
-        .iter()
-        .any(|r| stem.eq_ignore_ascii_case(r))
-    {
+    if RESERVED_NAMES.iter().any(|r| stem.eq_ignore_ascii_case(r)) {
         return Err(format!("\"{trimmed}\" is a reserved Windows device name."));
     }
     Ok(())
@@ -56,7 +55,10 @@ fn validate_raw_path_text(raw: &str) -> Result<(), String> {
         return Err("Device namespace paths are not allowed.".into());
     }
     // Alternate data streams: any ':' beyond the drive-letter position.
-    let colons = trimmed.match_indices(':').map(|(i, _)| i).collect::<Vec<_>>();
+    let colons = trimmed
+        .match_indices(':')
+        .map(|(i, _)| i)
+        .collect::<Vec<_>>();
     for idx in colons {
         if idx != 1 {
             return Err("Alternate data streams are not supported.".into());
@@ -89,7 +91,9 @@ pub fn normalize_path(raw: &str) -> Result<PathBuf, String> {
 }
 
 fn env_path(var: &str) -> Option<PathBuf> {
-    std::env::var_os(var).map(PathBuf::from).filter(|p| p.is_absolute())
+    std::env::var_os(var)
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
 }
 
 /// Directories protected from any mutation (case-insensitive prefix match).

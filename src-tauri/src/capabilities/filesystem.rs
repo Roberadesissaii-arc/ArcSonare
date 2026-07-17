@@ -172,9 +172,7 @@ fn read_entries(dir: &Path, include_hidden: bool) -> Result<Vec<ListedEntry>, St
             name: entry.file_name().to_string_lossy().into_owned(),
             path: path.to_string_lossy().into_owned(),
             kind,
-            extension: path
-                .extension()
-                .map(|e| e.to_string_lossy().to_lowercase()),
+            extension: path.extension().map(|e| e.to_string_lossy().to_lowercase()),
             size_bytes: if metadata.is_file() {
                 Some(metadata.len())
             } else {
@@ -296,7 +294,9 @@ fn list_directory_impl(
 pub fn list_directory(args: ListDirectoryArgs) -> ToolResult {
     let dir = match normalize_path(&args.path) {
         Ok(p) => p,
-        Err(e) => return ResultBuilder::new("filesystem.list_directory").error("invalid-path", e, true),
+        Err(e) => {
+            return ResultBuilder::new("filesystem.list_directory").error("invalid-path", e, true)
+        }
     };
     if let Err(e) = validate_read_target(&dir) {
         return ResultBuilder::new("filesystem.list_directory").error("invalid-path", e, true);
@@ -560,7 +560,10 @@ pub fn find(args: FindArgs) -> ToolResult {
         .map(|e| e.trim_start_matches('.').to_lowercase());
     let recursive = args.recursive.unwrap_or(true);
     let max_depth = args.max_depth.unwrap_or(6).min(12);
-    let limit = args.limit.unwrap_or(FIND_DEFAULT_LIMIT).clamp(1, FIND_MAX_LIMIT);
+    let limit = args
+        .limit
+        .unwrap_or(FIND_DEFAULT_LIMIT)
+        .clamp(1, FIND_MAX_LIMIT);
 
     let started = Instant::now();
     let mut matches: Vec<(u8, serde_json::Value)> = Vec::new();
@@ -642,8 +645,7 @@ pub fn find(args: FindArgs) -> ToolResult {
             item["name"].as_str().unwrap_or_default().to_lowercase(),
         )
     });
-    let results: Vec<serde_json::Value> =
-        matches.into_iter().take(limit).map(|(_, v)| v).collect();
+    let results: Vec<serde_json::Value> = matches.into_iter().take(limit).map(|(_, v)| v).collect();
     let count = results.len();
     let data = json!({
         "query": args.query,
@@ -659,14 +661,25 @@ pub fn find(args: FindArgs) -> ToolResult {
         ));
     }
     let summary = if timed_out {
-        format!("{count} match{} (search hit its time limit — results may be partial).", if count == 1 { "" } else { "es" })
+        format!(
+            "{count} match{} (search hit its time limit — results may be partial).",
+            if count == 1 { "" } else { "es" }
+        )
     } else {
         format!("{count} match{} found.", if count == 1 { "" } else { "es" })
     };
     if timed_out {
-        rb.partial(summary, data, VerificationEvidence::verified("filesystem-postcondition"))
+        rb.partial(
+            summary,
+            data,
+            VerificationEvidence::verified("filesystem-postcondition"),
+        )
     } else {
-        rb.success(summary, data, VerificationEvidence::verified("filesystem-postcondition"))
+        rb.success(
+            summary,
+            data,
+            VerificationEvidence::verified("filesystem-postcondition"),
+        )
     }
 }
 
@@ -737,7 +750,12 @@ pub fn create_directory(args: CreateDirectoryArgs) -> ToolResult {
     // Canonicalize the existing parent so symlink tricks cannot escape checks.
     let parent = match parent.canonicalize() {
         Ok(p) => strip_verbatim(p),
-        Err(_) => return rb.not_found(format!("Parent folder \"{}\" does not exist.", parent.display())),
+        Err(_) => {
+            return rb.not_found(format!(
+                "Parent folder \"{}\" does not exist.",
+                parent.display()
+            ))
+        }
     };
     if !parent.is_dir() {
         return rb.error(
@@ -788,7 +806,11 @@ pub fn create_directory(args: CreateDirectoryArgs) -> ToolResult {
         fs::create_dir(&target)
     };
     if let Err(e) = create {
-        return rb.error("create-failed", format!("Windows refused the create: {e}"), true);
+        return rb.error(
+            "create-failed",
+            format!("Windows refused the create: {e}"),
+            true,
+        );
     }
     // Postcondition: it exists and is a directory.
     if !target.is_dir() {
@@ -823,7 +845,11 @@ pub struct WriteFileArgs {
 
 const SAFE_TEXT_EXTENSIONS: &[&str] = &["txt", "md", "json", "csv", "log"];
 
-pub fn create_or_write_file(capability_id: &str, args: WriteFileArgs, confirmed: bool) -> ToolResult {
+pub fn create_or_write_file(
+    capability_id: &str,
+    args: WriteFileArgs,
+    confirmed: bool,
+) -> ToolResult {
     let rb = ResultBuilder::new(capability_id);
     if let Err(e) = validate_item_name(&args.name) {
         return rb.error("invalid-name", e, true);
@@ -844,7 +870,11 @@ pub fn create_or_write_file(capability_id: &str, args: WriteFileArgs, confirmed:
     }
     let content = args.content.clone().unwrap_or_default();
     if content.len() > WRITE_MAX_BYTES {
-        return rb.error("content-too-large", "Content exceeds the 4 MB write limit.", true);
+        return rb.error(
+            "content-too-large",
+            "Content exceeds the 4 MB write limit.",
+            true,
+        );
     }
     let parent = match normalize_path(&args.parent_path).and_then(|p| {
         p.canonicalize()
@@ -893,7 +923,11 @@ pub fn create_or_write_file(capability_id: &str, args: WriteFileArgs, confirmed:
         fs::write(&target, content.as_bytes())
     };
     if let Err(e) = write {
-        return rb.error("write-failed", format!("Windows refused the write: {e}"), true);
+        return rb.error(
+            "write-failed",
+            format!("Windows refused the write: {e}"),
+            true,
+        );
     }
     // Postcondition: exists; and unless appending, byte length matches.
     let Ok(metadata) = fs::metadata(&target) else {
@@ -952,7 +986,11 @@ pub fn read_text_file(args: ReadTextFileArgs) -> ToolResult {
         return rb.not_found(format!("\"{}\" does not exist.", path.display()));
     };
     if !metadata.is_file() {
-        return rb.error("not-a-file", format!("\"{}\" is not a file.", path.display()), true);
+        return rb.error(
+            "not-a-file",
+            format!("\"{}\" is not a file.", path.display()),
+            true,
+        );
     }
     let cap = args.max_bytes.unwrap_or(READ_MAX_BYTES).min(READ_MAX_BYTES);
     if metadata.len() > cap {
@@ -1037,7 +1075,11 @@ pub fn rename(args: RenameArgs) -> ToolResult {
         );
     }
     if let Err(e) = fs::rename(&source, &target) {
-        return rb.error("rename-failed", format!("Windows refused the rename: {e}"), true);
+        return rb.error(
+            "rename-failed",
+            format!("Windows refused the rename: {e}"),
+            true,
+        );
     }
     // Postconditions: old gone, new exists.
     let old_gone = !source.exists();
@@ -1127,12 +1169,19 @@ pub fn move_item(args: MoveCopyArgs) -> ToolResult {
     if target.exists() {
         return rb.error(
             "target-exists",
-            format!("\"{}\" already exists at the destination.", target.display()),
+            format!(
+                "\"{}\" already exists at the destination.",
+                target.display()
+            ),
             true,
         );
     }
     if let Err(e) = fs::rename(&source, &target) {
-        return rb.error("move-failed", format!("Windows refused the move: {e}"), true);
+        return rb.error(
+            "move-failed",
+            format!("Windows refused the move: {e}"),
+            true,
+        );
     }
     let verified = !source.exists() && target.exists();
     if !verified {
@@ -1157,7 +1206,10 @@ pub fn copy_item(args: MoveCopyArgs) -> ToolResult {
     if target.exists() {
         return rb.error(
             "target-exists",
-            format!("\"{}\" already exists at the destination.", target.display()),
+            format!(
+                "\"{}\" already exists at the destination.",
+                target.display()
+            ),
             true,
         );
     }
@@ -1166,7 +1218,11 @@ pub fn copy_item(args: MoveCopyArgs) -> ToolResult {
             return rb.error("copy-failed", e, true);
         }
     } else if let Err(e) = fs::copy(&source, &target) {
-        return rb.error("copy-failed", format!("Windows refused the copy: {e}"), true);
+        return rb.error(
+            "copy-failed",
+            format!("Windows refused the copy: {e}"),
+            true,
+        );
     }
     if !target.exists() {
         return rb.error("verification-failed", "Copy could not be verified.", true);
@@ -1183,7 +1239,8 @@ pub fn copy_item(args: MoveCopyArgs) -> ToolResult {
                 true,
             );
         }
-        details = json!({ "destination_exists": true, "size_verified": true, "size_bytes": dst_len });
+        details =
+            json!({ "destination_exists": true, "size_verified": true, "size_bytes": dst_len });
     }
     rb.success(
         format!("Copied to \"{}\".", target.display()),
@@ -1193,8 +1250,10 @@ pub fn copy_item(args: MoveCopyArgs) -> ToolResult {
 }
 
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
-    fs::create_dir_all(target).map_err(|e| format!("Could not create \"{}\": {e}", target.display()))?;
-    let read = fs::read_dir(source).map_err(|e| format!("Could not read \"{}\": {e}", source.display()))?;
+    fs::create_dir_all(target)
+        .map_err(|e| format!("Could not create \"{}\": {e}", target.display()))?;
+    let read = fs::read_dir(source)
+        .map_err(|e| format!("Could not read \"{}\": {e}", source.display()))?;
     for entry in read.flatten() {
         let from = entry.path();
         let to = target.join(entry.file_name());
@@ -1204,7 +1263,8 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
         if metadata.is_dir() {
             copy_dir_recursive(&from, &to)?;
         } else {
-            fs::copy(&from, &to).map_err(|e| format!("Could not copy \"{}\": {e}", from.display()))?;
+            fs::copy(&from, &to)
+                .map_err(|e| format!("Could not copy \"{}\": {e}", from.display()))?;
         }
     }
     Ok(())
@@ -1223,7 +1283,9 @@ pub struct DeleteArgs {
 }
 
 /// Describe what a delete would remove (used to build the confirmation).
-pub fn describe_delete(args: &DeleteArgs) -> Result<Vec<super::confirmation::AffectedItem>, String> {
+pub fn describe_delete(
+    args: &DeleteArgs,
+) -> Result<Vec<super::confirmation::AffectedItem>, String> {
     if args.paths.is_empty() {
         return Err("No paths were given.".into());
     }
@@ -1374,7 +1436,11 @@ pub fn reveal_in_explorer(args: PathArgs) -> ToolResult {
             json!({ "path": path.to_string_lossy() }),
             VerificationEvidence::unverified("return-code"),
         ),
-        Err(e) => rb.error("explorer-failed", format!("Could not open Explorer: {e}"), true),
+        Err(e) => rb.error(
+            "explorer-failed",
+            format!("Could not open Explorer: {e}"),
+            true,
+        ),
     }
 }
 
@@ -1392,7 +1458,10 @@ pub fn open_item(args: PathArgs) -> ToolResult {
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    if matches!(ext.as_str(), "exe" | "bat" | "cmd" | "ps1" | "msi" | "scr" | "com" | "vbs" | "js") {
+    if matches!(
+        ext.as_str(),
+        "exe" | "bat" | "cmd" | "ps1" | "msi" | "scr" | "com" | "vbs" | "js"
+    ) {
         return rb.denied(
             "Executables are opened through the application launcher, not the file opener.",
             "executable-blocked",
@@ -1404,6 +1473,10 @@ pub fn open_item(args: PathArgs) -> ToolResult {
             json!({ "path": path.to_string_lossy() }),
             VerificationEvidence::unverified("return-code"),
         ),
-        Err(e) => rb.error("open-failed", format!("Windows could not open it: {e}"), true),
+        Err(e) => rb.error(
+            "open-failed",
+            format!("Windows could not open it: {e}"),
+            true,
+        ),
     }
 }

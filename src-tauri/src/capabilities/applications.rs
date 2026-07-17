@@ -96,8 +96,16 @@ fn scan_start_menu() -> Vec<IndexedApplication> {
         roots.push(PathBuf::from(programdata).join(r"Microsoft\Windows\Start Menu\Programs"));
     }
     let skip_words = [
-        "uninstall", "readme", "documentation", "help", "website", "license", "report a bug",
-        "release notes", "更新", "卸载",
+        "uninstall",
+        "readme",
+        "documentation",
+        "help",
+        "website",
+        "license",
+        "report a bug",
+        "release notes",
+        "更新",
+        "卸载",
     ];
     let mut out = Vec::new();
     let mut stack: Vec<(PathBuf, usize)> = roots.into_iter().map(|r| (r, 0)).collect();
@@ -213,9 +221,11 @@ fn protocol_registered(scheme: &str) -> bool {
     use winreg::RegKey;
     RegKey::predef(HKEY_CLASSES_ROOT)
         .open_subkey(scheme)
-        .map(|key| key.get_value::<String, _>("URL Protocol").is_ok() || {
-            // Some handlers omit the value but have shell\open\command.
-            key.open_subkey(r"shell\open\command").is_ok()
+        .map(|key| {
+            key.get_value::<String, _>("URL Protocol").is_ok() || {
+                // Some handlers omit the value but have shell\open\command.
+                key.open_subkey(r"shell\open\command").is_ok()
+            }
         })
         .unwrap_or(false)
 }
@@ -464,7 +474,11 @@ fn score_candidates(
             official_web_url: entry.official_web_url.clone(),
         });
     }
-    out.sort_by(|a, b| b.score.cmp(&a.score).then(a.display_name.cmp(&b.display_name)));
+    out.sort_by(|a, b| {
+        b.score
+            .cmp(&a.score)
+            .then(a.display_name.cmp(&b.display_name))
+    });
     out.truncate(6);
     out
 }
@@ -537,12 +551,10 @@ fn find_window_for(process_name: Option<&str>, display_name: &str) -> Option<(u3
         }
         let app_name = w.app_name().unwrap_or_default().to_lowercase();
         let app_key = app_name.trim_end_matches(".exe").to_string();
-        let matches = proc_key
-            .as_ref()
-            .map(|k| &app_key == k)
-            .unwrap_or(false)
+        let matches = proc_key.as_ref().map(|k| &app_key == k).unwrap_or(false)
             || normalize_name(&app_name).contains(&name_key)
-            || (!name_key.is_empty() && normalize_name(&w.title().unwrap_or_default()).contains(&name_key));
+            || (!name_key.is_empty()
+                && normalize_name(&w.title().unwrap_or_default()).contains(&name_key));
         if matches {
             return Some((w.id().unwrap_or(0), w.title().unwrap_or_default()));
         }
@@ -562,7 +574,8 @@ fn verify_launch(entry: &IndexedApplication) -> VerificationEvidence {
                 );
             }
         }
-        if let Some((id, title)) = find_window_for(entry.process_name.as_deref(), &entry.display_name)
+        if let Some((id, title)) =
+            find_window_for(entry.process_name.as_deref(), &entry.display_name)
         {
             return VerificationEvidence::verified_with(
                 "window-detected",
@@ -601,7 +614,12 @@ fn launch_entry(entry: &IndexedApplication) -> Result<String, String> {
                 return Err(format!("\"{lnk}\" no longer exists (stale index)."));
             }
             open::that(path)
-                .map(|_| format!("Launched {} via its Start Menu shortcut", entry.display_name))
+                .map(|_| {
+                    format!(
+                        "Launched {} via its Start Menu shortcut",
+                        entry.display_name
+                    )
+                })
                 .map_err(|e| format!("Windows refused the launch: {e}"))
         }
         "protocol" => {
@@ -616,7 +634,9 @@ fn launch_entry(entry: &IndexedApplication) -> Result<String, String> {
                 .map(|_| format!("Launched {} via {uri}", entry.display_name))
                 .map_err(|e| format!("Windows refused the protocol launch: {e}"))
         }
-        other => Err(format!("Target type \"{other}\" cannot be launched natively.")),
+        other => Err(format!(
+            "Target type \"{other}\" cannot be launched natively."
+        )),
     }
 }
 
@@ -651,7 +671,11 @@ pub fn open_application(app: &AppHandle, args: OpenArgs) -> ToolResult {
             entries.iter().find(|e| e.id == top.id).cloned()
         }
     } else {
-        return rb.error("invalid-arguments", "Either query or target_id is required.", true);
+        return rb.error(
+            "invalid-arguments",
+            "Either query or target_id is required.",
+            true,
+        );
     };
 
     let Some(entry) = entry else {
@@ -666,10 +690,15 @@ pub fn open_application(app: &AppHandle, args: OpenArgs) -> ToolResult {
 
     if entry.installed && !use_web_first {
         // Already running? Report and focus instead of duplicating instances.
-        if let Some((id, title)) = find_window_for(entry.process_name.as_deref(), &entry.display_name) {
+        if let Some((id, title)) =
+            find_window_for(entry.process_name.as_deref(), &entry.display_name)
+        {
             let focused = super::windows::focus_hwnd(id);
             return rb.success(
-                format!("{} is already running — focused its window.", entry.display_name),
+                format!(
+                    "{} is already running — focused its window.",
+                    entry.display_name
+                ),
                 json!({
                     "application": entry.display_name,
                     "action": "focused-existing",
@@ -678,10 +707,7 @@ pub fn open_application(app: &AppHandle, args: OpenArgs) -> ToolResult {
                     "focus_succeeded": focused,
                     "method": "native",
                 }),
-                VerificationEvidence::verified_with(
-                    "window-detected",
-                    json!({ "title": title }),
-                ),
+                VerificationEvidence::verified_with("window-detected", json!({ "title": title })),
             );
         }
         match launch_entry(&entry) {
@@ -799,7 +825,10 @@ pub fn list_applications(app: &AppHandle, args: ListArgs) -> ToolResult {
         .collect();
     let count = items.len();
     rb.success(
-        format!("{count} installed application{} indexed.", if count == 1 { "" } else { "s" }),
+        format!(
+            "{count} installed application{} indexed.",
+            if count == 1 { "" } else { "s" }
+        ),
         json!({ "applications": items, "count": count }),
         VerificationEvidence::verified("state-readback"),
     )

@@ -82,7 +82,8 @@ impl ConfirmationStore {
     /// Issue a token for a pending destructive action.
     pub fn issue(&self, capability_id: &str, args: &serde_json::Value) -> (String, String) {
         let token = new_token();
-        let expires_at = chrono::Local::now() + chrono::Duration::seconds(TOKEN_TTL.as_secs() as i64);
+        let expires_at =
+            chrono::Local::now() + chrono::Duration::seconds(TOKEN_TTL.as_secs() as i64);
         let mut map = self.0.lock().unwrap();
         map.retain(|_, p| p.issued.elapsed() < TOKEN_TTL);
         map.insert(
@@ -93,7 +94,10 @@ impl ConfirmationStore {
                 issued: Instant::now(),
             },
         );
-        (token, expires_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+        (
+            token,
+            expires_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        )
     }
 
     /// Consume a token; valid only for the exact capability + args it was
@@ -141,7 +145,9 @@ mod tests {
         let args = json!({"paths": ["C:/a"], "mode": "recycle-bin"});
         let swapped = json!({"paths": ["C:/b"], "mode": "recycle-bin"});
         let (token, _) = store.issue("filesystem.delete", &args);
-        assert!(store.consume(&token, "filesystem.delete", &swapped).is_err());
+        assert!(store
+            .consume(&token, "filesystem.delete", &swapped)
+            .is_err());
     }
 
     #[test]

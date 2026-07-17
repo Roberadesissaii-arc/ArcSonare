@@ -42,7 +42,8 @@ fn validate_image(path: &Path) -> Result<(u32, u32, u64), String> {
     if metadata.len() == 0 {
         return Err("Capture file is empty.".into());
     }
-    let image = xcap::image::open(path).map_err(|_| "Capture file does not decode as an image.".to_string())?;
+    let image = xcap::image::open(path)
+        .map_err(|_| "Capture file does not decode as an image.".to_string())?;
     let (w, h) = (image.width(), image.height());
     if w == 0 || h == 0 {
         return Err("Capture has invalid dimensions.".into());
@@ -94,7 +95,11 @@ fn capture_result_to_tool_result(
                 vec![artifact],
             )
         }
-        Err(e) => rb.error("capture-invalid", format!("Capture failed validation: {e}"), true),
+        Err(e) => rb.error(
+            "capture-invalid",
+            format!("Capture failed validation: {e}"),
+            true,
+        ),
     }
 }
 
@@ -152,7 +157,10 @@ pub fn capture(app: &AppHandle, args: CaptureArgs) -> ToolResult {
             }
         }
         "application" => {
-            let Some(query) = args.application_query.as_deref().filter(|q| !q.trim().is_empty())
+            let Some(query) = args
+                .application_query
+                .as_deref()
+                .filter(|q| !q.trim().is_empty())
             else {
                 return rb.error("invalid-arguments", "application_query is required.", true);
             };
@@ -164,7 +172,11 @@ pub fn capture(app: &AppHandle, args: CaptureArgs) -> ToolResult {
             };
             capture_region(rb, app, region)
         }
-        other => rb.error("invalid-arguments", format!("Unknown target \"{other}\"."), true),
+        other => rb.error(
+            "invalid-arguments",
+            format!("Unknown target \"{other}\"."),
+            true,
+        ),
     }
 }
 
@@ -176,18 +188,18 @@ fn save_rgba(
     description: String,
     window_title: Option<String>,
 ) -> ToolResult {
-    let id = format!(
-        "cap-{}-{}",
-        storage::now_secs(),
-        std::process::id() % 1000
-    );
+    let id = format!("cap-{}-{}", storage::now_secs(), std::process::id() % 1000);
     let path = match storage::image_path(app, &id, false) {
         Ok(p) => p,
         Err(e) => return rb.error("capture-storage-failed", e, true),
     };
     let (width, height) = (image.width(), image.height());
     if let Err(e) = image.save(&path) {
-        return rb.error("capture-failed", format!("Could not save the capture: {e}"), true);
+        return rb.error(
+            "capture-failed",
+            format!("Could not save the capture: {e}"),
+            true,
+        );
     }
     let meta = storage::CaptureMeta {
         id: id.clone(),
@@ -232,13 +244,21 @@ fn save_rgba(
                 vec![artifact],
             )
         }
-        Err(e) => rb.error("capture-invalid", format!("Capture failed validation: {e}"), true),
+        Err(e) => rb.error(
+            "capture-invalid",
+            format!("Capture failed validation: {e}"),
+            true,
+        ),
     }
 }
 
 fn capture_specific_window(rb: ResultBuilder, app: &AppHandle, opaque_id: &str) -> ToolResult {
     let Some(raw) = super::system::parse_window_id(opaque_id) else {
-        return rb.error("invalid-arguments", format!("\"{opaque_id}\" is not a window id."), true);
+        return rb.error(
+            "invalid-arguments",
+            format!("\"{opaque_id}\" is not a window id."),
+            true,
+        );
     };
     let windows = match xcap::Window::all() {
         Ok(w) => w,
@@ -277,7 +297,11 @@ fn capture_application(rb: ResultBuilder, app: &AppHandle, query: &str) -> ToolR
     // Preferred process names from the index.
     let index_proc: Option<String> = entries
         .iter()
-        .filter(|e| e.normalized_names.iter().any(|n| n.contains(&normalized_query)))
+        .filter(|e| {
+            e.normalized_names
+                .iter()
+                .any(|n| n.contains(&normalized_query))
+        })
         .find_map(|e| e.process_name.clone())
         .map(|p| p.to_lowercase().trim_end_matches(".exe").to_string());
 
@@ -303,7 +327,11 @@ fn capture_application(rb: ResultBuilder, app: &AppHandle, query: &str) -> ToolR
     // Prefer the focused window, then the topmost.
     matches.sort_by_key(|w| {
         (
-            if w.is_focused().unwrap_or(false) { 0 } else { 1 },
+            if w.is_focused().unwrap_or(false) {
+                0
+            } else {
+                1
+            },
             -(w.z().unwrap_or(i32::MIN)),
         )
     });
@@ -344,7 +372,11 @@ fn capture_application(rb: ResultBuilder, app: &AppHandle, query: &str) -> ToolR
 
 fn capture_region(rb: ResultBuilder, app: &AppHandle, region: Region) -> ToolResult {
     if region.width == 0 || region.height == 0 || region.width > 10000 || region.height > 10000 {
-        return rb.error("invalid-arguments", "Region dimensions are out of range.", true);
+        return rb.error(
+            "invalid-arguments",
+            "Region dimensions are out of range.",
+            true,
+        );
     }
     let monitor = match xcap::Monitor::from_point(region.x, region.y) {
         Ok(m) => m,
@@ -352,7 +384,13 @@ fn capture_region(rb: ResultBuilder, app: &AppHandle, region: Region) -> ToolRes
     };
     let image = match monitor.capture_image() {
         Ok(i) => i,
-        Err(e) => return rb.error("capture-failed", format!("Monitor capture failed: {e}"), true),
+        Err(e) => {
+            return rb.error(
+                "capture-failed",
+                format!("Monitor capture failed: {e}"),
+                true,
+            )
+        }
     };
     // Convert virtual-desktop coords to monitor-local, clamped to bounds.
     let mx = monitor.x().unwrap_or(0);
@@ -360,12 +398,23 @@ fn capture_region(rb: ResultBuilder, app: &AppHandle, region: Region) -> ToolRes
     let local_x = (region.x - mx).max(0) as u32;
     let local_y = (region.y - my).max(0) as u32;
     if local_x >= image.width() || local_y >= image.height() {
-        return rb.error("invalid-arguments", "Region is outside the display bounds.", true);
+        return rb.error(
+            "invalid-arguments",
+            "Region is outside the display bounds.",
+            true,
+        );
     }
     let w = region.width.min(image.width() - local_x);
     let h = region.height.min(image.height() - local_y);
     let cropped = xcap::image::imageops::crop_imm(&image, local_x, local_y, w, h).to_image();
-    save_rgba(rb, app, cropped, "capability-region", format!("a {w}×{h} region"), None)
+    save_rgba(
+        rb,
+        app,
+        cropped,
+        "capability-region",
+        format!("a {w}×{h} region"),
+        None,
+    )
 }
 
 #[derive(Debug, Deserialize)]
@@ -406,7 +455,11 @@ pub fn list_capture_targets(_args: ListTargetsArgs) -> ToolResult {
         })
         .unwrap_or_default();
     rb.success(
-        format!("{} displays and {} capturable windows.", displays.len(), windows.len()),
+        format!(
+            "{} displays and {} capturable windows.",
+            displays.len(),
+            windows.len()
+        ),
         json!({ "displays": displays, "windows": windows }),
         VerificationEvidence::verified("state-readback"),
     )

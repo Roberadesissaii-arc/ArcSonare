@@ -172,7 +172,12 @@ pub fn focus_window(args: WindowIdArgs) -> ToolResult {
     }
 }
 
-fn show_command(capability_id: &'static str, args: WindowIdArgs, cmd: i32, verb: &str) -> ToolResult {
+fn show_command(
+    capability_id: &'static str,
+    args: WindowIdArgs,
+    cmd: i32,
+    verb: &str,
+) -> ToolResult {
     let rb = ResultBuilder::new(capability_id);
     let window = match find_by_opaque_id(&args.window_id) {
         Ok(w) => w,
@@ -208,10 +213,16 @@ fn show_command(capability_id: &'static str, args: WindowIdArgs, cmd: i32, verb:
     };
     let summary = format!("{past} \"{title}\".");
     if verified {
-        rb.success(summary, json!({ "window_id": args.window_id, "title": title }), evidence)
+        rb.success(
+            summary,
+            json!({ "window_id": args.window_id, "title": title }),
+            evidence,
+        )
     } else {
         rb.partial(
-            format!("Sent the {verb} request to \"{title}\", but the new state could not be confirmed."),
+            format!(
+                "Sent the {verb} request to \"{title}\", but the new state could not be confirmed."
+            ),
             json!({ "window_id": args.window_id, "title": title }),
             evidence,
         )
@@ -219,42 +230,57 @@ fn show_command(capability_id: &'static str, args: WindowIdArgs, cmd: i32, verb:
 }
 
 pub fn minimize_window(args: WindowIdArgs) -> ToolResult {
-    show_command("windows.minimize", args, {
-        #[cfg(windows)]
+    show_command(
+        "windows.minimize",
+        args,
         {
-            user32::SW_MINIMIZE
-        }
-        #[cfg(not(windows))]
-        {
-            0
-        }
-    }, "minimize")
+            #[cfg(windows)]
+            {
+                user32::SW_MINIMIZE
+            }
+            #[cfg(not(windows))]
+            {
+                0
+            }
+        },
+        "minimize",
+    )
 }
 
 pub fn maximize_window(args: WindowIdArgs) -> ToolResult {
-    show_command("windows.maximize", args, {
-        #[cfg(windows)]
+    show_command(
+        "windows.maximize",
+        args,
         {
-            user32::SW_MAXIMIZE
-        }
-        #[cfg(not(windows))]
-        {
-            0
-        }
-    }, "maximize")
+            #[cfg(windows)]
+            {
+                user32::SW_MAXIMIZE
+            }
+            #[cfg(not(windows))]
+            {
+                0
+            }
+        },
+        "maximize",
+    )
 }
 
 pub fn restore_window(args: WindowIdArgs) -> ToolResult {
-    show_command("windows.restore", args, {
-        #[cfg(windows)]
+    show_command(
+        "windows.restore",
+        args,
         {
-            user32::SW_RESTORE
-        }
-        #[cfg(not(windows))]
-        {
-            0
-        }
-    }, "restore")
+            #[cfg(windows)]
+            {
+                user32::SW_RESTORE
+            }
+            #[cfg(not(windows))]
+            {
+                0
+            }
+        },
+        "restore",
+    )
 }
 
 #[derive(Debug, Deserialize)]
@@ -283,7 +309,11 @@ pub fn move_resize_window(args: MoveResizeArgs) -> ToolResult {
     let moving = args.x.is_some() || args.y.is_some();
     let sizing = args.width.is_some() || args.height.is_some();
     if !moving && !sizing {
-        return rb.error("invalid-arguments", "Provide x/y and/or width/height.", true);
+        return rb.error(
+            "invalid-arguments",
+            "Provide x/y and/or width/height.",
+            true,
+        );
     }
     if let Some(w) = args.width {
         if !(100..=20000).contains(&w) {
@@ -297,8 +327,12 @@ pub fn move_resize_window(args: MoveResizeArgs) -> ToolResult {
     }
     let x = args.x.unwrap_or_else(|| window.x().unwrap_or(0));
     let y = args.y.unwrap_or_else(|| window.y().unwrap_or(0));
-    let w = args.width.unwrap_or_else(|| window.width().unwrap_or(800) as i32);
-    let h = args.height.unwrap_or_else(|| window.height().unwrap_or(600) as i32);
+    let w = args
+        .width
+        .unwrap_or_else(|| window.width().unwrap_or(800) as i32);
+    let h = args
+        .height
+        .unwrap_or_else(|| window.height().unwrap_or(600) as i32);
     let mut flags = user32::SWP_NOZORDER;
     if !moving {
         flags |= user32::SWP_NOMOVE;

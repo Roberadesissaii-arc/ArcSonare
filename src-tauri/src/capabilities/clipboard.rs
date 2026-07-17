@@ -24,7 +24,10 @@ pub fn read_text(_args: ReadArgs) -> ToolResult {
             let content: String = text.chars().take(READ_MAX_CHARS).collect();
             let chars = content.chars().count();
             rb.success(
-                format!("Clipboard has {chars} characters of text{}.", if truncated { " (truncated)" } else { "" }),
+                format!(
+                    "Clipboard has {chars} characters of text{}.",
+                    if truncated { " (truncated)" } else { "" }
+                ),
                 json!({ "content": content, "chars": chars, "truncated": truncated }),
                 VerificationEvidence::verified("state-readback"),
             )
@@ -45,7 +48,11 @@ pub struct WriteArgs {
 pub fn write_text(args: WriteArgs) -> ToolResult {
     let rb = ResultBuilder::new("clipboard.write_text");
     if args.content.len() > 1_000_000 {
-        return rb.error("content-too-large", "Clipboard writes are capped at 1 MB.", true);
+        return rb.error(
+            "content-too-large",
+            "Clipboard writes are capped at 1 MB.",
+            true,
+        );
     }
     let mut clipboard = match arboard::Clipboard::new() {
         Ok(c) => c,

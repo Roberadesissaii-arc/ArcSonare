@@ -73,8 +73,7 @@ fn parse<T: serde::de::DeserializeOwned>(
     capability_id: &str,
     args: &serde_json::Value,
 ) -> Result<T, ToolResult> {
-    serde_json::from_value(args.clone())
-        .map_err(|e| invalid_args(capability_id, &e.to_string()))
+    serde_json::from_value(args.clone()).map_err(|e| invalid_args(capability_id, &e.to_string()))
 }
 
 /// Destructive gate: without a valid token, return the confirmation request.
@@ -87,9 +86,7 @@ fn destructive_gate(
     match confirmation_token {
         Some(token) => store
             .consume(token, capability_id, args)
-            .map_err(|e| {
-                ResultBuilder::new(capability_id).denied(e, "confirmation-invalid")
-            }),
+            .map_err(|e| ResultBuilder::new(capability_id).denied(e, "confirmation-invalid")),
         None => {
             // Build the confirmation payload (delete is the only destructive op).
             let rb = ResultBuilder::new(capability_id);
@@ -102,8 +99,11 @@ fn destructive_gate(
                 let affected = match filesystem::describe_delete(&delete_args) {
                     Ok(items) => items,
                     Err(e) => {
-                        return Err(ResultBuilder::new(capability_id)
-                            .error("delete-preflight-failed", e, true))
+                        return Err(ResultBuilder::new(capability_id).error(
+                            "delete-preflight-failed",
+                            e,
+                            true,
+                        ))
                     }
                 };
                 let (token, expires_at) = store.issue(capability_id, args);
@@ -356,8 +356,12 @@ pub fn capability_execute(
 
     let mut confirmed = false;
     if risk == Risk::Destructive {
-        match destructive_gate(&confirmations, &capability_id, &args, confirmation_token.as_deref())
-        {
+        match destructive_gate(
+            &confirmations,
+            &capability_id,
+            &args,
+            confirmation_token.as_deref(),
+        ) {
             Ok(()) => confirmed = true,
             Err(result) => return result,
         }

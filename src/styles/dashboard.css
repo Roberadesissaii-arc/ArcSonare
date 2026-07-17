@@ -35,6 +35,73 @@
   overflow: hidden;
 }
 
+/* Agent-page card chrome on Dashboard side cards: smoked gradient + top-left
+   highlight curve + decorative corner ring. */
+.dashboard-col > .card,
+.side-column > .card,
+.dashboard-col > .sonare-card,
+.side-column > .sonare-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(
+    145deg,
+    rgba(26, 35, 43, 0.98) 0%,
+    rgba(17, 25, 32, 0.99) 52%,
+    rgba(10, 16, 21, 0.995) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.058);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.034),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 18px 42px rgba(0, 0, 0, 0.17);
+}
+
+.dashboard-col > .card::before,
+.side-column > .card::before,
+.dashboard-col > .sonare-card::before,
+.side-column > .sonare-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(
+    ellipse at 8% -5%,
+    rgba(255, 255, 255, 0.062) 0%,
+    rgba(255, 255, 255, 0.02) 26%,
+    transparent 52%
+  );
+}
+
+.dashboard-col > .card::after,
+.side-column > .card::after,
+.dashboard-col > .sonare-card::after,
+.side-column > .sonare-card::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  width: 172px;
+  height: 172px;
+  right: -78px;
+  top: -82px;
+  border-radius: 50%;
+  border: 1px solid rgba(153, 112, 246, 0.13);
+  box-shadow:
+    inset 0 0 34px rgba(106, 70, 194, 0.055),
+    0 0 38px rgba(92, 60, 176, 0.05);
+  pointer-events: none;
+}
+
+.dashboard-col > .card > *,
+.side-column > .card > *,
+.dashboard-col > .sonare-card > *,
+.side-column > .sonare-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .dashboard-center {
   position: relative;
   display: flex;
