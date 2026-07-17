@@ -1,4 +1,5 @@
 import { CheckIcon, PlayIcon } from "../../components/Icons";
+import { VOICE_CHARACTERS } from "../voice-settings/voiceCharacters";
 
 /**
  * ArcSonare voice profiles. These are local profile definitions that map to
@@ -13,50 +14,13 @@ export interface VoiceProfile {
   languages: string;
 }
 
-export const VOICE_PROFILES: VoiceProfile[] = [
-  {
-    id: "sonare",
-    name: "Sonare",
-    description: "The signature ArcSonare voice.",
-    tone: "Calm · Natural",
-    languages: "English",
-  },
-  {
-    id: "vela",
-    name: "Vela",
-    description: "Soft and friendly for long sessions.",
-    tone: "Warm · Conversational",
-    languages: "English",
-  },
-  {
-    id: "orion",
-    name: "Orion",
-    description: "Grounded and precise for briefings.",
-    tone: "Deep · Professional",
-    languages: "English",
-  },
-  {
-    id: "lyra",
-    name: "Lyra",
-    description: "Bright and articulate for quick answers.",
-    tone: "Clear · Energetic",
-    languages: "English",
-  },
-  {
-    id: "atlas",
-    name: "Atlas",
-    description: "Composed and formal for work contexts.",
-    tone: "Professional",
-    languages: "English",
-  },
-  {
-    id: "nova",
-    name: "Nova",
-    description: "Lively and expressive.",
-    tone: "Energetic · Natural",
-    languages: "English",
-  },
-];
+export const VOICE_PROFILES: VoiceProfile[] = VOICE_CHARACTERS.map((c) => ({
+  id: c.id,
+  name: c.displayName,
+  description: c.description,
+  tone: c.personality,
+  languages: "English",
+}));
 
 interface VoiceSelectorProps {
   value: string;

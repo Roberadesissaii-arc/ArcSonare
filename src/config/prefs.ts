@@ -369,7 +369,7 @@ export const DEFAULT_PREFS: Prefs = {
     duckOtherAudio: true,
     stopOnInterrupt: true,
     systemOutputFallback: true,
-    voiceId: "",
+    voiceId: "sonare",
     speakingSpeed: 100,
     pitch: 100,
     expressiveness: 55,
