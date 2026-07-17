@@ -103,15 +103,19 @@ export function ScreenContextStatusHero({
         <button
           type="button"
           className="screen-context-btn is-secondary"
-          disabled={busy || !enabled}
+          disabled={busy}
           onClick={onCaptureAnnotate}
         >
           <TargetArrowIcon size={14} />
           Capture &amp; annotate
         </button>
-        {!enabled ? (
+        {active ? (
           <p className="screen-context-hero-hint">
-            Turn on Screen Context in the workspace card to use capture actions.
+            Capture &amp; annotate opens the drawing overlay on a live screenshot. Start alone only shows the edge indicator.
+          </p>
+        ) : !enabled ? (
+          <p className="screen-context-hero-hint">
+            Start enables Screen Context. Then use Capture &amp; annotate to draw.
           </p>
         ) : null}
       </div>

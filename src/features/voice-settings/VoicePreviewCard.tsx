@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { ChevronDownIcon, PlayIcon, VolumeIcon } from "../../components/Icons";
+import { Dropdown } from "../../components/settings/Dropdown";
+import { PlayIcon, VolumeIcon } from "../../components/Icons";
 import { VoiceSettingsCard } from "./VoiceSettingsCard";
 import { PREVIEW_SAMPLES, type VoiceCharacter } from "./voiceCharacters";
+import { useState } from "react";
 
 interface VoicePreviewCardProps {
   character: VoiceCharacter;
@@ -15,7 +16,6 @@ export function VoicePreviewCard({
   onOpenModels,
 }: VoicePreviewCardProps) {
   const [sampleId, setSampleId] = useState("greeting");
-  const [menuOpen, setMenuOpen] = useState(false);
   const sample =
     PREVIEW_SAMPLES.find((s) => s.id === sampleId) ?? PREVIEW_SAMPLES[0];
   const phrase = sample.text(character.displayName);
@@ -55,35 +55,17 @@ export function VoicePreviewCard({
           ) : null}
         </div>
         <div className="voice-sample-wrap">
-          <button
-            type="button"
-            className="btn btn-small"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-expanded={menuOpen}
-            aria-haspopup="listbox"
-          >
-            Preview different text
-            <ChevronDownIcon size={13} />
-          </button>
-          {menuOpen ? (
-            <ul className="voice-sample-menu" role="listbox" aria-label="Preview samples">
-              {PREVIEW_SAMPLES.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={item.id === sampleId}
-                    onClick={() => {
-                      setSampleId(item.id);
-                      setMenuOpen(false);
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <Dropdown
+            options={PREVIEW_SAMPLES.map((item) => ({
+              value: item.id,
+              label: item.label,
+            }))}
+            value={sampleId}
+            onChange={setSampleId}
+            ariaLabel="Preview different text"
+            className="voice-sample-dropdown"
+            matchTriggerWidth={false}
+          />
         </div>
       </div>
     </VoiceSettingsCard>

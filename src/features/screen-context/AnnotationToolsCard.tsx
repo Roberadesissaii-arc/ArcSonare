@@ -7,7 +7,7 @@ import {
   PenIcon,
   SquareIcon,
 } from "../../components/Icons";
-import { Slider } from "../../components/settings/Slider";
+import { Dropdown } from "../../components/settings/Dropdown";
 import { Toggle } from "../../components/settings/Toggle";
 import type { Prefs } from "../../config/prefs";
 import { ScreenContextCard } from "./ScreenContextCard";
@@ -35,12 +35,57 @@ const TOOLS: {
   { key: "redact", label: "Blur / Redact", icon: <BlurIcon size={16} /> },
 ];
 
-const SWATCHES = ["#A576FF", "#62dea0", "#ffb347", "#ff6b8a", "#ffffff"];
+const COLORS: { value: string; label: string }[] = [
+  { value: "#A576FF", label: "Violet" },
+  { value: "#7099F4", label: "Blue" },
+  { value: "#55D59A", label: "Green" },
+  { value: "#E8B15B", label: "Amber" },
+  { value: "#E36E77", label: "Rose" },
+  { value: "#FFFFFF", label: "White" },
+  { value: "#E9ECEE", label: "Soft white" },
+  { value: "#737C83", label: "Graphite" },
+];
+
+const THICKNESS = [1, 2, 3, 4, 5, 6, 8, 10] as const;
+
+function ColorSwatch({ color }: { color: string }) {
+  return (
+    <span
+      className="screen-context-color-leading"
+      style={{ "--swatch": color } as CSSProperties}
+      aria-hidden="true"
+    />
+  );
+}
 
 export function AnnotationToolsCard({
   annotation,
   onAnnotationChange,
 }: AnnotationToolsCardProps) {
+  const colorOptions = COLORS.map((c) => ({
+    value: c.value,
+    label: c.label,
+    leading: <ColorSwatch color={c.value} />,
+  }));
+  const thicknessOptions = THICKNESS.map((n) => ({
+    value: String(n),
+    label: `${n} px`,
+  }));
+  const nearestThickness = THICKNESS.reduce((best, n) =>
+    Math.abs(n - annotation.thickness) < Math.abs(best - annotation.thickness)
+      ? n
+      : best,
+  );
+  const thicknessValue = String(
+    THICKNESS.includes(annotation.thickness as (typeof THICKNESS)[number])
+      ? annotation.thickness
+      : nearestThickness,
+  );
+
+  const knownColor = COLORS.some((c) => c.value === annotation.color)
+    ? annotation.color
+    : COLORS[0].value;
+
   return (
     <ScreenContextCard
       number={3}
@@ -101,28 +146,27 @@ export function AnnotationToolsCard({
         </div>
       </div>
 
-      <div className="screen-context-tool-style">
-        <Slider
-          value={annotation.thickness}
-          min={1}
-          max={10}
-          onChange={(thickness) => onAnnotationChange({ thickness })}
-          label="Annotation thickness"
-          format={(v) => `${v}px`}
-        />
-        <div className="screen-context-color-swatches" role="group" aria-label="Annotation color">
-          {SWATCHES.map((color) => (
-            <button
-              key={color}
-              type="button"
-              className={`screen-context-color-swatch${annotation.color === color ? " is-active" : ""}`}
-              style={{ "--swatch": color } as CSSProperties}
-              aria-label={`Color ${color}`}
-              aria-pressed={annotation.color === color}
-              onClick={() => onAnnotationChange({ color })}
-            />
-          ))}
-        </div>
+      <div className="screen-context-tool-style screen-context-tool-style-dropdowns">
+        <label className="screen-context-style-field">
+          <span className="screen-context-style-label">Ink color</span>
+          <Dropdown
+            options={colorOptions}
+            value={knownColor}
+            onChange={(color) => onAnnotationChange({ color })}
+            ariaLabel="Annotation color"
+            className="screen-context-style-dropdown"
+          />
+        </label>
+        <label className="screen-context-style-field">
+          <span className="screen-context-style-label">Stroke size</span>
+          <Dropdown
+            options={thicknessOptions}
+            value={thicknessValue}
+            onChange={(v) => onAnnotationChange({ thickness: Number(v) })}
+            ariaLabel="Annotation stroke size in pixels"
+            className="screen-context-style-dropdown"
+          />
+        </label>
       </div>
     </ScreenContextCard>
   );

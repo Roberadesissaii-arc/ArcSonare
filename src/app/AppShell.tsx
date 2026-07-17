@@ -4,6 +4,7 @@ import { useSettings } from "../hooks/useSettings";
 import { useAppearance } from "../hooks/useTheme";
 import { navigate, openPalette, useAppState } from "../stores/appStore";
 import { hydrateProfileDisplayName } from "../features/account/accountProfile";
+import { bindShortcutActions } from "../features/shortcuts/bindShortcutActions";
 import { usePrefs } from "../stores/settingsStore";
 import { ACCENT_SWATCHES } from "../components/settings/ColorPicker";
 import { CustomTitleBar } from "./CustomTitleBar";
@@ -29,6 +30,8 @@ export function AppShell() {
   useEffect(() => {
     hydrateProfileDisplayName();
   }, []);
+
+  useEffect(() => bindShortcutActions(), []);
 
   // Apply accent swatch to CSS variables (selected controls / indicators).
   useEffect(() => {

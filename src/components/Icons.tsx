@@ -386,6 +386,14 @@ export function ChevronRightIcon({ size }: IconProps) {
   );
 }
 
+export function ChevronLeftIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
 export function CheckIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
