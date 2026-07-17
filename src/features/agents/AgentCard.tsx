@@ -14,6 +14,7 @@ import {
   statusLabel,
 } from "./agentSelectors";
 import type { Task } from "../../stores/taskStore";
+import { agentAvatarSrc } from "./agentAvatars";
 
 interface AgentCardProps {
   agent: AgentConfig;
@@ -23,6 +24,7 @@ interface AgentCardProps {
   onToggle: (next: boolean) => void;
   onDelete: () => void;
   onAssign: () => void;
+  onSetPrime: () => void;
   view: "grid" | "list";
 }
 
@@ -34,6 +36,7 @@ export function AgentCard({
   onToggle,
   onDelete,
   onAssign,
+  onSetPrime,
   view,
 }: AgentCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -48,6 +51,7 @@ export function AgentCard({
   const tags = capabilityTags(agent);
   const activation = canActivate(agent);
   const toggleDisabled = !agent.enabled && !activation.ok;
+  const avatarSrc = agentAvatarSrc(agent.avatarId);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -81,7 +85,7 @@ export function AgentCard({
               background: `radial-gradient(circle at 35% 28%, ${agent.accentColor}55, #121a21 70%)`,
             }}
           >
-            {agent.initials || "?"}
+            {avatarSrc ? <img src={avatarSrc} alt="" /> : agent.initials || "?"}
           </span>
           <span className="agent-list-meta">
             <span className="agent-card-title">{agent.name}</span>
@@ -127,7 +131,7 @@ export function AgentCard({
           }}
           aria-hidden="true"
         >
-          {agent.initials || "?"}
+          {avatarSrc ? <img src={avatarSrc} alt="" /> : agent.initials || "?"}
         </span>
         <div className="agent-names">
           <div className="agent-name-row">
@@ -138,6 +142,7 @@ export function AgentCard({
             </span>
           </div>
           <p className="agent-card-role">{agent.role}</p>
+          {agent.isPrime ? <span className="agent-prime-badge">Prime agent</span> : null}
         </div>
         <Toggle
           checked={agent.enabled}
@@ -229,6 +234,19 @@ export function AgentCard({
             </button>
             {menuOpen ? (
               <ul className="agent-more-menu" role="menu">
+                <li>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onSetPrime();
+                      setMenuOpen(false);
+                    }}
+                    disabled={agent.isPrime}
+                  >
+                    {agent.isPrime ? "Current Prime Agent" : "Make Prime Agent"}
+                  </button>
+                </li>
                 <li>
                   <button type="button" role="menuitem" onClick={onOpen}>
                     Open details

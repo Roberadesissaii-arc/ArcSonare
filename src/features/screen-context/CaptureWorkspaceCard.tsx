@@ -40,13 +40,13 @@ const ROWS: {
   {
     key: "enabled",
     label: "Enable Screen Context",
-    description: "Allow ArcSonare to observe and capture your selected screen.",
+    description: "Turns Screen Context on and shows the screen-edge indicator.",
     icon: <MonitorIcon size={14} />,
   },
   {
     key: "requireConfirmation",
     label: "Require confirmation before capture",
-    description: "Ask before taking a screenshot or creating context.",
+    description: "Ask in the page before taking a screenshot (no browser dialogs).",
     icon: <ShieldCheckIcon size={14} />,
   },
   {

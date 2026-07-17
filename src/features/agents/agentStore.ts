@@ -5,6 +5,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { deriveAgentStatus } from "./agentHealth";
+import { defaultAvatarIdForAgent, type AgentAvatarId } from "./agentAvatars";
 import {
   DEFAULT_AGENT_PREFS,
   emptyMetrics,
@@ -62,6 +63,8 @@ export interface AgentConfig {
   role: string;
   description: string;
   initials: string;
+  avatarId: AgentAvatarId | null;
+  isPrime: boolean;
   accentColor: string;
   instructions: {
     system: string;
@@ -146,6 +149,8 @@ export function blankAgent(): AgentConfig {
     role: "",
     description: "",
     initials: "",
+    avatarId: null,
+    isPrime: false,
     accentColor: "#916EFF",
     instructions: {
       system: "",
@@ -198,6 +203,8 @@ function normalizeAgent(raw: Partial<AgentConfig> & { id: string }): AgentConfig
     ...base,
     ...raw,
     id: raw.id,
+    avatarId: raw.avatarId ?? defaultAvatarIdForAgent(raw.id),
+    isPrime: raw.isPrime ?? raw.id === "project-manager",
     instructions: { ...base.instructions, ...(raw.instructions ?? {}) },
     voice: { ...base.voice, ...(raw.voice ?? {}) },
     memory: { ...base.memory, ...(raw.memory ?? {}) },
@@ -410,6 +417,15 @@ export function updateAgent(id: string, patch: Partial<AgentConfig>) {
   agents = agents.map((a) =>
     a.id === id ? { ...a, ...patch, updatedAt: Date.now() } : a,
   );
+  emitAgents();
+}
+
+export function setPrimeAgent(id: string) {
+  agents = agents.map((agent) => ({
+    ...agent,
+    isPrime: agent.id === id,
+    updatedAt: agent.id === id ? Date.now() : agent.updatedAt,
+  }));
   emitAgents();
 }
 

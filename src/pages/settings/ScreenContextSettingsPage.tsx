@@ -68,6 +68,8 @@ export function ScreenContextSettingsPage() {
       });
   };
 
+  const [pendingCapture, setPendingCapture] = useState(false);
+
   const ensureEnabled = () => {
     if (!sc.enabled) {
       patchPrefs("screenContext", { enabled: true });
@@ -82,16 +84,14 @@ export function ScreenContextSettingsPage() {
   };
 
   const handleStop = () => {
-    runAction(() => stopScreenContext());
+    runAction(async () => {
+      await stopScreenContext();
+    });
   };
 
-  const handleCaptureAnnotate = () => {
+  const runCaptureAnnotate = () => {
     runAction(async () => {
       if (!status.active) {
-        const ok = window.confirm(
-          "Screen Context is off. Enable and start before capturing?",
-        );
-        if (!ok) return;
         ensureEnabled();
         await startScreenContext();
       }
@@ -99,8 +99,35 @@ export function ScreenContextSettingsPage() {
     }, { capture: true });
   };
 
+  const handleCaptureAnnotate = () => {
+    // Never use window.confirm (shows “localhost says”). Prefer in-app confirm.
+    if (sc.requireConfirmation && !pendingCapture) {
+      setPendingCapture(true);
+      setActionError(null);
+      return;
+    }
+    setPendingCapture(false);
+    runCaptureAnnotate();
+  };
+
+  const handleConfirmCapture = () => {
+    setPendingCapture(false);
+    runCaptureAnnotate();
+  };
+
+  const handleCancelCapture = () => {
+    setPendingCapture(false);
+  };
+
   const handleScChange = (patch: Partial<typeof sc>) => {
     setSc(patch);
+    if (patch.enabled === true && !status.active) {
+      void startScreenContext().catch((err) =>
+        setActionError(
+          typeof err === "string" ? err : "Could not start Screen Context.",
+        ),
+      );
+    }
     if (patch.enabled === false && status.active) {
       void stopScreenContext();
     }
@@ -119,9 +146,12 @@ export function ScreenContextSettingsPage() {
         enabled={sc.enabled}
         capturing={capturing}
         error={actionError}
+        pendingCapture={pendingCapture}
         onStart={handleStart}
         onStop={handleStop}
         onCaptureAnnotate={handleCaptureAnnotate}
+        onConfirmCapture={handleConfirmCapture}
+        onCancelCapture={handleCancelCapture}
       />
 
       <div className="screen-context-workspace-grid">

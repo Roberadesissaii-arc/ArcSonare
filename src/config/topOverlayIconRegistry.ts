@@ -152,7 +152,7 @@ export const TOP_OVERLAY_ICONS: TopOverlayIconDefinition[] = [
   def({
     id: "google-calendar",
     displayName: "Google Calendar",
-    aliases: ["google calendar", "calendar", "my schedule", "schedule", "gcal"],
+    aliases: ["google calendar", "calendar", "gcal", "my calendar", "google cal"],
     iconFile: "google-calendar.svg",
     type: "web-app",
     webUrl: "https://calendar.google.com",

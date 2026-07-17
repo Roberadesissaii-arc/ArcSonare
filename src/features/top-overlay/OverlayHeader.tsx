@@ -4,7 +4,6 @@ import { OverlayActionIcon } from "./OverlayActionIcon";
 import { OverlayStatusText, modeToOrbStatus } from "./OverlayStatusText";
 import {
   getIconById,
-  TOP_OVERLAY_ICONS,
   type TopOverlayIconDefinition,
 } from "../../config/topOverlayIconRegistry";
 import type { OverlayMode } from "./overlayTypes";
@@ -25,32 +24,17 @@ function toVoiceStatus(orb: OrbVisualStatus) {
   return orb;
 }
 
-/** Resolve app from id, or fall back to status text (“Spotify opened”). */
+/**
+ * Resolve app only from an explicit applicationId set by an open/draft/search
+ * action. Never scan status/reply text — phrases like “calendar” or “schedule”
+ * in a time answer must not surface a Google Calendar icon.
+ */
 function resolveApp(
   applicationId: string | undefined,
-  status: string,
 ): TopOverlayIconDefinition | undefined {
-  if (applicationId) {
-    const byId = getIconById(applicationId);
-    if (byId?.iconPath) return byId;
-  }
-  // Status text may say “Drafting email…” — map that to Gmail without
-  // treating the word “email” as a generic open-alias.
-  const lower = status.toLowerCase();
-  if (/\b(email|gmail|mail)\b/.test(lower)) {
-    const gmail = getIconById("gmail");
-    if (gmail?.iconPath) return gmail;
-  }
-  for (const entry of TOP_OVERLAY_ICONS) {
-    const names = [entry.displayName, ...entry.aliases];
-    if (names.some((n) => {
-      const alias = n.toLowerCase();
-      return alias.length >= 4 && lower.includes(alias);
-    })) {
-      if (entry.iconPath) return entry;
-    }
-  }
-  return undefined;
+  if (!applicationId) return undefined;
+  const byId = getIconById(applicationId);
+  return byId?.iconPath ? byId : undefined;
 }
 
 export function OverlayHeader({
@@ -63,7 +47,7 @@ export function OverlayHeader({
   expanded,
 }: OverlayHeaderProps) {
   const orb = modeToOrbStatus(mode);
-  const app = resolveApp(applicationId, status);
+  const app = resolveApp(applicationId);
   const icon =
     (applicationIcon && applicationIcon.length > 0 ? applicationIcon : undefined) ||
     app?.iconPath;

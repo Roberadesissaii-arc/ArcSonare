@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type AnimationEvent } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { EVENT_CLOSE, EVENT_OPEN, type OverlayPhase } from "../types";
@@ -23,6 +23,8 @@ const CLOSE_FALLBACK_MS = 450;
 export function useOverlayLifecycle() {
   const [phase, setPhase] = useState<OverlayPhase>("hidden");
   const closeFallback = useRef<number | null>(null);
+  const phaseRef = useRef<OverlayPhase>("hidden");
+  phaseRef.current = phase;
 
   const clearCloseFallback = useCallback(() => {
     if (closeFallback.current !== null) {
@@ -47,6 +49,27 @@ export function useOverlayLifecycle() {
     });
   }, [clearCloseFallback]);
 
+  /** Force-hide even if phase never reached `closing` (stuck Cancelled). */
+  const forceClose = useCallback(() => {
+    clearCloseFallback();
+    setPhase("hidden");
+    invoke("overlay_hidden").catch((err) =>
+      console.error("[ArcSonare] failed to force-hide native window:", err),
+    );
+  }, [clearCloseFallback]);
+
+  const armCloseFallback = useCallback(() => {
+    clearCloseFallback();
+    closeFallback.current = window.setTimeout(() => {
+      // Prefer the normal closing path; otherwise force-hide so we never stick.
+      if (phaseRef.current === "closing") {
+        finishClose();
+      } else if (phaseRef.current !== "hidden") {
+        forceClose();
+      }
+    }, CLOSE_FALLBACK_MS);
+  }, [clearCloseFallback, finishClose, forceClose]);
+
   useEffect(() => {
     const unlistenOpen = listen(EVENT_OPEN, () => {
       // Cancel any in-flight close so rapid toggling never strands the UI.
@@ -56,8 +79,7 @@ export function useOverlayLifecycle() {
 
     const unlistenClose = listen(EVENT_CLOSE, () => {
       setPhase((prev) => (prev === "hidden" ? prev : "closing"));
-      clearCloseFallback();
-      closeFallback.current = window.setTimeout(finishClose, CLOSE_FALLBACK_MS);
+      armCloseFallback();
     });
 
     return () => {
@@ -65,14 +87,19 @@ export function useOverlayLifecycle() {
       unlistenClose.then((f) => f());
       clearCloseFallback();
     };
-  }, [clearCloseFallback, finishClose]);
+  }, [armCloseFallback, clearCloseFallback]);
 
   /** Asks Rust to close the overlay (close button, Escape key). */
   const requestClose = useCallback(() => {
-    invoke("request_close").catch((err) =>
-      console.error("[ArcSonare] failed to request close:", err),
-    );
-  }, []);
+    // Arm locally first — if emit_to fails or the event never arrives, we
+    // still hide instead of freezing on “Cancelled”.
+    setPhase((prev) => (prev === "hidden" ? prev : "closing"));
+    armCloseFallback();
+    invoke("request_close").catch((err) => {
+      console.error("[ArcSonare] failed to request close:", err);
+      forceClose();
+    });
+  }, [armCloseFallback, forceClose]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -85,14 +112,22 @@ export function useOverlayLifecycle() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [requestClose]);
 
-  /** Attached to the capsule element; advances the state machine. */
-  const handleAnimationEnd = useCallback(() => {
-    if (phase === "opening") {
-      setPhase("visible");
-    } else if (phase === "closing") {
-      finishClose();
-    }
-  }, [phase, finishClose]);
+  /**
+   * Attached to the capsule element; advances the state machine.
+   * Ignore bubbled events from marble/waveform infinite animations — those
+   * were prematurely finishing open/close and stranding the window.
+   */
+  const handleAnimationEnd = useCallback(
+    (event: AnimationEvent<HTMLElement>) => {
+      if (event.target !== event.currentTarget) return;
+      if (phase === "opening") {
+        setPhase("visible");
+      } else if (phase === "closing") {
+        finishClose();
+      }
+    },
+    [phase, finishClose],
+  );
 
-  return { phase, requestClose, handleAnimationEnd };
+  return { phase, requestClose, forceClose, handleAnimationEnd };
 }

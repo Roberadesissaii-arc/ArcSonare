@@ -63,35 +63,33 @@ export function OutputDeviceCard({
         refreshLabel="Refresh speakers"
       />
 
-      <div className="voice-field">
+      <div className="voice-field voice-output-volume-field">
         <div className="voice-field-label-row">
           <span className="voice-field-label">Output volume</span>
           <span className="voice-volume-value">{volume}%</span>
         </div>
-        <div className="voice-volume-row">
-          <VolumeIcon size={14} />
-          <Slider
-            value={volume}
-            min={0}
-            max={100}
-            onChange={onVolume}
-            label="Output volume"
-            format={(v) => `${v}%`}
-          />
+        <div className="voice-output-controls">
+          <button
+            type="button"
+            className={`voice-play-btn voice-output-play${tonePlaying ? " is-playing" : ""}`}
+            onClick={onToggleTone}
+            aria-label={tonePlaying ? "Stop test tone" : "Play test tone"}
+            title={tonePlaying ? "Stop test tone" : "Play test tone"}
+          >
+            {tonePlaying ? <StopIcon size={16} /> : <PlayIcon size={16} />}
+          </button>
+          <div className="voice-volume-row">
+            <VolumeIcon size={14} />
+            <Slider
+              value={volume}
+              min={0}
+              max={100}
+              onChange={onVolume}
+              label="Output volume"
+              format={(v) => `${v}%`}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="voice-output-tone">
-        <button
-          type="button"
-          className={`voice-solid-btn voice-tone-btn${tonePlaying ? " is-danger" : ""}`}
-          onClick={onToggleTone}
-        >
-          <span className="voice-tone-btn-icon" aria-hidden="true">
-            {tonePlaying ? <StopIcon size={15} /> : <PlayIcon size={15} />}
-          </span>
-          {tonePlaying ? "Stop test tone" : "Play test tone"}
-        </button>
         <p className="voice-help">Play a short tone on your selected output device.</p>
       </div>
 

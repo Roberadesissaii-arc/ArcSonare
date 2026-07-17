@@ -8,6 +8,7 @@ import {
 import { Dropdown } from "../components/settings/Dropdown";
 import { AgentAnalyticsRow } from "../features/agents/AgentAnalyticsRow";
 import { AgentCard } from "../features/agents/AgentCard";
+import { AgentConstellation } from "../features/agents/AgentConstellation";
 import { AgentCreationWizard } from "../features/agents/AgentCreationWizard";
 import { AgentDetail } from "../features/agents/AgentDetail";
 import { AgentSummaryGrid } from "../features/agents/AgentSummaryGrid";
@@ -18,10 +19,12 @@ import {
   agentFromTemplate,
 } from "../features/agents/agentTemplates";
 import { canActivate as canActivateHealth } from "../features/agents/agentHealth";
+import { agentAvatarSrc } from "../features/agents/agentAvatars";
 import {
   appendAgentActivity,
   blankAgent,
   removeAgent,
+  setPrimeAgent,
   setAgentPrefs,
   updateAgent,
   useAgentPrefs,
@@ -225,6 +228,12 @@ export function AgentPage() {
         </div>
       </header>
 
+      <AgentConstellation
+        agents={agents}
+        onOpen={setOpenAgentId}
+        onCreate={() => setWizardDraft(blankAgent())}
+      />
+
       <AgentSummaryGrid
         counts={counts}
         focus={summaryFocus}
@@ -383,6 +392,10 @@ export function AgentPage() {
                       onToggle={(next) => toggleAgent(agent, next)}
                       onDelete={() => setConfirmDeleteId(agent.id)}
                       onAssign={() => setAssignAgentId(agent.id)}
+                      onSetPrime={() => {
+                        setPrimeAgent(agent.id);
+                        addActivity(`${agent.name} is now the Prime Agent`, "agent");
+                      }}
                     />
                   ))}
                 </div>
@@ -444,7 +457,11 @@ export function AgentPage() {
                   }}
                 >
                   <span className="agent-avatar template-avatar" aria-hidden="true">
-                    {template.initials}
+                    {agentAvatarSrc(template.avatarId) ? (
+                      <img src={agentAvatarSrc(template.avatarId)} alt="" />
+                    ) : (
+                      template.initials
+                    )}
                   </span>
                   <span className="template-meta">
                     <span className="template-name">{template.name}</span>

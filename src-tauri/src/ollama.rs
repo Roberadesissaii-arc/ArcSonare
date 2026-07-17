@@ -98,8 +98,8 @@ async fn parse_chat(res: reqwest::Response, source: &str) -> Result<String, Stri
         return Err(format!("{source} error {status}: {text}"));
     }
 
-    let body: ChatResponse = serde_json::from_str(&text)
-        .map_err(|e| format!("invalid {source} chat response: {e}"))?;
+    let body: ChatResponse =
+        serde_json::from_str(&text).map_err(|e| format!("invalid {source} chat response: {e}"))?;
 
     if let Some(err) = body.error {
         return Err(format!("{source}: {err}"));
@@ -120,9 +120,7 @@ pub async fn ollama_status() -> Result<OllamaStatus, String> {
         .send()
         .await
         .map_err(|e| {
-            format!(
-                "Ollama is not reachable at {OLLAMA_LOCAL}. Is `ollama serve` running? ({e})"
-            )
+            format!("Ollama is not reachable at {OLLAMA_LOCAL}. Is `ollama serve` running? ({e})")
         })?;
     parse_tags(res, "Ollama local").await
 }

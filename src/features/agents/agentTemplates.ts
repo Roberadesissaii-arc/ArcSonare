@@ -9,6 +9,7 @@ import {
   type AgentConfig,
   type PermissionArea,
 } from "./agentStore";
+import type { AgentAvatarId } from "./agentAvatars";
 
 export interface AgentTemplate {
   id: string;
@@ -16,6 +17,7 @@ export interface AgentTemplate {
   purpose: string;
   role: string;
   initials: string;
+  avatarId?: AgentAvatarId;
   suggestedTools: PermissionArea[];
   recommendedPermissionNote: string;
   suggestedModelRole: string;
@@ -31,6 +33,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Keeps tasks, owners and deadlines aligned.",
     role: "Coordination",
     initials: "PM",
+    avatarId: "nova",
     suggestedTools: ["tasks", "calendar", "notifications"],
     recommendedPermissionNote: "Read-write tasks; calendar read-only.",
     suggestedModelRole: "Everyday assistant",
@@ -44,6 +47,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Scans sources and summarizes what changed.",
     role: "Research",
     initials: "RA",
+    avatarId: "atlas",
     suggestedTools: ["tasks", "browser", "notifications"],
     recommendedPermissionNote: "Browser access asks every time.",
     suggestedModelRole: "Research",
@@ -57,6 +61,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Drafts documents, decks and messages.",
     role: "Writing",
     initials: "CC",
+    avatarId: "lyra",
     suggestedTools: ["tasks", "files"],
     recommendedPermissionNote: "File access asks every time.",
     suggestedModelRole: "Everyday assistant",
@@ -70,6 +75,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Manages schedule, reminders and daily preparation.",
     role: "Assistant",
     initials: "EA",
+    avatarId: "celeste",
     suggestedTools: ["calendar", "tasks", "email", "notifications"],
     recommendedPermissionNote: "Email asks every time; calendar read-only.",
     suggestedModelRole: "Everyday assistant",
@@ -83,6 +89,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Triages the inbox and drafts replies.",
     role: "Communication",
     initials: "EM",
+    avatarId: "echo",
     suggestedTools: ["email", "tasks", "notifications"],
     recommendedPermissionNote: "Sending always asks; reading asks every time.",
     suggestedModelRole: "Fast commands",
@@ -96,6 +103,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Prepares agendas and captures follow-ups.",
     role: "Meetings",
     initials: "MA",
+    avatarId: "mira",
     suggestedTools: ["calendar", "tasks", "notifications"],
     recommendedPermissionNote: "Calendar read-only.",
     suggestedModelRole: "Everyday assistant",
@@ -109,6 +117,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Keeps folders tidy and findable.",
     role: "Files",
     initials: "FO",
+    avatarId: "rowan",
     suggestedTools: ["files"],
     recommendedPermissionNote: "Every file operation asks first.",
     suggestedModelRole: "Fast commands",
@@ -122,6 +131,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     purpose: "Explains what is currently on screen.",
     role: "Screen",
     initials: "SA",
+    avatarId: "sora",
     suggestedTools: ["screen-context", "notifications"],
     recommendedPermissionNote: "Screen Context asks every time.",
     suggestedModelRole: "Screen understanding",
@@ -141,6 +151,7 @@ export function agentFromTemplate(template: AgentTemplate): AgentConfig {
     role: template.role,
     description: template.purpose,
     initials: template.initials,
+    avatarId: template.avatarId ?? null,
     instructions: {
       ...agent.instructions,
       objective: template.objective,

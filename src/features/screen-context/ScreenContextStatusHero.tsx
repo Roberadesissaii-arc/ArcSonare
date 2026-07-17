@@ -11,9 +11,12 @@ interface ScreenContextStatusHeroProps {
   enabled: boolean;
   capturing?: boolean;
   error: string | null;
+  pendingCapture?: boolean;
   onStart: () => void;
   onStop: () => void;
   onCaptureAnnotate: () => void;
+  onConfirmCapture?: () => void;
+  onCancelCapture?: () => void;
 }
 
 export function ScreenContextStatusHero({
@@ -22,9 +25,12 @@ export function ScreenContextStatusHero({
   enabled,
   capturing = false,
   error,
+  pendingCapture = false,
   onStart,
   onStop,
   onCaptureAnnotate,
+  onConfirmCapture,
+  onCancelCapture,
 }: ScreenContextStatusHeroProps) {
   const showLive = active || capturing;
 
@@ -46,21 +52,48 @@ export function ScreenContextStatusHero({
           <h2 id="screen-context-hero-title" className="screen-context-hero-title">
             {active ? (
               <>
-                Screen Context is <span className="is-enabled">enabled</span>
+                Screen Context is <span className="is-enabled">on</span>
               </>
+            ) : enabled ? (
+              "Screen Context is ready — press Start"
             ) : (
               "Screen Context is off"
             )}
           </h2>
           <p className="screen-context-hero-desc">
             {active
-              ? "ArcSonare is watching the selected screen. The edge indicator and capture tools are active and ready when you need them."
-              : "Enable Screen Context to show the screen-edge indicator and prepare capture tools."}
+              ? "ArcSonare is watching the selected screen. The edge indicator and capture tools are active."
+              : enabled
+                ? "Preferences are saved. Press Start to show the edge indicator, or Capture & annotate to begin immediately."
+                : "Turn on Enable Screen Context below, or press Start — both activate capture tools."}
           </p>
           {error ? (
             <p className="screen-context-hero-error" role="alert">
               {error}
             </p>
+          ) : null}
+          {pendingCapture ? (
+            <div className="screen-context-inline-confirm" role="status">
+              <p>Capture the selected screen and open annotation?</p>
+              <div className="screen-context-inline-confirm-actions">
+                <button
+                  type="button"
+                  className="screen-context-btn is-primary"
+                  disabled={busy}
+                  onClick={onConfirmCapture}
+                >
+                  Capture
+                </button>
+                <button
+                  type="button"
+                  className="screen-context-btn is-secondary"
+                  disabled={busy}
+                  onClick={onCancelCapture}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           ) : null}
         </div>
       </div>
@@ -103,7 +136,7 @@ export function ScreenContextStatusHero({
         <button
           type="button"
           className="screen-context-btn is-secondary"
-          disabled={busy}
+          disabled={busy || pendingCapture}
           onClick={onCaptureAnnotate}
         >
           <TargetArrowIcon size={14} />
@@ -111,13 +144,13 @@ export function ScreenContextStatusHero({
         </button>
         {active ? (
           <p className="screen-context-hero-hint">
-            Capture &amp; annotate opens the drawing overlay on a live screenshot. Start alone only shows the edge indicator.
+            Capture &amp; annotate opens the drawing overlay. Start alone only shows the edge indicator.
           </p>
-        ) : !enabled ? (
+        ) : (
           <p className="screen-context-hero-hint">
-            Start enables Screen Context. Then use Capture &amp; annotate to draw.
+            Enable Screen Context (or Start) turns it on. Capture &amp; annotate starts and opens the draw overlay.
           </p>
-        ) : null}
+        )}
       </div>
     </section>
   );

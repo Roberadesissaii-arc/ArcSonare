@@ -39,7 +39,7 @@ import {
  * Expanded panels grow the same native window downward.
  */
 export function GlobalTopOverlay() {
-  const { phase, requestClose, handleAnimationEnd } = useOverlayLifecycle();
+  const { phase, requestClose, forceClose, handleAnimationEnd } = useOverlayLifecycle();
   const { settings } = useSettings();
   const overlay = useOverlayStore();
   useAppearance(settings, { applyTheme: false });
@@ -189,8 +189,14 @@ export function GlobalTopOverlay() {
   }, [overlay.expanded, phase]);
 
   const cancel = () => {
+    // Second click while already Cancelled force-hides so it never sticks.
+    if (getOverlayState().mode === "closing" || phase === "closing") {
+      forceClose();
+      endOverlaySession();
+      voiceSessionEnded();
+      return;
+    }
     cancelOverlaySession();
-    playEventSound("overlay-close");
     requestClose();
   };
 

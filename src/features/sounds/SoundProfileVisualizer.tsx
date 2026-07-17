@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SoundProfileId } from "../../config/prefs";
 
 interface SoundProfileVisualizerProps {
@@ -8,7 +8,7 @@ interface SoundProfileVisualizerProps {
   disabled?: boolean;
 }
 
-/** Circular violet visualizer with internal waveform bars. */
+/** Circular violet visualizer with continuously animated waveform bars. */
 export function SoundProfileVisualizer({
   profile,
   amplitude,
@@ -19,6 +19,23 @@ export function SoundProfileVisualizer({
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    if (disabled || reducedMotion) {
+      setPhase(0);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      setPhase((now - start) / 1000);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [disabled, reducedMotion]);
+
   const bars = useMemo(() => {
     const count = 52;
     const out: number[] = [];
@@ -27,13 +44,25 @@ export function SoundProfileVisualizer({
       const center = 1 - Math.abs(t - 0.5) * 2;
       const shape = Math.pow(center, 1.35);
       const profileBias =
-        profile === "crisp" ? 0.15 : profile === "calm" ? -0.08 : profile === "cinematic" ? 0.1 : 0;
+        profile === "crisp"
+          ? 0.15
+          : profile === "calm"
+            ? -0.08
+            : profile === "cinematic"
+              ? 0.1
+              : 0;
       out.push(Math.max(0.08, shape * (0.55 + profileBias)));
     }
     return out;
   }, [profile]);
 
-  const live = disabled ? 0 : active ? Math.max(0.2, amplitude) : reducedMotion ? 0 : 0.12;
+  const energy = disabled
+    ? 0
+    : active
+      ? Math.max(0.35, amplitude)
+      : reducedMotion
+        ? 0.12
+        : 0.22;
 
   return (
     <div
@@ -48,7 +77,18 @@ export function SoundProfileVisualizer({
       <div className="sound-viz-core">
         <div className="sound-viz-wave">
           {bars.map((base, i) => {
-            const h = Math.min(1, base * (0.45 + live * 1.1) + (active ? live * 0.25 * Math.sin(i) : 0));
+            const wave =
+              reducedMotion || disabled
+                ? 0
+                : Math.sin(phase * (active ? 5.2 : 2.4) + i * 0.38) * 0.5 +
+                  Math.sin(phase * 1.7 + i * 0.17) * 0.25;
+            const h = Math.min(
+              1,
+              Math.max(
+                0.08,
+                base * (0.5 + energy * 1.15) + energy * 0.35 * wave,
+              ),
+            );
             return (
               <span
                 key={i}

@@ -3222,6 +3222,8 @@
   align-items: center;
   gap: 10px;
   color: var(--voice-text-muted);
+  flex: 1;
+  min-width: 0;
 }
 
 .voice-volume-row .slider {
@@ -3233,19 +3235,26 @@
   color: var(--voice-text-secondary);
 }
 
-.voice-output-tone {
+/* Play (left) + volume slider (right) — play stays compact, never full-width. */
+.voice-output-controls {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 12px;
 }
 
-.voice-output-tone .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  border-radius: 999px;
+.voice-output-play {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.voice-output-play.is-playing {
+  background: linear-gradient(145deg, #c86a72, #8f3d45);
+  box-shadow: 0 0 14px rgba(180, 70, 80, 0.28);
+}
+
+.voice-output-volume-field .voice-help {
+  margin-top: 8px;
 }
 
 .voice-speak-preview-row {
@@ -4035,6 +4044,27 @@
   margin: 8px 0 0;
   font-size: 11.5px;
   color: #ff8a9a;
+}
+
+.screen-context-inline-confirm {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(149, 101, 255, 0.1);
+  border: 1px solid rgba(149, 101, 255, 0.28);
+}
+
+.screen-context-inline-confirm p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #e8ebed;
+}
+
+.screen-context-inline-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .screen-context-hero-preview {
@@ -4884,20 +4914,20 @@
 
 .sounds-page-grid {
   display: grid;
-  grid-template-columns: minmax(610px, 1fr) minmax(520px, 0.84fr);
-  grid-template-rows: 385px 310px;
-  gap: 14px;
-  align-items: stretch;
+  grid-template-columns: minmax(560px, 1fr) minmax(480px, 0.9fr);
+  grid-template-rows: auto auto;
+  gap: 18px;
+  align-items: start;
 }
 
 .sound-settings-card {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
-  padding: 14px 15px;
+  height: auto;
+  padding: 16px 17px 18px;
   border-radius: 16px;
   background: linear-gradient(
     145deg,
@@ -4978,12 +5008,12 @@
 }
 
 .sound-settings-card-body {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  overflow: hidden;
+  gap: 14px;
+  overflow: visible;
 }
 
 .sound-card-master {
@@ -5009,8 +5039,9 @@
 .sound-master-rows {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
+  gap: 2px;
 }
 
 .sound-master-row {
@@ -5149,25 +5180,25 @@
 
 .sound-profile-main {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: 190px minmax(0, 1fr);
   gap: 16px;
   align-items: center;
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: 190px;
 }
 
 .sound-profile-visualizer {
   position: relative;
-  width: 210px;
-  height: 210px;
+  width: 190px;
+  height: 190px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .sound-viz-core {
-  width: 162px;
-  height: 162px;
+  width: 148px;
+  height: 148px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -5251,7 +5282,8 @@
     rgba(159, 104, 233, 0.78),
     rgba(126, 108, 151, 0.36)
   );
-  transition: height 80ms linear;
+  /* Height is driven by rAF — avoid fighting the animation with CSS transitions. */
+  transition: none;
 }
 
 .sound-profile-visualizer.is-active:not(.is-disabled) .sound-viz-core {
@@ -5325,12 +5357,16 @@
 }
 
 .sound-output-section {
-  margin-top: auto;
-  padding-top: 10px;
+  margin-top: 4px;
+  padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  background: transparent;
 }
 
 .sound-output-head {
@@ -5370,25 +5406,25 @@
 .event-sounds-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  flex: 1;
+  gap: 12px;
+  flex: 0 0 auto;
   min-height: 0;
 }
 
 .event-sounds-column {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-height: 0;
 }
 
 .sound-event-row-card {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 38px minmax(90px, 130px) 30px;
+  grid-template-columns: 30px minmax(72px, 1fr) 40px minmax(88px, 120px) 30px;
   gap: 8px;
   align-items: center;
-  min-height: 44px;
-  padding: 6px 8px;
+  min-height: 48px;
+  padding: 8px 10px;
   border-radius: 9px;
   background: rgba(19, 27, 33, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -5418,12 +5454,13 @@
 }
 
 .sound-event-name {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 550;
   color: #e8ebed;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .sound-preview-btn {
@@ -5482,7 +5519,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: auto;
+  margin-top: 10px;
   padding: 10px;
   border-radius: 12px;
   color: #a4abb1;
@@ -5505,7 +5542,8 @@
 @media (max-width: 1280px) {
   .sounds-page-grid {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto;
+    grid-template-rows: auto auto;
+    gap: 16px;
     min-height: 0;
   }
 
@@ -5515,7 +5553,8 @@
   .sound-card-quiet {
     grid-column: auto;
     grid-row: auto;
-    min-height: 320px;
+    min-height: 0;
+    height: auto;
   }
 }
 

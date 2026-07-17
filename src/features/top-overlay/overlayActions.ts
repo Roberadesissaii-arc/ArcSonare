@@ -161,7 +161,13 @@ export function cancelOverlaySession() {
   demoActive = false;
   clearSessionTimers();
   const mode = getOverlayState().mode;
-  if (mode !== "hidden" && mode !== "closing") {
+  if (mode === "closing") {
+    // Already mid-close / stuck on Cancelled — force the native hide now.
+    void invoke("overlay_hidden");
+    resetOverlay();
+    return;
+  }
+  if (mode !== "hidden") {
     setStatusText("Cancelled");
     playEventSound("overlay-close");
   }
@@ -198,7 +204,13 @@ export async function commitOverlayTranscript(transcript: string) {
     return;
   }
 
-  setOverlayMode("thinking", { status: "Thinking..." });
+  // Clear any prior app chip before a new command so leftover Calendar/Gmail
+  // icons don’t stick on unrelated answers (“what time is it?”).
+  setOverlayMode("thinking", {
+    status: "Thinking...",
+    applicationId: undefined,
+    applicationIcon: undefined,
+  });
   playEventSound("thinking");
   await new Promise((r) => setTimeout(r, 350));
   await runOverlayIntent(parseOverlayIntent(trimmed));
@@ -278,11 +290,23 @@ export async function runOverlayIntent(intent: ParsedIntent) {
 
 async function respondWithAssistant(text: string) {
   if (!text.trim()) {
-    setOverlayMode("listening", { status: "Listening...", expanded: false });
+    setOverlayMode("listening", {
+      status: "Listening...",
+      expanded: false,
+      applicationId: undefined,
+      applicationIcon: undefined,
+    });
     return;
   }
 
-  setOverlayMode("thinking", { status: "Thinking...", expanded: false });
+  // General Q&A (time, date, chat) — no app icon unless an intent set one.
+  setApplicationContext(undefined, undefined);
+  setOverlayMode("thinking", {
+    status: "Thinking...",
+    expanded: false,
+    applicationId: undefined,
+    applicationIcon: undefined,
+  });
   playEventSound("thinking");
 
   try {
@@ -290,6 +314,8 @@ async function respondWithAssistant(text: string) {
     setOverlayMode("responding", {
       status: reply.text.slice(0, 120),
       expanded: false,
+      applicationId: undefined,
+      applicationIcon: undefined,
     });
     playEventSound("responding");
   } catch (err) {
@@ -300,6 +326,8 @@ async function respondWithAssistant(text: string) {
           ? err.message.slice(0, 120)
           : "Assistant unavailable",
       expanded: false,
+      applicationId: undefined,
+      applicationIcon: undefined,
     });
     playEventSound("error");
   }

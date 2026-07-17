@@ -107,6 +107,18 @@ export async function askAssistant(
 
   const route = getAssistantRoute();
 
+  // Backend-enforced cloud gate from Settings → Data & Privacy.
+  const allowCloud = getPrefs().dataPrivacy.allowCloud;
+  if (
+    !options?.forceLocal &&
+    !allowCloud &&
+    (route.provider === "deepseek" || route.provider === "ollama-cloud")
+  ) {
+    throw new Error(
+      "Cloud processing is disabled in Settings → Data & Privacy. Enable it or choose Ollama (local).",
+    );
+  }
+
   if (route.provider === "deepseek") {
     const reply = await deepseekChat(messages, route.modelName);
     return {
