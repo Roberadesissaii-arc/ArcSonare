@@ -84,8 +84,7 @@ pub async fn ollama_status() -> Result<OllamaStatus, String> {
         available: true,
         models: models.clone(),
         message: if models.is_empty() {
-            "Ollama is running, but no models are installed. Run `ollama pull llama3.2`."
-                .into()
+            "Ollama is running, but no models are installed. Run `ollama pull llama3.2`.".into()
         } else {
             format!("{} model(s) ready", models.len())
         },
@@ -94,10 +93,7 @@ pub async fn ollama_status() -> Result<OllamaStatus, String> {
 
 /// Non-streaming chat completion against a local model.
 #[tauri::command]
-pub async fn ollama_chat(
-    model: String,
-    messages: Vec<ChatMessage>,
-) -> Result<String, String> {
+pub async fn ollama_chat(model: String, messages: Vec<ChatMessage>) -> Result<String, String> {
     if model.trim().is_empty() {
         return Err("No Ollama model selected. Choose one in Settings → Models.".into());
     }

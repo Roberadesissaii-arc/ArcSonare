@@ -51,10 +51,7 @@ fn validate_model(model: &str) -> Result<String, String> {
 
 /// Non-streaming chat completion via the DeepSeek OpenAI-compatible API.
 #[tauri::command]
-pub async fn deepseek_chat(
-    model: String,
-    messages: Vec<ChatMessage>,
-) -> Result<String, String> {
+pub async fn deepseek_chat(model: String, messages: Vec<ChatMessage>) -> Result<String, String> {
     let model = validate_model(&model)?;
     if messages.is_empty() {
         return Err("No messages to send.".into());

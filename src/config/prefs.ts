@@ -188,6 +188,17 @@ export interface Prefs {
     askBeforeScreenCloud: boolean;
     fallbackWhenUnavailable: boolean;
     costPreference: CostPreference;
+    /** Cloud-capable fallback when the primary model is unavailable. */
+    fallbackModelId: string | null;
+    /** Local-only fallback when offline. */
+    offlineFallbackModelId: string | null;
+    /** Models settings browser chrome (filter/sort/view). */
+    browser: {
+      filter: string;
+      sort: string;
+      view: "grid" | "list";
+      recentlyUsed: string[];
+    };
   };
 
   screenContext: {
@@ -323,7 +334,7 @@ function defaultRetention(): Prefs["dataPrivacy"]["retention"] {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   general: {
     startMinimized: false,
     keepRunningOnClose: true,
@@ -407,6 +418,14 @@ export const DEFAULT_PREFS: Prefs = {
     askBeforeScreenCloud: true,
     fallbackWhenUnavailable: true,
     costPreference: "balanced",
+    fallbackModelId: null,
+    offlineFallbackModelId: "ollama-local",
+    browser: {
+      filter: "all",
+      sort: "recommended",
+      view: "grid",
+      recentlyUsed: [],
+    },
   },
   screenContext: {
     enabled: false,

@@ -6,14 +6,7 @@
 const SERVICE: &str = "ArcSonare";
 
 /// Provider ids we accept credentials for; rejects arbitrary account names.
-const KNOWN_PROVIDERS: &[&str] = &[
-    "anthropic",
-    "openai",
-    "google",
-    "xai",
-    "deepseek",
-    "ollama",
-];
+const KNOWN_PROVIDERS: &[&str] = &["anthropic", "openai", "google", "xai", "deepseek", "ollama"];
 
 fn entry(provider: &str) -> Result<keyring::Entry, String> {
     if !KNOWN_PROVIDERS.contains(&provider) {
