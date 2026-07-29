@@ -575,12 +575,6 @@
 .agent-command-title strong { margin-top: 7px; font-size: 21px; color: #eef0f2; }
 .agent-command-title p { margin: 7px 0 0; max-width: 470px; font-size: 11px; line-height: 1.5; color: var(--agents-text-muted); }
 
-/* Dashboard orbital map reused for the Agent center stage. */
-.agent-command-orbit .agent-orbital-map {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-}
 
 .agent-orbital-core {
   display: flex;
@@ -820,7 +814,6 @@
 .agent-command-title { margin-bottom: 0; }
 .agent-command-title p { margin-top: 5px; }
 .agent-command-orbit { min-height: 0; height: 100%; }
-.agent-command-orbit .agent-orbital-map { margin-top: -8px; }
 
 .agent-constellation.is-center-stage .agent-orbit-lines { inset: 0 0 -10px; height: calc(100% + 10px); }
 .agent-orbit-planes { transform-origin: center; animation: agent-plane-breathe 12s ease-in-out infinite alternate; }
@@ -2118,4 +2111,60 @@
   margin-top:5px;
   color:var(--agents-text-muted);
   font-size:9px;
+}
+
+/* ------------------------ agent orbital map (avatars) ---------------------- */
+/* Container/lines/globe reuse the Dashboard's .orbital-map/.orbital-svg/
+ * .orbit-line/.orbital-globe-fo/.orbital-globe-inner classes directly — only
+ * the avatar traveler styling below is agent-specific. */
+
+.agent-orbit-travel {
+  offset-rotate: 0deg;
+  animation-name: orbit-travel;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.agent-orbit-avatar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: #171f27;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.agent-orbit-avatar:hover {
+  transform: scale(1.14);
+  border-color: rgba(158, 117, 250, 0.55);
+  z-index: 2;
+}
+
+.agent-orbit-avatar.selected {
+  border-color: var(--sonare-violet, #9168fa);
+  box-shadow: 0 0 0 3px rgba(145, 104, 255, 0.28), 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.agent-orbit-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.agent-orbit-avatar span {
+  color: var(--agents-text-primary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* Ties the inspector's hero avatar to the orbiting-avatar visual language. */
+.agent-inspector-avatar {
+  border: 2px solid rgba(158, 117, 250, 0.35);
+  box-shadow: 0 0 0 3px rgba(145, 104, 255, 0.12), 0 10px 25px rgba(0, 0, 0, 0.25);
 }

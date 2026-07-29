@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BotIcon, ChevronDownIcon, ClockIcon } from "../components/Icons";
+import { useEffect, useMemo, useState } from "react";
+import { BotIcon, ClockIcon } from "../components/Icons";
 import { EmptyState } from "../components/EmptyState";
+import { AgentOrbitalMap } from "../components/agents/AgentOrbitalMap";
 import { agentAvatarSrc } from "../features/agents/agentAvatars";
 import { relativeTime } from "../features/agents/agentHealth";
 import {
@@ -28,8 +29,6 @@ export function AgentPage() {
   );
   const [teamActivityOpen, setTeamActivityOpen] = useState(false);
   const [assignAgentId, setAssignAgentId] = useState<string | null>(null);
-  const [directoryHasMore, setDirectoryHasMore] = useState(false);
-  const directoryScrollRef = useRef<HTMLDivElement>(null);
 
   const openAgent = agents.find((a) => a.id === openAgentId) ?? null;
   const assignAgent = agents.find((a) => a.id === assignAgentId) ?? null;
@@ -49,27 +48,6 @@ export function AgentPage() {
   useEffect(() => {
     setAgentPrefs({ lastSelectedId: openAgentId });
   }, [openAgentId]);
-
-  useEffect(() => {
-    const scroller = directoryScrollRef.current;
-    if (!scroller) return;
-
-    const updateScrollCue = () => {
-      const remaining =
-        scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-      setDirectoryHasMore(remaining > 10);
-    };
-    const frame = window.requestAnimationFrame(updateScrollCue);
-    const observer = new ResizeObserver(updateScrollCue);
-    observer.observe(scroller);
-    scroller.addEventListener("scroll", updateScrollCue, { passive: true });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-      scroller.removeEventListener("scroll", updateScrollCue);
-    };
-  }, [agents.length]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -175,75 +153,11 @@ export function AgentPage() {
               <ClockIcon size={13} /> Team activity
             </button>
           </header>
-          <div
-            className="agent-card-list"
-            ref={directoryScrollRef}
-            onScroll={() => {
-              const scroller = directoryScrollRef.current;
-              if (!scroller) return;
-              setDirectoryHasMore(
-                scroller.scrollHeight -
-                  scroller.scrollTop -
-                  scroller.clientHeight >
-                  10,
-              );
-            }}
-          >
-            {agents.map((agent) => {
-              const assigned = tasks.filter(
-                (task) => task.agent === agent.name && !task.completed,
-              ).length;
-              return (
-                <button
-                  key={agent.id}
-                  type="button"
-                  className={`agent-directory-card agent-surface${!teamActivityOpen && openAgentId === agent.id ? " selected" : ""}`}
-                  onClick={() => selectAgent(agent.id)}
-                >
-                  <span className="agent-directory-avatar">
-                    {agentAvatarSrc(agent.avatarId) ? (
-                      <img src={agentAvatarSrc(agent.avatarId)} alt="" />
-                    ) : (
-                      agent.initials
-                    )}
-                  </span>
-                  <span className="agent-directory-copy">
-                    <span className="agent-directory-name">
-                      {agent.name}
-                      {agent.isPrime ? <em>Prime</em> : null}
-                    </span>
-                    <span className="agent-directory-role">{agent.role}</span>
-                    <span className="agent-directory-description">
-                      {agent.description}
-                    </span>
-                  </span>
-                  <span className="agent-directory-meta">
-                    <span
-                      className={`agent-status-dot${agent.enabled ? " active" : ""}`}
-                    >
-                      {agentStatus(agent)}
-                    </span>
-                    <strong>{assigned}</strong>
-                    <small>open tasks</small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            className={`agent-directory-scroll-cue${directoryHasMore ? " visible" : ""}`}
-            aria-label="Scroll to more agents"
-            onClick={() => {
-              const scroller = directoryScrollRef.current;
-              scroller?.scrollBy({
-                top: Math.max(scroller.clientHeight * 0.72, 240),
-                behavior: "smooth",
-              });
-            }}
-          >
-            <ChevronDownIcon size={17} />
-          </button>
+          <AgentOrbitalMap
+            agents={agents}
+            selectedId={!teamActivityOpen ? openAgentId : null}
+            onSelect={selectAgent}
+          />
         </section>
 
         <aside className="agent-inspector agent-surface">
