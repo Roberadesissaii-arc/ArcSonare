@@ -260,7 +260,7 @@
   justify-content: center;
   width: 42px;
   height: 42px;
-  border-radius: 13px;
+  border-radius: 50%;
   flex-shrink: 0;
   background: linear-gradient(180deg, rgba(23, 29, 32, 0.9), rgba(14, 19, 21, 0.94));
   border: 1px solid var(--sonare-border);
@@ -283,7 +283,6 @@
 .header-action.voice-active {
   color: var(--sonare-violet);
   border-color: var(--sonare-violet-muted);
-  box-shadow: 0 0 14px rgba(145, 110, 255, 0.14);
 }
 
 /* Subtle cue that the Settings route is open (not a primary nav tab). */

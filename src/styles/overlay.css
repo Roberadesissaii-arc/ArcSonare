@@ -35,9 +35,14 @@ html.overlay-window #root {
   width: 600px;
   margin-top: 0;
   border-radius: 32px;
-  /* Flat to match the dashboard cards — fully opaque so WebView2
+  /* Match main window page dark (#05090c) — fully opaque so WebView2
      anti-aliases cleanly to transparent at the rounded corners. */
-  background: #0b1116;
+  background: linear-gradient(
+    180deg,
+    #080d11 0%,
+    #05090c 55%,
+    #04070a 100%
+  );
   border: 1px solid rgba(255, 255, 255, 0.07);
   /* NEVER use outer box-shadow here — on Windows transparent WebViews it
      paints a visible rectangular “sharpening” behind the rounded corners. */

@@ -498,6 +498,8 @@ export function CommandComposer() {
             <PaperclipIcon size={14} />
           </button>
 
+          <span className="composer-divider" aria-hidden="true" />
+
           <button
             type="button"
             className={`toggle-pill${searchActive ? " active" : ""}`}
@@ -509,6 +511,8 @@ export function CommandComposer() {
             <span className="toggle-pill-label">Search</span>
           </button>
 
+          <span className="composer-divider" aria-hidden="true" />
+
           <button
             type="button"
             className={`toggle-pill${reasoningActive ? " active" : ""}`}
@@ -519,6 +523,8 @@ export function CommandComposer() {
             <LayersIcon size={14} />
             <span className="toggle-pill-label">Reasoning</span>
           </button>
+
+          <span className="composer-divider" aria-hidden="true" />
 
           <button
             type="button"
