@@ -7,27 +7,11 @@
   overflow: hidden;
   padding: 17px 18px 15px;
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(23, 29, 32, 0.88) 0%, rgba(14, 19, 22, 0.93) 100%);
+  background: rgba(11, 17, 22, 0.99);
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: var(--sonare-panel-shadow);
   backdrop-filter: blur(14px);
   transition: transform 180ms var(--sonare-ease-out), box-shadow 180ms ease;
-}
-
-.card::before,
-.sonare-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse at 9% -4%,
-    rgba(255, 255, 255, 0.075) 0%,
-    rgba(255, 255, 255, 0.026) 25%,
-    transparent 51%
-  );
-  z-index: 0;
 }
 
 .card > *,
