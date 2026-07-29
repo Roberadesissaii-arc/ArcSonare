@@ -5,7 +5,7 @@ import { shortcutKeys } from "../../services/shortcutFormat";
 import { getPrefs } from "../../stores/settingsStore";
 import { navigateSettings } from "../../stores/appStore";
 import { useVoiceState, VOICE_STATUS_TEXT } from "../../stores/voiceStore";
-import { VOICE_PROFILES } from "../../features/voice/VoiceSelector";
+import { characterById } from "../../features/voice-settings/voiceCharacters";
 import { SonareLiveWaveform } from "./SonareLiveWaveform";
 import { SonareMarbleOrb } from "./SonareMarbleOrb";
 
@@ -17,9 +17,8 @@ export function VoiceActionCard() {
   const prefs = getPrefs();
   const [voiceOpen, setVoiceOpen] = useState(false);
 
-  const profile = VOICE_PROFILES.find((v) => v.id === prefs.voice.voiceId);
-  // Local AI identity — always Sonare until a profile is chosen.
-  const voiceName = profile?.name ?? "Sonare";
+  const character = characterById(prefs.voice.voiceId);
+  const voiceName = character.displayName;
 
   const openVoiceSettings = () => {
     navigateSettings("voice");
@@ -52,6 +51,7 @@ export function VoiceActionCard() {
         <SonareMarbleOrb
           status={status === "idle" ? "idle" : status}
           size={50}
+          tint={character.marbleTint}
         />
         <div className="voice-action-voice-meta">
           <h2 className="voice-action-prompt">{prompt}</h2>

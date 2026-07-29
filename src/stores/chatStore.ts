@@ -42,6 +42,12 @@ export function resolveAssistantMessage(id: string, text: string) {
   notify();
 }
 
+/** Puts an already-resolved assistant bubble back into the typing state — used by regenerate. */
+export function markAssistantMessagePending(id: string) {
+  messages = messages.map((m) => (m.id === id ? { ...m, text: "", pending: true } : m));
+  notify();
+}
+
 /** Appends a streamed chunk, switching the bubble out of the typing-dots state. */
 export function appendAssistantMessageChunk(id: string, delta: string) {
   messages = messages.map((m) =>

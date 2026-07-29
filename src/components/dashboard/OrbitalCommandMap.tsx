@@ -1,10 +1,12 @@
 ﻿import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { filterTasks, useTasks } from "../../stores/taskStore";
 import { useVoiceState } from "../../stores/voiceStore";
+import { usePrefs } from "../../stores/settingsStore";
+import { characterById } from "../../features/voice-settings/voiceCharacters";
 import { BotIcon, CalendarIcon, ListIcon, SearchIcon } from "../Icons";
 import { ArcSonareCore } from "./ArcSonareCore";
 import { OrbitActionChip } from "./OrbitActionChip";
-import { SonareMarbleOrb } from "../voice/SonareMarbleOrb";
+import { SonareMarbleOrb, type MarbleTint } from "../voice/SonareMarbleOrb";
 
 const CX = 360;
 const CY = 240;
@@ -96,12 +98,14 @@ function OrbitingMarble({
   size,
   duration,
   delay = 0,
+  tint,
 }: {
   rx: number;
   ry: number;
   size: number;
   duration: number;
   delay?: number;
+  tint: MarbleTint;
 }) {
   return (
     <foreignObject
@@ -117,7 +121,7 @@ function OrbitingMarble({
         animationDelay: `${delay}s`,
       }}
     >
-      <SonareMarbleOrb size={size} />
+      <SonareMarbleOrb size={size} tint={tint} />
     </foreignObject>
   );
 }
@@ -219,6 +223,8 @@ function ChipSetFront({
 export function OrbitalCommandMap() {
   const voice = useVoiceState();
   const tasks = useTasks();
+  const prefs = usePrefs();
+  const marbleTint = characterById(prefs.voice.voiceId).marbleTint;
   const [chipHover, setChipHover] = useState(false);
 
   const allChips = useMemo(() => {
@@ -334,7 +340,7 @@ export function OrbitalCommandMap() {
           <Traveler rx={238} ry={92} r={1.9} duration={64} delay={-40} />
           <Traveler rx={170} ry={64} r={2.2} duration={54} delay={-8} violet />
           <Traveler rx={120} ry={44} r={1.8} duration={50} delay={-22} />
-          <OrbitingMarble rx={238} ry={92} size={30} duration={64} delay={-12} />
+          <OrbitingMarble rx={238} ry={92} size={30} duration={64} delay={-12} tint={marbleTint} />
         </g>
         <g transform={`rotate(${TILT_B} ${CX} ${CY})`}>
           <path className="orbit-line orbit-fade-b" d={orbitPath(200, 152)} />

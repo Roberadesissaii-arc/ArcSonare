@@ -12,7 +12,7 @@
   column-gap: 22px;
   row-gap: 0;
   height: 100%;
-  padding: 0 30px 10px;
+  padding: 0 20px 10px;
   overflow: hidden;
   /* Inherit shell atmosphere — a separate fill created a hard seam under the header. */
   background: transparent;
@@ -176,6 +176,47 @@
 
 .chat-bubble-typing i:nth-child(3) {
   animation-delay: 0.3s;
+}
+
+.chat-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-bubble-wrap:has(.chat-bubble-user) {
+  align-items: flex-end;
+}
+
+.chat-bubble-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 2px;
+}
+
+.chat-bubble-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  color: var(--sonare-text-muted);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.chat-bubble-actions button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sonare-text-secondary);
+}
+
+.chat-bubble-actions button:disabled {
+  opacity: 0.35;
+}
+
+.chat-bubble-actions button.active {
+  color: var(--sonare-violet-light);
 }
 
 /* ------------------------------ orbital map ------------------------------ */

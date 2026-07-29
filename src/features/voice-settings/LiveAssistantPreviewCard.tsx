@@ -1,14 +1,15 @@
 import { CloseIcon, MicIcon, SparkleIcon } from "../../components/Icons";
 import { SonareLiveWaveform } from "../../components/voice/SonareLiveWaveform";
-import { SonareMarbleOrb } from "../../components/voice/SonareMarbleOrb";
+import { SonareMarbleOrb, type MarbleTint } from "../../components/voice/SonareMarbleOrb";
 import { VoiceSettingsCard } from "./VoiceSettingsCard";
 
 interface LiveAssistantPreviewCardProps {
   onCustomize: () => void;
+  marbleTint: MarbleTint;
 }
 
 /** Non-live visual preview of the global top overlay (does not open the mic). */
-export function LiveAssistantPreviewCard({ onCustomize }: LiveAssistantPreviewCardProps) {
+export function LiveAssistantPreviewCard({ onCustomize, marbleTint }: LiveAssistantPreviewCardProps) {
   return (
     <VoiceSettingsCard
       icon={<MicIcon size={15} />}
@@ -22,7 +23,7 @@ export function LiveAssistantPreviewCard({ onCustomize }: LiveAssistantPreviewCa
         aria-label="ArcSonare voice overlay preview"
       >
         <span className="voice-overlay-preview-marble">
-          <SonareMarbleOrb status="idle" size={50} />
+          <SonareMarbleOrb status="idle" size={50} tint={marbleTint} />
         </span>
         <span className="voice-overlay-preview-status">
           <span className="voice-overlay-preview-name">ArcSonare</span>

@@ -161,7 +161,10 @@ export function VoiceSettingsPage() {
       <div className="voice-settings-grid">
         {/* Row 1 — matched heights */}
         <div className="voice-grid-cell voice-grid-preview">
-          <LiveAssistantPreviewCard onCustomize={() => setCustomizeOpen(true)} />
+          <LiveAssistantPreviewCard
+            onCustomize={() => setCustomizeOpen(true)}
+            marbleTint={character.marbleTint}
+          />
         </div>
         <div className="voice-grid-cell voice-grid-characters">
           <VoiceCharactersCard

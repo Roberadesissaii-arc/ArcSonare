@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAppState } from "../stores/appStore";
 import { FocusCard } from "../components/dashboard/FocusCard";
 import { VoiceActionCard } from "../components/voice/VoiceActionCard";
@@ -13,7 +14,23 @@ import {
   type CenterStageView,
 } from "../stores/centerStageStore";
 import { navigateSettings } from "../stores/appStore";
-import { useChatMessages } from "../stores/chatStore";
+import {
+  markAssistantMessagePending,
+  resolveAssistantMessage,
+  useChatMessages,
+  type ChatMessage,
+} from "../stores/chatStore";
+import { askAssistant } from "../services/AssistantService";
+import { speakWithPocketTts } from "../services/PocketTtsService";
+import { getPrefs } from "../stores/settingsStore";
+import { characterById } from "../features/voice-settings/voiceCharacters";
+import {
+  CopyIcon,
+  RefreshIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+  VolumeIcon,
+} from "../components/Icons";
 
 function greetingForNow(): string {
   const hour = new Date().getHours();
@@ -68,9 +85,6 @@ export function DashboardPage(_props: DashboardPageProps) {
       title = "Review";
       subtitle = "Finished drafts and results will show up here for confirmation.";
     }
-  } else if (view === "chat") {
-    title = "Chat";
-    subtitle = "Your conversation with ArcSonare.";
   }
 
   return (
@@ -121,18 +135,19 @@ export function DashboardPage(_props: DashboardPageProps) {
           {view === "chat" ? (
             <div className="chat-overlay">
               <div className="chat-bubble-list">
-                {chatMessages.map((m) => (
-                  <div key={m.id} className={`chat-bubble chat-bubble-${m.role}`}>
-                    {m.pending ? (
-                      <span className="chat-bubble-typing">
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    ) : (
-                      m.text
-                    )}
-                  </div>
+                {chatMessages.map((m, i) => (
+                  <ChatBubble
+                    key={m.id}
+                    message={m}
+                    precedingUserText={
+                      m.role === "assistant"
+                        ? (chatMessages
+                            .slice(0, i)
+                            .reverse()
+                            .find((prev) => prev.role === "user")?.text ?? null)
+                        : null
+                    }
+                  />
                 ))}
               </div>
             </div>
@@ -140,7 +155,7 @@ export function DashboardPage(_props: DashboardPageProps) {
         </div>
 
         <div
-          className="dashboard-greeting"
+          className={`dashboard-greeting${view === "chat" ? " dashboard-greeting-compact" : ""}`}
           onClick={() => {
             if (view !== "overview" && work) clearCenterWork();
           }}
@@ -148,8 +163,12 @@ export function DashboardPage(_props: DashboardPageProps) {
             cursor: view !== "overview" && work ? "pointer" : undefined,
           }}
         >
-          <h1 className="greeting-title">{title}</h1>
-          <p className="greeting-sub">{subtitle}</p>
+          {view === "chat" ? null : (
+            <>
+              <h1 className="greeting-title">{title}</h1>
+              <p className="greeting-sub">{subtitle}</p>
+            </>
+          )}
           <div className="greeting-indicator" role="tablist" aria-label="Center stage views">
             {VIEW_META.map((item) => (
               <button
@@ -289,6 +308,91 @@ export function DashboardPage(_props: DashboardPageProps) {
         <UpNextCard />
         <UrgentCard />
       </div>
+    </div>
+  );
+}
+
+function ChatBubble({
+  message,
+  precedingUserText,
+}: {
+  message: ChatMessage;
+  precedingUserText: string | null;
+}) {
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const copy = () => {
+    void navigator.clipboard.writeText(message.text);
+  };
+
+  const speak = () => {
+    const voice = characterById(getPrefs().voice.voiceId).preferredProviderVoiceId;
+    void speakWithPocketTts(message.text, { voice });
+  };
+
+  const regenerate = () => {
+    if (!precedingUserText || busy) return;
+    setBusy(true);
+    markAssistantMessagePending(message.id);
+    void askAssistant(precedingUserText)
+      .then((reply) => resolveAssistantMessage(message.id, reply.text))
+      .catch(() =>
+        resolveAssistantMessage(message.id, "Sorry, I couldn't regenerate that reply."),
+      )
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div className="chat-bubble-wrap">
+      <div className={`chat-bubble chat-bubble-${message.role}`}>
+        {message.pending ? (
+          <span className="chat-bubble-typing">
+            <i />
+            <i />
+            <i />
+          </span>
+        ) : (
+          message.text
+        )}
+      </div>
+      {message.role === "assistant" && !message.pending ? (
+        <div className="chat-bubble-actions">
+          <button
+            type="button"
+            className={feedback === "up" ? "active" : undefined}
+            onClick={() => setFeedback((f) => (f === "up" ? null : "up"))}
+            aria-label="Good reply"
+            title="Good reply"
+          >
+            <ThumbsUpIcon size={12} />
+          </button>
+          <button
+            type="button"
+            className={feedback === "down" ? "active" : undefined}
+            onClick={() => setFeedback((f) => (f === "down" ? null : "down"))}
+            aria-label="Bad reply"
+            title="Bad reply"
+          >
+            <ThumbsDownIcon size={12} />
+          </button>
+          <button
+            type="button"
+            onClick={regenerate}
+            disabled={!precedingUserText || busy}
+            aria-label="Regenerate"
+            title="Regenerate"
+          >
+            <RefreshIcon size={12} />
+          </button>
+          <button type="button" onClick={copy} aria-label="Copy" title="Copy">
+            <CopyIcon size={12} />
+          </button>
+          <button type="button" onClick={speak} aria-label="Listen" title="Listen">
+            <VolumeIcon size={12} />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
