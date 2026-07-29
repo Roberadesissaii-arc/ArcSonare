@@ -2118,11 +2118,28 @@
  * .orbit-line/.orbital-globe-fo/.orbital-globe-inner classes directly — only
  * the avatar traveler styling below is agent-specific. */
 
-.agent-orbit-travel {
+.agent-orbit-motion {
   offset-rotate: 0deg;
   animation-name: orbit-travel;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+}
+
+.agent-orbit-motion.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.agent-orbit-motion.is-visible {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Far side of the orbit reads slightly dimmer/duller, like the Dashboard's
+   back-layer chips, reinforcing that it's passing behind the globe. */
+.agent-orbit-depth-back.is-visible .agent-orbit-avatar {
+  opacity: 0.68;
+  filter: brightness(0.86);
 }
 
 .agent-orbit-avatar {

@@ -1014,6 +1014,7 @@
 
 .app-paused .orbit-traveler,
 .app-paused .orbit-chip-motion,
+.app-paused .agent-orbit-motion,
 .app-paused .orbit-fade-a,
 .app-paused .orbit-fade-b,
 .app-paused .slw-bar,
@@ -1026,6 +1027,7 @@
  * offset-distance, so the three stay spread apart. */
 .reduce-motion .orbit-traveler,
 .reduce-motion .orbit-chip-motion,
+.reduce-motion .agent-orbit-motion,
 .reduce-motion .orbit-fade-a,
 .reduce-motion .orbit-fade-b,
 .reduce-motion .orbit-marble-travel {
@@ -1035,6 +1037,7 @@
 @media (prefers-reduced-motion: reduce) {
   .orbit-traveler,
   .orbit-chip-motion,
+  .agent-orbit-motion,
   .orbit-fade-a,
   .orbit-fade-b,
   .orbit-marble-travel,
