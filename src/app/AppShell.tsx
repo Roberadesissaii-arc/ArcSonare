@@ -10,6 +10,7 @@ import type { TaskFilter } from "../stores/taskStore";
 import { NAVIGATE_EVENT, NAVIGATED_EVENT } from "../features/capabilities/frontendExecutors";
 import { hydrateProfileDisplayName } from "../features/account/accountProfile";
 import { hydrateAgentsFromDb } from "../features/agents/agentStore";
+import { syncConnectionBrokerFromIntegrations } from "../services/integrationStatusService";
 import { bindShortcutActions } from "../features/shortcuts/bindShortcutActions";
 import { patchPrefs, usePrefs, useSettingsHydrated } from "../stores/settingsStore";
 import { hydrateTasksFromDb } from "../stores/taskStore";
@@ -47,7 +48,15 @@ export function AppShell() {
     // Auth must run even when onboarding is already done — otherwise the
     // session stays "initializing" and the voice overlay never unlocks.
     void initializeAuth();
+    void syncConnectionBrokerFromIntegrations();
   }, []);
+
+  // Re-sync ConnectionBroker whenever the user leaves Connect — covers the
+  // "just connected/disconnected Google" case without a network health probe.
+  useEffect(() => {
+    if (page === "connect") return;
+    void syncConnectionBrokerFromIntegrations();
+  }, [page]);
 
   // Hard failsafe: never leave the UI on "Checking your account…" forever.
   useEffect(() => {

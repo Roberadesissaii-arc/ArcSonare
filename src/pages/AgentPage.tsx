@@ -251,7 +251,10 @@ export function AgentPage() {
           )}
         </section>
 
-        <section className="card sonare-card" style={{ gridRow: "span 2" }}>
+        <section
+          className="card sonare-card agent-inspector-panel"
+          style={{ gridRow: "span 2" }}
+        >
           {teamActivityOpen ? (
             <>
               <span className="agent-rail-label">Current status</span>

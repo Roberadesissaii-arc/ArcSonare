@@ -23,7 +23,6 @@ import {
 import { EmptyState } from "../components/EmptyState";
 import { Dropdown } from "../components/settings/Dropdown";
 import { AskAgentPanel } from "../features/tasks/AskAgentPanel";
-import { TaskSummaryGrid } from "../features/tasks/TaskSummaryGrid";
 import type {
   TaskGroupMode,
   TaskSortMode,
@@ -95,7 +94,8 @@ function useDebouncedValue(value: string, ms: number) {
   return debounced;
 }
 
-/** Command-center Tasks workspace — atmospheric, dashboard-grade layout. */
+/** Tasks workspace — same 3-left/2-right card grid and floating center as
+ * the Dashboard and Agent pages. */
 export function TasksPage({ onCreateTask }: TasksPageProps) {
   const tasks = useTasks();
   const prefs = useTaskPrefs();
@@ -108,8 +108,8 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
   const [menuTaskId, setMenuTaskId] = useState<string | null>(null);
   const [askAgentOpen, setAskAgentOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [subtaskDraft, setSubtaskDraft] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
 
   const summary = useMemo(() => summarizeCounts(tasks), [tasks]);
 
@@ -128,6 +128,17 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
 
   const selected: Task | null =
     tasks.find((t) => t.id === selectedId) ?? null;
+
+  const agentCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const t of tasks) {
+      if (t.agent) map.set(t.agent, (map.get(t.agent) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [tasks]);
+  const assignedCount = tasks.filter((t) => Boolean(t.agent)).length;
+  const unassignedCount = tasks.length - assignedCount;
+  const topAgent = agentCounts[0] ?? null;
 
   useEffect(() => {
     setTaskPrefs({ lastSelectedId: selectedId });
@@ -183,10 +194,6 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
         setSelectedId(next.id);
         return;
       }
-      if (e.key === "Enter" && selected) {
-        // selection already open in panel
-        return;
-      }
       if (e.key === "Delete" && selectedId) {
         setConfirmDeleteId(selectedId);
       }
@@ -196,7 +203,6 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
   }, [
     visible,
     selectedId,
-    selected,
     menuTaskId,
     askAgentOpen,
     confirmDeleteId,
@@ -212,162 +218,185 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
     id === "all" ? tasks.length : filterTasks(tasks, id).length;
 
   return (
-    <div className={`tasks-page${selected ? " has-detail" : ""}`}>
-      <header className="tasks-hero task-legacy-hero">
-        <div className="tasks-hero-copy">
-          <p className="tasks-kicker">Workspace</p>
-          <h1 className="page-heading tasks-heading">Tasks</h1>
-          <p className="page-lede tasks-lede">
-            What needs attention next — priorities, due times, and the agents
-            standing by to help.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn btn-primary tasks-create"
-          onClick={onCreateTask}
+    <div className="dashboard">
+      <div className="dashboard-col side-column dashboard-left">
+        <section
+          className="card sonare-card task-left-rail"
+          style={{ gridRow: "span 3", overflowY: "auto" }}
         >
-          <PlusIcon size={14} />
-          Create task
-        </button>
-      </header>
-
-      <TaskSummaryGrid
-        counts={summary}
-        activeFilter={taskFilter}
-        onFilter={setTaskFilter}
-      />
-
-      <div className="tasks-workspace task-command-shell">
-        <aside className="task-command-rail card sonare-card task-surface">
-          <div className="task-command-brand">
-            <div>
-              <p className="tasks-kicker">Task command</p>
-              <h1 className="page-heading tasks-heading">Mission control</h1>
-            </div>
+          <div className="card-head">
+            <span className="card-label">Views</span>
           </div>
-          <button type="button" className="btn btn-primary tasks-create" onClick={onCreateTask}>
-            <PlusIcon size={14} /> Create task
-          </button>
-          <div className="task-rail-section">
-            <p className="task-rail-label">Views</p>
-            <div className="task-rail-filters" role="radiogroup" aria-label="Task filter">
-              {FILTERS.map((f) => (
-                <button key={f.id} type="button" role="radio" aria-checked={taskFilter === f.id}
-                  className={`task-rail-filter${taskFilter === f.id ? " active" : ""}`}
-                  onClick={() => setTaskFilter(f.id)}>
-                  <span className="task-rail-filter-dot" aria-hidden="true" />
-                  <span>{f.label}</span>
-                  <span className="task-rail-filter-count">{filterCount(f.id)}</span>
-                </button>
-              ))}
-            </div>
+          <div
+            className="task-rail-filters"
+            role="radiogroup"
+            aria-label="Task filter"
+            style={{ gap: 4 }}
+          >
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="radio"
+                aria-checked={taskFilter === f.id}
+                className={`task-rail-filter${taskFilter === f.id ? " active" : ""}`}
+                style={{ minHeight: 34 }}
+                onClick={() => setTaskFilter(f.id)}
+              >
+                <span className="task-rail-filter-dot" aria-hidden="true" />
+                <span>{f.label}</span>
+                <span className="task-rail-filter-count">{filterCount(f.id)}</span>
+              </button>
+            ))}
           </div>
+
+          <span className="agent-rail-label" style={{ display: "block", margin: "18px 0 10px" }}>
+            Daily pulse
+          </span>
           <div className="task-pulse">
-            <div className="task-pulse-head"><span>Daily pulse</span><span>{summary.completed}/{tasks.length}</span></div>
-            <div className="task-pulse-track"><span style={{ width: `${tasks.length ? (summary.completed / tasks.length) * 100 : 0}%` }} /></div>
+            <div className="task-pulse-head">
+              <span>Completed</span>
+              <span>
+                {summary.completed}/{tasks.length}
+              </span>
+            </div>
+            <div className="task-pulse-track">
+              <span
+                style={{
+                  width: `${tasks.length ? (summary.completed / tasks.length) * 100 : 0}%`,
+                }}
+              />
+            </div>
             <div className="task-pulse-grid">
-              <span><b>{summary.open}</b> Open</span>
-              <span><b>{summary.today}</b> Today</span>
-              <span><b>{summary.urgent}</b> Urgent</span>
+              <span>
+                <b>{summary.open}</b> Open
+              </span>
+              <span>
+                <b>{summary.today}</b> Today
+              </span>
+              <span>
+                <b>{summary.urgent}</b> Urgent
+              </span>
             </div>
           </div>
-        </aside>
-        <div className="tasks-main" ref={listRef}>
-          <header className="task-mission-header">
+
+          <div className="agent-resource-summary">
+            <span className="agent-rail-label">Assigned to agents</span>
+            <div className="agent-resource-meter">
+              <span
+                style={{
+                  width: `${tasks.length ? (assignedCount / tasks.length) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <p>
+              <strong>{assignedCount}</strong> assigned{" "}
+              <span>{unassignedCount} unassigned</span>
+            </p>
+          </div>
+          <div className="agent-resource-foot">
+            {topAgent ? (
+              <>
+                <span>{topAgent[0]}</span>
+                <small>
+                  {topAgent[1]} task{topAgent[1] === 1 ? "" : "s"}
+                </small>
+              </>
+            ) : (
+              <span>No agent assigned yet</span>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="dashboard-center">
+        <section className="agent-directory">
+          <header className="agent-directory-head">
             <div>
-              <p className="tasks-kicker">Active workspace</p>
-              <h2 className="task-mission-title">Mission queue</h2>
-              <p className="task-mission-subtitle">{visible.length} tasks in this view · choose one to inspect or delegate</p>
+              <span className="agent-rail-label">Workspace</span>
+              <h1>Mission queue</h1>
+              <p>
+                {visible.length} tasks in this view · choose one to inspect or
+                delegate.
+              </p>
             </div>
           </header>
-          <div className="tasks-toolbar card sonare-card task-surface">
-            <div className="task-toolbar-top">
-              <div className="tasks-search">
-                <SearchIcon size={15} />
-                <input
-                  ref={searchRef}
-                  value={query}
-                  placeholder="Search tasks, notes, or agents..."
-                  onChange={(e) => setQuery(e.target.value)}
-                  aria-label="Search tasks"
-                />
-              </div>
-              <div className="task-toolbar-sort">
-                <span className="task-toolbar-label">Sort</span>
-                <Dropdown
-                  options={SORT_OPTIONS}
-                  value={prefs.sort}
-                  onChange={(sort) => setTaskPrefs({ sort })}
-                  ariaLabel="Sort tasks"
-                />
-              </div>
-              <div className="task-toolbar-group">
-                <span className="task-toolbar-label">Group</span>
-                <Dropdown
-                  options={GROUP_OPTIONS}
-                  value={prefs.group}
-                  onChange={(group) => setTaskPrefs({ group })}
-                  ariaLabel="Group tasks"
-                />
-              </div>
-              <div
-                className="task-view-toggle"
-                role="group"
-                aria-label="View mode"
-              >
-                <button
-                  type="button"
-                  className={`task-view-btn${prefs.view === "list" ? " is-active" : ""}`}
-                  aria-pressed={prefs.view === "list"}
-                  aria-label="List view"
-                  onClick={() => setTaskPrefs({ view: "list" satisfies TaskViewMode })}
-                >
-                  <ListIcon size={15} />
-                </button>
-                <button
-                  type="button"
-                  className={`task-view-btn${prefs.view === "grid" ? " is-active" : ""}`}
-                  aria-pressed={prefs.view === "grid"}
-                  aria-label="Grid view"
-                  onClick={() => setTaskPrefs({ view: "grid" })}
-                >
-                  <LayoutIcon size={15} />
-                </button>
-              </div>
-            </div>
 
-            <div className="tasks-filters" role="radiogroup" aria-label="Task filter">
-              {FILTERS.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={taskFilter === f.id}
-                  className={`tasks-filter${taskFilter === f.id ? " active" : ""}`}
-                  onClick={() => setTaskFilter(f.id)}
-                >
-                  <span>{f.label}</span>
-                  <span className="tasks-filter-count">{filterCount(f.id)}</span>
-                </button>
-              ))}
+          <div className="task-toolbar-top">
+            <div className="tasks-search">
+              <SearchIcon size={15} />
+              <input
+                ref={searchRef}
+                value={query}
+                placeholder="Search tasks, notes, or agents..."
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search tasks"
+              />
+            </div>
+            <div className="task-toolbar-sort">
+              <span className="task-toolbar-label">Sort</span>
+              <Dropdown
+                options={SORT_OPTIONS}
+                value={prefs.sort}
+                onChange={(sort) => setTaskPrefs({ sort })}
+                ariaLabel="Sort tasks"
+              />
+            </div>
+            <div className="task-toolbar-group">
+              <span className="task-toolbar-label">Group</span>
+              <Dropdown
+                options={GROUP_OPTIONS}
+                value={prefs.group}
+                onChange={(group) => setTaskPrefs({ group })}
+                ariaLabel="Group tasks"
+              />
+            </div>
+            <div className="task-view-toggle" role="group" aria-label="View mode">
+              <button
+                type="button"
+                className={`task-view-btn${prefs.view === "list" ? " is-active" : ""}`}
+                aria-pressed={prefs.view === "list"}
+                aria-label="List view"
+                onClick={() => setTaskPrefs({ view: "list" satisfies TaskViewMode })}
+              >
+                <ListIcon size={15} />
+              </button>
+              <button
+                type="button"
+                className={`task-view-btn${prefs.view === "grid" ? " is-active" : ""}`}
+                aria-pressed={prefs.view === "grid"}
+                aria-label="Grid view"
+                onClick={() => setTaskPrefs({ view: "grid" })}
+              >
+                <LayoutIcon size={15} />
+              </button>
             </div>
           </div>
 
-          {visible.length === 0 ? (
-            <EmptyState
-              icon={<ListIcon size={23} />}
-              title={
-                debouncedQuery || taskFilter !== "all"
-                  ? "No matching tasks"
-                  : "You’re all caught up"
-              }
-              description={
-                debouncedQuery || taskFilter !== "all"
-                  ? "Clear the search or filters to see more work."
-                  : "Create a task and it will appear here."
-              }
-            >
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              marginTop: 16,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {visible.length === 0 ? (
+              <EmptyState
+                icon={<ListIcon size={23} />}
+                title={
+                  debouncedQuery || taskFilter !== "all"
+                    ? "No matching tasks"
+                    : "You’re all caught up"
+                }
+                description={
+                  debouncedQuery || taskFilter !== "all"
+                    ? "Clear the search or filters to see more work."
+                    : "Create a task and it will appear here."
+                }
+              >
                 {debouncedQuery || taskFilter !== "all" ? (
                   <button
                     type="button"
@@ -389,86 +418,256 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
                     Create task
                   </button>
                 )}
-            </EmptyState>
-          ) : (
-            <div
-              className={`tasks-groups${prefs.view === "grid" ? " is-grid" : ""}`}
-            >
-              {groups.map(([label, items]) => {
-                const collapsed = prefs.collapsedGroups.includes(label);
-                return (
-                  <section key={label} className="tasks-group">
-                    <button
-                      type="button"
-                      className="tasks-group-head"
-                      onClick={() => toggleCollapsedGroup(label)}
-                      aria-expanded={!collapsed}
-                    >
-                      {collapsed ? (
-                        <ChevronRightIcon size={12} />
-                      ) : (
-                        <ChevronDownIcon size={12} />
-                      )}
-                      <h2 className="tasks-group-title">{label}</h2>
-                      <span className="tasks-group-count">{items.length}</span>
-                    </button>
-                    {!collapsed ? (
-                      <ul
-                        className={`task-list${prefs.view === "grid" ? " task-grid" : ""}`}
+              </EmptyState>
+            ) : (
+              <div
+                className={`tasks-groups${prefs.view === "grid" ? " is-grid" : ""}`}
+              >
+                {groups.map(([label, items]) => {
+                  const collapsed = prefs.collapsedGroups.includes(label);
+                  return (
+                    <section key={label} className="tasks-group">
+                      <button
+                        type="button"
+                        className="tasks-group-head"
+                        onClick={() => toggleCollapsedGroup(label)}
+                        aria-expanded={!collapsed}
                       >
-                        {items.map((task) => (
-                          <li key={task.id}>
-                            <TaskRow
-                              task={task}
-                              selected={task.id === selectedId}
-                              menuOpen={menuTaskId === task.id}
-                              onToggle={() => toggleTask(task.id)}
-                              onOpen={() => selectTask(task.id)}
-                              onMenu={() =>
-                                setMenuTaskId((id) =>
-                                  id === task.id ? null : task.id,
-                                )
-                              }
-                              onDelete={() => setConfirmDeleteId(task.id)}
-                              onAskAgent={() => {
-                                setSelectedId(task.id);
-                                setAskAgentOpen(true);
-                                setMenuTaskId(null);
-                              }}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </section>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                        {collapsed ? (
+                          <ChevronRightIcon size={12} />
+                        ) : (
+                          <ChevronDownIcon size={12} />
+                        )}
+                        <h2 className="tasks-group-title">{label}</h2>
+                        <span className="tasks-group-count">{items.length}</span>
+                      </button>
+                      {!collapsed ? (
+                        <ul
+                          className={`task-list${prefs.view === "grid" ? " task-grid" : ""}`}
+                        >
+                          {items.map((task) => (
+                            <li key={task.id}>
+                              <TaskRow
+                                task={task}
+                                selected={task.id === selectedId}
+                                menuOpen={menuTaskId === task.id}
+                                onToggle={() => toggleTask(task.id)}
+                                onOpen={() => selectTask(task.id)}
+                                onMenu={() =>
+                                  setMenuTaskId((id) =>
+                                    id === task.id ? null : task.id,
+                                  )
+                                }
+                                onDelete={() => setConfirmDeleteId(task.id)}
+                                onAskAgent={() => {
+                                  setSelectedId(task.id);
+                                  setAskAgentOpen(true);
+                                  setMenuTaskId(null);
+                                }}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
 
-        {selected ? (
-          <TaskDetailPanel
-            task={selected}
-            onClose={() => setSelectedId(null)}
-            onToggle={() => toggleTask(selected.id)}
-            onDelete={() => setConfirmDeleteId(selected.id)}
-            onAskAgent={() => setAskAgentOpen(true)}
-            onAddSubtask={(title) => addSubtask(selected.id, title)}
-            onToggleSubtask={(subId) => toggleSubtask(selected.id, subId)}
-          />
-        ) : (
-          <aside
-            className="task-detail task-detail-idle card sonare-card task-surface"
-            aria-label="No task selected"
-          >
+      <div className="dashboard-col side-column dashboard-right">
+        <section className="card sonare-card">
+          <div className="card-head">
+            <span className="card-label">Selected task</span>
+            {selected ? (
+              <div style={{ display: "flex", gap: 4 }}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setConfirmDeleteId(selected.id)}
+                  aria-label={`Delete "${selected.title}"`}
+                >
+                  <TrashIcon size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setSelectedId(null)}
+                  aria-label="Close details"
+                >
+                  <CloseIcon size={15} />
+                </button>
+              </div>
+            ) : null}
+          </div>
+          {selected ? (
+            <>
+              <div className="agent-inspector-hero">
+                <h2>{selected.title}</h2>
+                <p>
+                  {selected.due ?? "No due time"}
+                  {selected.agent ? ` · ${selected.agent}` : ""}
+                </p>
+                <span
+                  className={`agent-inspector-status${selected.completed ? " active" : ""}`}
+                >
+                  {selected.completed
+                    ? "Completed"
+                    : `${computeTaskProgress(selected)}% complete`}
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                    marginTop: 10,
+                  }}
+                >
+                  <span className={`priority-badge pri-${selected.priority}`}>
+                    {PRIORITY_LABEL[selected.priority]}
+                  </span>
+                  {selected.urgent ? (
+                    <span className="task-urgent-pill">Urgent</span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="agent-inspector-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => toggleTask(selected.id)}
+                >
+                  {selected.completed ? "Reopen" : "Mark done"}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setAskAgentOpen(true)}
+                >
+                  Ask agent
+                </button>
+              </div>
+              {selected.title.toLowerCase().includes("email") ||
+              selected.title.toLowerCase().includes("investor") ? (
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ width: "100%" }}
+                  onClick={() => setAskAgentOpen(true)}
+                  title="Opens Ask agent with draft context"
+                >
+                  Draft reply
+                </button>
+              ) : null}
+            </>
+          ) : (
             <EmptyState
               icon={<ClockIcon size={24} />}
               title="Select a task"
-              description="Choose a task to review its notes, subtasks, and assignment."
+              description="Choose a task from the queue to see its details."
+              compact
             />
-          </aside>
-        )}
+          )}
+        </section>
+
+        <section className="card sonare-card" style={{ gridRow: "span 2" }}>
+          {selected ? (
+            <div style={{ height: "100%", overflowY: "auto" }}>
+              {selected.note ? (
+                <p className="task-detail-note" style={{ marginBottom: 14 }}>
+                  {selected.note}
+                </p>
+              ) : null}
+              <div className="task-subtasks-head">
+                <h3>
+                  Subtasks{" "}
+                  {selected.subtasks.length > 0 ? (
+                    <span>
+                      {selected.subtasks.filter((s) => s.completed).length}/
+                      {selected.subtasks.length}
+                    </span>
+                  ) : null}
+                </h3>
+                <div className="task-progress task-progress-inline">
+                  <span className="task-progress-track" aria-hidden="true">
+                    <span
+                      className="task-progress-fill"
+                      style={{ width: `${computeTaskProgress(selected)}%` }}
+                    />
+                  </span>
+                </div>
+              </div>
+              <ul className="task-subtask-list">
+                {selected.subtasks.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      className={`task-check${s.completed ? " on" : ""}`}
+                      onClick={() => toggleSubtask(selected.id, s.id)}
+                      aria-label={
+                        s.completed
+                          ? `Reopen subtask ${s.title}`
+                          : `Complete subtask ${s.title}`
+                      }
+                    >
+                      {s.completed ? <CheckIcon size={10} /> : null}
+                    </button>
+                    <span className={s.completed ? "is-done" : undefined}>
+                      {s.title}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <form
+                className="task-subtask-add"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!subtaskDraft.trim()) return;
+                  addSubtask(selected.id, subtaskDraft);
+                  setSubtaskDraft("");
+                }}
+              >
+                <input
+                  value={subtaskDraft}
+                  onChange={(e) => setSubtaskDraft(e.target.value)}
+                  placeholder="Add subtask"
+                  aria-label="Add subtask"
+                />
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={!subtaskDraft.trim()}
+                >
+                  Add
+                </button>
+              </form>
+
+              <div className="agent-inspector-section">
+                <span className="agent-rail-label">Recent activity</span>
+                {selected.activity.slice(0, 8).map((a) => (
+                  <div className="agent-activity-line" key={a.id}>
+                    <i />
+                    <span>
+                      <strong>{a.text}</strong>
+                      <small>{relativeTime(a.createdAt)}</small>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              icon={<BotIcon size={24} />}
+              title="Nothing selected yet"
+              description="Subtasks, notes, and activity for the chosen task will show up here."
+              compact
+            />
+          )}
+        </section>
       </div>
 
       {selected && askAgentOpen ? (
@@ -679,198 +878,5 @@ function TaskRow({
         ) : null}
       </div>
     </div>
-  );
-}
-
-function TaskDetailPanel({
-  task,
-  onClose,
-  onToggle,
-  onDelete,
-  onAskAgent,
-  onAddSubtask,
-  onToggleSubtask,
-}: {
-  task: Task;
-  onClose: () => void;
-  onToggle: () => void;
-  onDelete: () => void;
-  onAskAgent: () => void;
-  onAddSubtask: (title: string) => void;
-  onToggleSubtask: (id: string) => void;
-}) {
-  const [draft, setDraft] = useState("");
-  const pct = computeTaskProgress(task);
-  const doneSubs = task.subtasks.filter((s) => s.completed).length;
-
-  return (
-    <aside className="task-detail card sonare-card task-surface" aria-label="Selected task">
-      <div className="task-detail-head">
-        <span className="card-label">Selected task</span>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onClose}
-          aria-label="Close details"
-        >
-          <CloseIcon size={15} />
-        </button>
-      </div>
-
-      <div className="task-detail-title-row">
-        <h2 className="task-detail-title">{task.title}</h2>
-        {task.urgent ? <span className="task-urgent-pill">Urgent</span> : null}
-        {task.activity.some((a) => a.type === "agent-suggestion") ? (
-          <span className="task-ai-pill" aria-label="ArcSonare intelligence">
-            <SparkleIcon size={12} />
-          </span>
-        ) : null}
-      </div>
-      {task.note ? (
-        <p className="task-detail-note">{task.note}</p>
-      ) : (
-        <p className="task-detail-note muted">No notes yet.</p>
-      )}
-
-      <dl className="task-metadata-grid">
-        <div className="task-metadata-col">
-          <div className="task-detail-fact">
-            <dt>
-              <ClockIcon size={12} /> Due
-            </dt>
-            <dd>{task.due ?? "No due time"}</dd>
-          </div>
-          <div className="task-detail-fact">
-            <dt>
-              <BotIcon size={12} /> Owner / Agent
-            </dt>
-            <dd>
-              {task.agent ?? "Unassigned"}
-              {task.agent ? (
-                <span className="task-agent-ready">Agent ready</span>
-              ) : null}
-            </dd>
-          </div>
-        </div>
-        <div className="task-metadata-col">
-          <div className="task-detail-fact">
-            <dt>Priority</dt>
-            <dd>
-              <span className={`priority-dot sev-${task.priority}`} />
-              {PRIORITY_LABEL[task.priority]}
-            </dd>
-          </div>
-          <div className="task-detail-fact">
-            <dt>Status</dt>
-            <dd>
-              {pct}% {task.completed ? "complete" : "in progress"}
-            </dd>
-          </div>
-        </div>
-      </dl>
-
-      <section className="task-subtasks" aria-label="Subtasks">
-        <div className="task-subtasks-head">
-          <h3>
-            Subtasks{" "}
-            {task.subtasks.length > 0 ? (
-              <span>
-                {doneSubs}/{task.subtasks.length}
-              </span>
-            ) : null}
-          </h3>
-          <div className="task-progress task-progress-inline">
-            <span className="task-progress-track" aria-hidden="true">
-              <span
-                className="task-progress-fill"
-                style={{ width: `${pct}%` }}
-              />
-            </span>
-          </div>
-        </div>
-        <ul className="task-subtask-list">
-          {task.subtasks.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                className={`task-check${s.completed ? " on" : ""}`}
-                onClick={() => onToggleSubtask(s.id)}
-                aria-label={
-                  s.completed
-                    ? `Reopen subtask ${s.title}`
-                    : `Complete subtask ${s.title}`
-                }
-              >
-                {s.completed ? <CheckIcon size={10} /> : null}
-              </button>
-              <span className={s.completed ? "is-done" : undefined}>
-                {s.title}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <form
-          className="task-subtask-add"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!draft.trim()) return;
-            onAddSubtask(draft);
-            setDraft("");
-          }}
-        >
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Add subtask"
-            aria-label="Add subtask"
-          />
-          <button type="submit" className="btn" disabled={!draft.trim()}>
-            Add
-          </button>
-        </form>
-      </section>
-
-      <section className="task-activity" aria-label="Recent activity">
-        <h3>Recent activity</h3>
-        <ul className="task-activity-list">
-          {task.activity.slice(0, 8).map((a) => (
-            <li key={a.id}>
-              <span className="task-activity-node" aria-hidden="true" />
-              <span className="task-activity-text">{a.text}</span>
-              <span className="task-activity-time">
-                {relativeTime(a.createdAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <div className="task-detail-actions task-action-bar">
-        <button type="button" className="btn btn-primary" onClick={onClose}>
-          Open task
-        </button>
-        <button type="button" className="btn" onClick={onToggle}>
-          {task.completed ? "Reopen" : "Mark done"}
-        </button>
-        <button type="button" className="btn" onClick={onAskAgent}>
-          Ask agent
-        </button>
-        {task.title.toLowerCase().includes("email") ||
-        task.title.toLowerCase().includes("investor") ? (
-          <button
-            type="button"
-            className="btn"
-            onClick={onAskAgent}
-            title="Opens Ask agent with draft context"
-          >
-            Draft reply
-          </button>
-        ) : null}
-        <button type="button" className="btn btn-danger" onClick={onDelete}>
-          <TrashIcon size={13} />
-          Delete
-        </button>
-      </div>
-    </aside>
   );
 }

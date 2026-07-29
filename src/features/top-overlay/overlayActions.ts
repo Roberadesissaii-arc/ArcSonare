@@ -18,10 +18,10 @@ import { ollamaDraftEmail } from "../../services/OllamaService";
 import { askAssistant } from "../../services/AssistantService";
 import {
   ensurePocketTtsRuntime,
-  getPocketTtsVoicePreference,
   speakWithPocketTts,
   stopPocketTtsPlayback,
 } from "../../services/PocketTtsService";
+import { characterById } from "../voice-settings/voiceCharacters";
 import {
   handleCapabilityRequest,
   resolvePendingConfirmation,
@@ -93,8 +93,9 @@ async function speakOverlayReply(text: string): Promise<void> {
   try {
     await ensurePocketTtsRuntime();
     if (isStale(epoch)) return;
+    const voice = characterById(getPrefs().voice.voiceId).preferredProviderVoiceId;
     await speakWithPocketTts(spoken, {
-      voice: getPocketTtsVoicePreference(),
+      voice,
       shouldAbort: () => isStale(epoch),
     });
   } catch (err) {

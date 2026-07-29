@@ -502,7 +502,7 @@ export function CommandComposer() {
 
           <button
             type="button"
-            className={`toggle-pill${searchActive ? " active" : ""}`}
+            className={`toggle-pill toggle-pill-search${searchActive ? " active" : ""}`}
             onClick={toggleSearch}
             disabled={busy || isRecording}
             aria-pressed={searchActive}
@@ -528,7 +528,7 @@ export function CommandComposer() {
 
           <button
             type="button"
-            className={`toggle-pill${canvasActive ? " active" : ""}`}
+            className={`toggle-pill toggle-pill-canvas${canvasActive ? " active" : ""}`}
             onClick={toggleCanvas}
             disabled={busy || isRecording}
             aria-pressed={canvasActive}

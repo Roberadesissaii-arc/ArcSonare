@@ -44,8 +44,10 @@
   position: relative;
   overflow: hidden;
   border-radius: 16px;
-  background: rgba(11, 17, 22, 0.99);
-  border: 1px solid rgba(255, 255, 255, 0.058);
+  /* Matches the Connect page's glass container (.connect-sections). */
+  background: rgba(13, 19, 24, 0.68);
+  border: 1px solid rgba(119, 133, 144, 0.2);
+  backdrop-filter: blur(10px) saturate(112%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.034),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35),
@@ -109,7 +111,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 24px 12px 32px;
+  padding: 24px 12px 12px;
   pointer-events: none;
 }
 
@@ -131,7 +133,7 @@
 
 .chat-bubble {
   max-width: 78%;
-  padding: 10px 14px;
+  padding: 10px 20px;
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.5;
@@ -501,6 +503,13 @@
   flex-shrink: 0;
 }
 
+/* Chat view hides the title/subtitle text but the indicator dots still
+   render — without this the row keeps the same reserved height/margin as
+   when the title was there, leaving a dead gap above the composer. */
+.dashboard-greeting-compact .greeting-indicator {
+  margin-top: 0;
+}
+
 .greeting-title {
   font-size: 28px;
   font-weight: 500;
@@ -608,13 +617,13 @@
   padding: 14px 18px 12px;
   border-radius: 22px;
   overflow: visible;
-  background: rgba(19, 25, 28, 0.9);
+  background: rgba(13, 19, 24, 0.68);
   border: 1px solid rgba(145, 110, 255, 0.12);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.028),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35),
     0 20px 50px rgba(0, 0, 0, 0.26);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px) saturate(112%);
   transition: border-color 180ms ease;
 }
 
@@ -735,7 +744,11 @@
 .quick-action svg {
   color: var(--sonare-text-muted);
   flex-shrink: 0;
-  transition: color 150ms ease;
+  transition: color 150ms ease, transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toggle-pill.active svg {
+  transform: rotate(360deg);
 }
 
 /* Label hidden by default, slides in only once the pill is activated. */
@@ -789,6 +802,28 @@
 
 .toggle-pill.active svg {
   color: #d1b8ff;
+}
+
+/* Per-feature accent colors (search/reasoning/canvas), overriding the
+   generic violet active state above by source order. */
+.toggle-pill-search.active {
+  background: rgba(30, 174, 219, 0.15);
+  border-color: rgba(30, 174, 219, 0.4);
+  color: #6cc9ea;
+}
+
+.toggle-pill-search.active svg {
+  color: #6cc9ea;
+}
+
+.toggle-pill-canvas.active {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.4);
+  color: #fbab6b;
+}
+
+.toggle-pill-canvas.active svg {
+  color: #fbab6b;
 }
 
 .quick-action:hover svg {
@@ -926,18 +961,28 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #343b3c, #262d2e);
-  border: 1px solid var(--sonare-border-strong);
-  color: var(--sonare-text-primary);
+  background: linear-gradient(180deg, #ffffff, #eef0f3);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #1a1f22;
   transition: background 150ms ease, opacity 150ms ease;
 }
 
 .composer-send:hover:not(:disabled) {
-  background: linear-gradient(180deg, #3b4243, #2c3334);
+  background: linear-gradient(180deg, #ffffff, #e6e9ed);
 }
 
 .composer-send:disabled {
   opacity: 0.4;
+}
+
+.composer-send.recording {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ff5c5c;
+}
+
+.composer-send.recording:hover:not(:disabled) {
+  background: rgba(255, 92, 92, 0.12);
 }
 
 .composer-collapsed {
@@ -951,8 +996,8 @@
   flex-shrink: 0;
   font-size: 12.5px;
   color: var(--sonare-text-muted);
-  background: rgba(19, 25, 28, 0.9);
-  backdrop-filter: blur(12px);
+  background: rgba(13, 19, 24, 0.68);
+  backdrop-filter: blur(10px) saturate(112%);
   border: 1px solid rgba(145, 110, 255, 0.12);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
 }
@@ -1036,13 +1081,6 @@
   box-shadow: 0 14px 34px rgba(9, 11, 14, 0.18);
 }
 
-:root[data-theme="light"] .composer-send {
-  background: linear-gradient(180deg, #ffffff, #eef0f3);
-}
-
-:root[data-theme="light"] .composer-send:hover:not(:disabled) {
-  background: linear-gradient(180deg, #ffffff, #e6e9ed);
-}
 
 :root[data-theme="light"] .composer-collapsed {
   border-color: rgba(106, 72, 215, 0.18);

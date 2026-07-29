@@ -4286,6 +4286,15 @@
   text-align: center;
 }
 
+/* An empty state only centers if its parent is a flex column with a real
+   height to distribute — .card is plain block flow, so without this the
+   placeholder just sits at the top under the card-head. */
+.card:has(> .sonare-empty-state) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .sonare-empty-state.is-compact {
   padding-block: 14px;
 }

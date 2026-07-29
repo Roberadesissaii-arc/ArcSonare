@@ -16,9 +16,9 @@ import {
 } from "../../services/PocketTtsService";
 
 /**
- * Voice Lab — tests Kyutai Pocket TTS only (no AI model required).
- * The voice you pick here is what the top overlay uses when ArcSonare speaks.
- * Typed dashboard chat stays silent.
+ * Voice Lab — tests Kyutai Pocket TTS raw voices only (no AI model required).
+ * Independent of the character voice picked in Settings → Voice — the overlay
+ * always speaks with the selected character's voice, not this lab preference.
  */
 export function VoiceLabSettingsPage() {
   const [draft, setDraft] = useState(
@@ -131,7 +131,7 @@ export function VoiceLabSettingsPage() {
     <div className="page voice-lab-page">
       <SettingsPageHeader
         title="Voice Lab"
-        description="Pick the Pocket TTS voice used when you talk with ArcSonare in the overlay. Typed chat stays silent. ArcSonare installs and runs Pocket TTS for you."
+        description="Test raw Pocket TTS voices directly — separate from the character voice used in the overlay. ArcSonare installs and runs Pocket TTS for you."
       />
 
       <div className="voice-lab-shell">
