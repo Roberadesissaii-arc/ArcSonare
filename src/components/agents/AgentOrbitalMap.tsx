@@ -38,22 +38,26 @@ function orbitPath(rx: number, ry: number): string {
 interface Placement {
   agent: AgentConfig;
   ring: Ring;
+  /** Position among ALL agents (not just this ring) — see AgentTraveler. */
+  globalIndex: number;
 }
 
-/** Splits agents across the available rings, filling inner rings first. */
+/** Round-robins agents across every ring (both tilt families) instead of
+ * filling rings sequentially, which used to leave the whole second tilt
+ * family empty whenever there were fewer agents than 2x the ring count. */
 function distribute(agents: AgentConfig[]): Placement[] {
-  const perRing = Math.ceil(agents.length / RINGS.length) || 1;
   return agents.map((agent, i) => ({
     agent,
-    ring: RINGS[Math.min(RINGS.length - 1, Math.floor(i / perRing))],
+    ring: RINGS[i % RINGS.length],
+    globalIndex: i,
   }));
 }
 
 function AgentTraveler({
   agent,
   ring,
-  index,
-  countOnRing,
+  globalIndex,
+  agentCount,
   depth,
   visible,
   selected,
@@ -61,15 +65,19 @@ function AgentTraveler({
 }: {
   agent: AgentConfig;
   ring: Ring;
-  index: number;
-  countOnRing: number;
+  globalIndex: number;
+  agentCount: number;
   depth: "front" | "back";
   visible: boolean;
   selected: boolean;
   onSelect: (id: string) => void;
 }) {
   const src = agentAvatarSrc(agent.avatarId);
-  const delay = -((index / Math.max(1, countOnRing)) * ring.duration);
+  // Phase offset by each agent's position among ALL agents, not just its own
+  // ring — otherwise every ring's "first" agent shares the same start phase
+  // as every other ring's "first" agent, and they all line up radially into
+  // a diagonal chain instead of spreading around the orbit.
+  const delay = -((globalIndex / Math.max(1, agentCount)) * ring.duration);
 
   return (
     <g
@@ -161,13 +169,13 @@ export function AgentOrbitalMap({ agents, selectedId, onSelect }: AgentOrbitalMa
     [TILT_A, TILT_B].map((tilt) => (
       <g key={`${depth}-${tilt}`} transform={`rotate(${tilt} ${CX} ${CY})`}>
         {ringsByTilt(tilt).map((ring) =>
-          (byRing.get(ring) ?? []).map(({ agent }, idx) => (
+          (byRing.get(ring) ?? []).map(({ agent, globalIndex }) => (
             <AgentTraveler
               key={`${agent.id}-${depth}`}
               agent={agent}
               ring={ring}
-              index={idx}
-              countOnRing={(byRing.get(ring) ?? []).length}
+              globalIndex={globalIndex}
+              agentCount={placed.length}
               depth={depth}
               visible={depth === "front" ? Boolean(front[agent.id]) : !front[agent.id]}
               selected={agent.id === selectedId}

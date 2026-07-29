@@ -18,7 +18,8 @@ import { summarizeAgents } from "../features/agents/agentSelectors";
 import { addActivity } from "../stores/appStore";
 import { updateTask, useTasks, type Task } from "../stores/taskStore";
 
-/** Premium agent-management workspace. */
+/** Premium agent-management workspace — same 3-left/2-right card grid and
+ * floating center as the Dashboard. */
 export function AgentPage() {
   const agents = useAgents();
   const prefs = useAgentPrefs();
@@ -66,10 +67,25 @@ export function AgentPage() {
     setOpenAgentId(agentId);
   };
 
+  const recentActivity = useMemo(
+    () =>
+      agents
+        .flatMap((agent) =>
+          agent.activity.map((entry) => ({
+            ...entry,
+            agentId: agent.id,
+            agentName: agent.name,
+          })),
+        )
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .slice(0, 12),
+    [agents],
+  );
+
   return (
-    <div className="agent-page">
-      <div className="agent-list-workspace">
-        <aside className="agent-resource-panel agent-surface">
+    <div className="dashboard">
+      <div className="dashboard-col side-column dashboard-left">
+        <section className="card sonare-card">
           <div className="agent-resource-head">
             <span className="agent-rail-label">Prime agent</span>
             <strong>{primeAgent?.name ?? "Not assigned"}</strong>
@@ -98,6 +114,9 @@ export function AgentPage() {
               <strong>{counts.waiting}</strong>
             </div>
           </div>
+        </section>
+
+        <section className="card sonare-card">
           <div className="agent-resource-block">
             <span className="agent-rail-label">Team resources</span>
             {agents.slice(0, 3).map((agent) => (
@@ -122,10 +141,23 @@ export function AgentPage() {
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="card sonare-card">
           <div className="agent-resource-summary">
             <span className="agent-rail-label">Delegation flow</span>
-            <div className="agent-resource-meter"><span style={{ width: `${tasks.length ? (tasks.filter((task) => Boolean(task.agent)).length / tasks.length) * 100 : 0}%` }} /></div>
-            <p><strong>{tasks.filter((task) => Boolean(task.agent)).length}</strong> assigned <span>{tasks.filter((task) => !task.agent).length} waiting</span></p>
+            <div className="agent-resource-meter">
+              <span
+                style={{
+                  width: `${tasks.length ? (tasks.filter((task) => Boolean(task.agent)).length / tasks.length) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <p>
+              <strong>{tasks.filter((task) => Boolean(task.agent)).length}</strong>{" "}
+              assigned{" "}
+              <span>{tasks.filter((task) => !task.agent).length} waiting</span>
+            </p>
           </div>
           <div className="agent-resource-foot">
             <span>
@@ -133,8 +165,10 @@ export function AgentPage() {
             </span>
             <small>{counts.completedToday} completed today</small>
           </div>
-        </aside>
+        </section>
+      </div>
 
+      <div className="dashboard-center">
         <section className="agent-directory">
           <header className="agent-directory-head">
             <div>
@@ -159,10 +193,16 @@ export function AgentPage() {
             onSelect={selectAgent}
           />
         </section>
+      </div>
 
-        <aside className="agent-inspector agent-surface">
+      <div className="dashboard-col side-column dashboard-right">
+        <section className="card sonare-card">
           {teamActivityOpen ? (
-            <TeamActivityPanel agents={agents} onSelectAgent={selectAgent} />
+            <div className="agent-team-activity-head">
+              <span className="agent-rail-label">Team overview</span>
+              <h2>Team activity</h2>
+              <p>What every specialist is doing right now.</p>
+            </div>
           ) : openAgent ? (
             <>
               <div className="agent-inspector-hero">
@@ -200,6 +240,81 @@ export function AgentPage() {
                   </button>
                 ) : null}
               </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={<BotIcon size={24} />}
+              title="Select an agent"
+              description="Choose a specialist to inspect its work, permissions, and resources."
+              compact
+            />
+          )}
+        </section>
+
+        <section className="card sonare-card" style={{ gridRow: "span 2" }}>
+          {teamActivityOpen ? (
+            <>
+              <span className="agent-rail-label">Current status</span>
+              <div className="agent-team-status-list">
+                {agents.slice(0, 4).map((agent) => (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    onClick={() => selectAgent(agent.id)}
+                  >
+                    <span className="agent-team-status-avatar">
+                      {agentAvatarSrc(agent.avatarId) ? (
+                        <img src={agentAvatarSrc(agent.avatarId)} alt="" />
+                      ) : (
+                        agent.initials
+                      )}
+                    </span>
+                    <span>
+                      <strong>{agent.name}</strong>
+                      <small>{agent.role}</small>
+                    </span>
+                    <em className={agent.enabled ? "active" : ""}>
+                      {agentStatus(agent)}
+                    </em>
+                  </button>
+                ))}
+              </div>
+              <span className="agent-rail-label" style={{ marginTop: 16 }}>
+                History
+              </span>
+              {recentActivity.length ? (
+                <div className="agent-team-history">
+                  {recentActivity.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => selectAgent(entry.agentId)}
+                    >
+                      <i />
+                      <span>
+                        <strong>
+                          {entry.agentName}
+                          <em>{entry.title}</em>
+                        </strong>
+                        <small>{entry.summary}</small>
+                        <time dateTime={entry.createdAt}>
+                          {relativeTime(Date.parse(entry.createdAt))}
+                        </time>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<ClockIcon size={23} />}
+                  title="No activity yet"
+                  description="Agent work and assignments will appear here."
+                  compact
+                />
+              )}
+            </>
+          ) : openAgent ? (
+            <>
               <div className="agent-inspector-section">
                 <span className="agent-rail-label">Objective</span>
                 <p>
@@ -256,11 +371,12 @@ export function AgentPage() {
           ) : (
             <EmptyState
               icon={<BotIcon size={24} />}
-              title="Select an agent"
-              description="Choose a specialist to inspect its work, permissions, and resources."
+              title="Nothing selected yet"
+              description="Details, permissions, and activity for the chosen specialist will show up here."
+              compact
             />
           )}
-        </aside>
+        </section>
       </div>
 
       {assignAgent ? (
@@ -270,98 +386,6 @@ export function AgentPage() {
           onClose={() => setAssignAgentId(null)}
         />
       ) : null}
-
-    </div>
-  );
-}
-
-function TeamActivityPanel({
-  agents,
-  onSelectAgent,
-}: {
-  agents: AgentConfig[];
-  onSelectAgent: (agentId: string) => void;
-}) {
-  const activity = agents
-    .flatMap((agent) =>
-      agent.activity.map((entry) => ({
-        ...entry,
-        agentId: agent.id,
-        agentName: agent.name,
-      })),
-    )
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .slice(0, 12);
-
-  return (
-    <div className="agent-team-activity">
-      <div className="agent-team-activity-head">
-        <span className="agent-rail-label">Team overview</span>
-        <h2>Team activity</h2>
-        <p>See what every built-in specialist is doing and review recent work.</p>
-      </div>
-
-      <section className="agent-inspector-section">
-        <span className="agent-rail-label">Current status</span>
-        <div className="agent-team-status-list">
-          {agents.slice(0, 4).map((agent) => (
-            <button
-              key={agent.id}
-              type="button"
-              onClick={() => onSelectAgent(agent.id)}
-            >
-              <span className="agent-team-status-avatar">
-                {agentAvatarSrc(agent.avatarId) ? (
-                  <img src={agentAvatarSrc(agent.avatarId)} alt="" />
-                ) : (
-                  agent.initials
-                )}
-              </span>
-              <span>
-                <strong>{agent.name}</strong>
-                <small>{agent.role}</small>
-              </span>
-              <em className={agent.enabled ? "active" : ""}>
-                {agentStatus(agent)}
-              </em>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="agent-inspector-section">
-        <span className="agent-rail-label">History</span>
-        {activity.length ? (
-          <div className="agent-team-history">
-            {activity.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => onSelectAgent(entry.agentId)}
-              >
-                <i />
-                <span>
-                  <strong>
-                    {entry.agentName}
-                    <em>{entry.title}</em>
-                  </strong>
-                  <small>{entry.summary}</small>
-                  <time dateTime={entry.createdAt}>
-                    {relativeTime(Date.parse(entry.createdAt))}
-                  </time>
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={<ClockIcon size={23} />}
-            title="No activity yet"
-            description="Agent work and assignments will appear here."
-            compact
-          />
-        )}
-      </section>
     </div>
   );
 }
@@ -404,12 +428,12 @@ function AssignTaskModal({
                     appendAgentActivity(agent.id, {
                       type: "task-assigned",
                       title: "Task assigned",
-                      summary: `Assigned “${task.title}”.`,
+                      summary: `Assigned "${task.title}".`,
                       status: "info",
                       taskId: task.id,
                     });
                     addActivity(
-                      `Assigned “${task.title}” to ${agent.name}`,
+                      `Assigned "${task.title}" to ${agent.name}`,
                       "agent",
                     );
                     onClose();
