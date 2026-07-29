@@ -654,6 +654,7 @@
 .urgent-card {
   display: flex;
   flex-direction: column;
+  grid-row: span 2;
   height: 100%;
   box-sizing: border-box;
   padding-bottom: 14px;

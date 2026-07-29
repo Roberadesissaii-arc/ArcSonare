@@ -13,6 +13,7 @@ import {
   type CenterStageView,
 } from "../stores/centerStageStore";
 import { navigateSettings } from "../stores/appStore";
+import { useChatMessages } from "../stores/chatStore";
 
 function greetingForNow(): string {
   const hour = new Date().getHours();
@@ -29,11 +30,13 @@ const VIEW_META: { id: CenterStageView; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "active-work", label: "Active Work" },
   { id: "review", label: "Review" },
+  { id: "chat", label: "Chat" },
 ];
 
 export function DashboardPage(_props: DashboardPageProps) {
   const { profileName, activity } = useAppState();
   const { view, work } = useCenterStage();
+  const chatMessages = useChatMessages();
   const urgentCount = activity.filter((a) => a.source === "task").length;
 
   const greeting = greetingForNow();
@@ -65,6 +68,9 @@ export function DashboardPage(_props: DashboardPageProps) {
       title = "Review";
       subtitle = "Finished drafts and results will show up here for confirmation.";
     }
+  } else if (view === "chat") {
+    title = "Chat";
+    subtitle = "Your conversation with ArcSonare.";
   }
 
   return (
@@ -76,21 +82,72 @@ export function DashboardPage(_props: DashboardPageProps) {
       </div>
 
       <div className="dashboard-center">
-        <div
-          className="orbital-stage-wrap"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            width: "100%",
-            position: "relative",
-            opacity: view !== "overview" ? 0.25 : 1,
-            transition: "opacity 240ms cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
-          <OrbitalCommandMap />
+        <div className="orbital-zone">
+          <div
+            className="orbital-stage-wrap"
+            role={view !== "overview" && work ? "button" : undefined}
+            tabIndex={view !== "overview" && work ? 0 : undefined}
+            aria-label={
+              view !== "overview" && work
+                ? "Dismiss result and return to overview"
+                : undefined
+            }
+            onClick={() => {
+              if (view !== "overview" && work) clearCenterWork();
+            }}
+            onKeyDown={(event) => {
+              if (
+                view !== "overview" &&
+                work &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                clearCenterWork();
+              }
+            }}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              width: "100%",
+              position: "relative",
+              opacity: view !== "overview" ? 0.25 : 1,
+              transition: "opacity 240ms cubic-bezier(0.22, 1, 0.36, 1)",
+              cursor: view !== "overview" && work ? "pointer" : undefined,
+            }}
+          >
+            <OrbitalCommandMap />
+          </div>
+
+          {view === "chat" ? (
+            <div className="chat-overlay">
+              <div className="chat-bubble-list">
+                {chatMessages.map((m) => (
+                  <div key={m.id} className={`chat-bubble chat-bubble-${m.role}`}>
+                    {m.pending ? (
+                      <span className="chat-bubble-typing">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                    ) : (
+                      m.text
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        <div className="dashboard-greeting">
+        <div
+          className="dashboard-greeting"
+          onClick={() => {
+            if (view !== "overview" && work) clearCenterWork();
+          }}
+          style={{
+            cursor: view !== "overview" && work ? "pointer" : undefined,
+          }}
+        >
           <h1 className="greeting-title">{title}</h1>
           <p className="greeting-sub">{subtitle}</p>
           <div className="greeting-indicator" role="tablist" aria-label="Center stage views">
@@ -103,15 +160,32 @@ export function DashboardPage(_props: DashboardPageProps) {
                 aria-label={item.label}
                 title={item.label}
                 className={view === item.id ? "violet" : undefined}
-                onClick={() => setCenterView(item.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setCenterView(item.id);
+                }}
               />
             ))}
           </div>
         </div>
 
-        <div className="composer-stage">
+        <div
+          className="composer-stage"
+          onClick={(event) => {
+            if (
+              view !== "overview" &&
+              work &&
+              event.target === event.currentTarget
+            ) {
+              clearCenterWork();
+            }
+          }}
+        >
           {view === "active-work" && work ? (
-            <div className="center-work-panel card sonare-card">
+            <div
+              className="center-work-panel card sonare-card"
+              onClick={(event) => event.stopPropagation()}
+            >
               <span className="card-label">Active Work</span>
               <h2 className="card-title">{work.title}</h2>
               <p className="card-text">{work.status}</p>
@@ -134,7 +208,10 @@ export function DashboardPage(_props: DashboardPageProps) {
           ) : null}
 
           {view === "review" && work ? (
-            <div className="center-work-panel card sonare-card">
+            <div
+              className="center-work-panel card sonare-card"
+              onClick={(event) => event.stopPropagation()}
+            >
               <span className="card-label">Review</span>
               <h2 className="card-title">{work.title}</h2>
               {work.configRequired ? (
@@ -202,7 +279,9 @@ export function DashboardPage(_props: DashboardPageProps) {
             </div>
           ) : null}
 
-          <CommandComposer />
+          <div onClick={(event) => event.stopPropagation()}>
+            <CommandComposer />
+          </div>
         </div>
       </div>
 

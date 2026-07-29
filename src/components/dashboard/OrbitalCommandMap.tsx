@@ -4,6 +4,7 @@ import { useVoiceState } from "../../stores/voiceStore";
 import { BotIcon, CalendarIcon, ListIcon, SearchIcon } from "../Icons";
 import { ArcSonareCore } from "./ArcSonareCore";
 import { OrbitActionChip } from "./OrbitActionChip";
+import { SonareMarbleOrb } from "../voice/SonareMarbleOrb";
 
 const CX = 360;
 const CY = 240;
@@ -85,6 +86,39 @@ function Traveler({
         animationDelay: `${delay}s`,
       }}
     />
+  );
+}
+
+/** Experimental: the marble riding one of the existing orbits as a traveler. */
+function OrbitingMarble({
+  rx,
+  ry,
+  size,
+  duration,
+  delay = 0,
+}: {
+  rx: number;
+  ry: number;
+  size: number;
+  duration: number;
+  delay?: number;
+}) {
+  return (
+    <foreignObject
+      className="orbit-marble-travel"
+      x={-size / 2}
+      y={-size / 2}
+      width={size}
+      height={size}
+      overflow="visible"
+      style={{
+        offsetPath: `path('${orbitPath(rx, ry)}')`,
+        animationDuration: `${duration}s`,
+        animationDelay: `${delay}s`,
+      }}
+    >
+      <SonareMarbleOrb size={size} />
+    </foreignObject>
   );
 }
 
@@ -300,6 +334,7 @@ export function OrbitalCommandMap() {
           <Traveler rx={238} ry={92} r={1.9} duration={64} delay={-40} />
           <Traveler rx={170} ry={64} r={2.2} duration={54} delay={-8} violet />
           <Traveler rx={120} ry={44} r={1.8} duration={50} delay={-22} />
+          <OrbitingMarble rx={238} ry={92} size={30} duration={64} delay={-12} />
         </g>
         <g transform={`rotate(${TILT_B} ${CX} ${CY})`}>
           <path className="orbit-line orbit-fade-b" d={orbitPath(200, 152)} />

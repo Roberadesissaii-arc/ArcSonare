@@ -1,4 +1,4 @@
-import { SonareMarbleOrb } from "../../components/voice/SonareMarbleOrb";
+import { ArcSonareLogo } from "../../components/brand/ArcSonareLogo";
 import { SonareLiveWaveform } from "../../components/voice/SonareLiveWaveform";
 import { OverlayActionIcon } from "./OverlayActionIcon";
 import { OverlayStatusText, modeToOrbStatus } from "./OverlayStatusText";
@@ -59,12 +59,12 @@ export function OverlayHeader({
     <div className={`overlay-header${expanded ? " is-expanded" : ""}`}>
       <button
         type="button"
-        className="overlay-marble"
+        className="overlay-marble overlay-brand"
         onClick={onActivateListening}
         aria-label="Listen now — interrupt and start listening"
         title="Listen now"
       >
-        <SonareMarbleOrb status={toVoiceStatus(orb)} size={50} />
+        <ArcSonareLogo size={26} title="ArcSonare" />
       </button>
       <OverlayStatusText mode={mode} status={status} />
       <span className="overlay-divider" aria-hidden="true" />
