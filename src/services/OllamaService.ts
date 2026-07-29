@@ -227,7 +227,7 @@ export function isOllamaCloudAssistantConfigured(): boolean {
 /** Short chat reply for local Ollama. Prefer AssistantService for routing. */
 export async function ollamaReply(userText: string): Promise<string> {
   return ollamaChat([
-    { role: "system", content: assistantSystemContext() },
+    { role: "system", content: await assistantSystemContext() },
     { role: "user", content: userText },
   ]);
 }

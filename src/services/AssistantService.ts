@@ -92,11 +92,11 @@ export function getAssistantRoute(): AssistantRouteInfo {
   };
 }
 
-function buildMessages(userText: string): ChatMessage[] {
+async function buildMessages(userText: string): Promise<ChatMessage[]> {
   return [
     {
       role: "system",
-      content: `${assistantSystemContext()}\n\n${ORCHESTRATION_SYSTEM_RULES}`,
+      content: `${await assistantSystemContext()}\n\n${ORCHESTRATION_SYSTEM_RULES}`,
     },
     { role: "user", content: userText },
   ];
@@ -190,7 +190,7 @@ export async function askAssistant(
     };
   }
 
-  const messages = buildMessages(text);
+  const messages = await buildMessages(text);
   signalAssistantThinking();
 
   if (options?.forceLocal) {

@@ -235,7 +235,7 @@ export function ModelsSettingsPage() {
         }
         const reply = await ollamaCloudChat(
           [
-            { role: "system", content: assistantSystemContext() },
+            { role: "system", content: await assistantSystemContext() },
             { role: "user", content: prompt },
           ],
           ready.model,

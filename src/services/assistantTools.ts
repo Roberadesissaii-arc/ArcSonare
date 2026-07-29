@@ -4,6 +4,7 @@
  */
 
 import { formatSessionActionContext } from "../features/capabilities/actionSessionMemory";
+import { connectedIntegrationsSummary } from "./integrationStatusService";
 
 function formatNow(): { time: string; date: string; full: string; zone: string } {
   const now = new Date();
@@ -34,9 +35,12 @@ function formatNow(): { time: string; date: string; full: string; zone: string }
 }
 
 /** Context injected into every LLM system prompt. */
-export function assistantSystemContext(): string {
+export async function assistantSystemContext(): Promise<string> {
   const { full, zone } = formatNow();
   const memory = formatSessionActionContext();
+  const integrations = await connectedIntegrationsSummary().catch(
+    () => "Integration status is unavailable right now.",
+  );
   return [
     "You are ArcSonare, a helpful Windows desktop assistant.",
     `Current local datetime: ${full} (${zone}).`,
@@ -47,6 +51,8 @@ export function assistantSystemContext(): string {
     "explaining ArcSonare settings, and answering follow-ups about actions you already took.",
     "When recent-actions context is provided below, treat it as ground truth for what you did.",
     "Do not invent files, folders, paths, or actions that are not listed there.",
+    integrations,
+    "This integration status is ground truth — never guess or contradict it.",
     memory,
   ]
     .filter(Boolean)

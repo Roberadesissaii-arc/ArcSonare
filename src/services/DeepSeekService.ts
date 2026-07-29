@@ -32,7 +32,7 @@ export async function deepseekReply(
 ): Promise<string> {
   return deepseekChat(
     [
-      { role: "system", content: assistantSystemContext() },
+      { role: "system", content: await assistantSystemContext() },
       { role: "user", content: userText },
     ],
     modelOverride,

@@ -32,7 +32,7 @@ export async function geminiReply(
 ): Promise<string> {
   return geminiChat(
     [
-      { role: "system", content: assistantSystemContext() },
+      { role: "system", content: await assistantSystemContext() },
       { role: "user", content: userText },
     ],
     modelOverride,
