@@ -65,18 +65,6 @@ export const EVENT_SOUND_UI: SoundEventUiDef[] = [
     column: "right",
   },
   {
-    id: "screen-context-start",
-    displayName: "Screen start",
-    description: "Soft widening tone when Screen Context starts.",
-    column: "right",
-  },
-  {
-    id: "screen-context-stop",
-    displayName: "Screen stop",
-    description: "Gentle narrowing tone when Screen Context ends.",
-    column: "right",
-  },
-  {
     id: "wake-word",
     displayName: "Wake word",
     description: "Bright shimmer when a wake word is recognized.",

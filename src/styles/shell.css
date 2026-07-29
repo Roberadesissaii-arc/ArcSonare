@@ -15,23 +15,53 @@
   overflow: hidden;
 }
 
+/* A custom background image needs the gradient overlay to actually be
+ * translucent — the default gradient's stops are opaque solid colors and
+ * would otherwise hide any image placed underneath. */
+.app-shell.has-custom-background {
+  background:
+    radial-gradient(1100px 520px at 50% -8%, rgba(48, 58, 62, 0.32), transparent 62%),
+    linear-gradient(180deg, rgba(20, 26, 30, 0.6) 0%, rgba(5, 9, 12, 0.78) 100%),
+    var(--sonare-custom-bg-image) center / cover no-repeat;
+}
+
 /* ------------------------------- title bar ------------------------------- */
 
 .titlebar {
   position: relative;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: flex-end;
   height: 36px;
   flex-shrink: 0;
-  padding: 0 8px 0 0;
+  padding: 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 55%), #0a0f13;
   border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+}
+
+.titlebar-brand {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  color: rgba(239, 243, 246, 0.92);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  user-select: none;
+}
+
+.titlebar-brand svg {
+  flex: 0 0 auto;
+  color: #f2f5f7;
 }
 
 .titlebar-spacer {
   flex: 1;
   min-width: 0;
+  height: 100%;
 }
 
 .window-controls {
@@ -39,26 +69,24 @@
   align-items: center;
   flex-shrink: 0;
   height: 100%;
-  gap: 2px;
-  padding: 5px 0;
+  gap: 0;
+  padding: 0;
 }
 
 .win-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 26px;
+  width: 46px;
+  height: 100%;
   padding: 0;
   color: rgba(210, 218, 224, 0.62);
-  background: rgba(255, 255, 255, 0.028);
-  border: 1px solid rgba(255, 255, 255, 0.045);
-  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   transition:
     background 140ms ease,
-    color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+    color 140ms ease;
 }
 
 .win-btn svg {
@@ -72,10 +100,9 @@
 }
 
 .win-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.065);
   color: #f2f5f7;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: none;
 }
 
 .win-btn:active {
@@ -480,7 +507,20 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  animation: page-fade 180ms ease both;
+  /* Never use animation-fill-mode: both with opacity — a cancelled/interrupted
+     fade can leave the whole Command Center stuck invisible (black screen)
+     right after auth → dashboard mount. */
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-main {
+    animation: page-fade 180ms ease;
+  }
+}
+
+.reduce-motion .app-main {
+  animation: none !important;
 }
 
 @keyframes page-fade {
@@ -704,13 +744,16 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: linear-gradient(180deg, #343b3c, #262d2e);
-  color: var(--sonare-text-primary);
-  border-color: var(--sonare-border-strong);
+  color: #f7f1ff;
+  background: linear-gradient(135deg, #a36af8, #7441d2 66%, #6535c0);
+  border: 1px solid rgba(194, 157, 255, 0.4);
+  box-shadow:
+    0 10px 28px rgba(104, 55, 199, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.17);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #3b4243, #2c3334);
+  filter: brightness(1.08);
 }
 
 /* ------------------------------- light theme ------------------------------ */
@@ -723,6 +766,13 @@
     linear-gradient(180deg, var(--sonare-background-soft) 0%, var(--sonare-background) 100%);
 }
 
+:root[data-theme="light"] .app-shell.has-custom-background {
+  background:
+    radial-gradient(1100px 520px at 50% -8%, rgba(255, 255, 255, 0.5), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(238, 240, 243, 0.72) 100%),
+    var(--sonare-custom-bg-image) center / cover no-repeat;
+}
+
 :root[data-theme="light"] .titlebar {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 55%), #eef0f3;
   border-bottom: 1px solid rgba(9, 11, 14, 0.06);
@@ -730,15 +780,19 @@
 
 :root[data-theme="light"] .win-btn {
   color: rgba(40, 48, 56, 0.55);
-  background: rgba(9, 11, 14, 0.04);
-  border-color: rgba(9, 11, 14, 0.08);
+  background: transparent;
+  border: 0;
+}
+
+:root[data-theme="light"] .titlebar-brand,
+:root[data-theme="light"] .titlebar-brand svg {
+  color: #20262c;
 }
 
 :root[data-theme="light"] .win-btn:hover {
   background: rgba(9, 11, 14, 0.08);
-  border-color: rgba(9, 11, 14, 0.12);
   color: #12161a;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  box-shadow: none;
 }
 
 :root[data-theme="light"] .win-close:hover {
@@ -787,9 +841,45 @@
 }
 
 :root[data-theme="light"] .btn-primary {
-  background: linear-gradient(180deg, #ffffff, #eef0f3);
+  color: #f7f1ff;
+  background: linear-gradient(135deg, #a36af8, #7441d2 66%, #6535c0);
+  border: 1px solid rgba(194, 157, 255, 0.4);
+  box-shadow:
+    0 10px 28px rgba(104, 55, 199, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.17);
 }
 
 :root[data-theme="light"] .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #ffffff, #e6e9ed);
+  filter: brightness(1.08);
+}
+
+.app-boot-splash {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: #9aa3ad;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+.app-error-boundary h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.app-error-boundary p {
+  margin: 0;
+  color: #b8c0ca;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 52ch;
+}
+.app-error-boundary pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #ffd0d0;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

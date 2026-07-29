@@ -2,9 +2,9 @@
  * Central icon mapping.
  *
  * `uiIcons` — the monochrome outline components used across the interface.
- * `integrationIcons` — official application logos copied from the local ICO
- * library (highest-resolution PNG frame extracted from each .ico). These
- * keep their brand colors; everything else in ArcSonare stays monochrome.
+ * `integrationIcons` — application logos sourced from the local ICO library
+ * when available, with the matching Arceclaw asset used for providers the
+ * library does not contain. These retain their brand colors.
  */
 import type { ComponentType } from "react";
 import {
@@ -59,7 +59,21 @@ import evernote from "../assets/icons/integrations/evernote.png";
 import loom from "../assets/icons/integrations/loom.png";
 import onenote from "../assets/icons/integrations/onenote.png";
 import spotify from "../assets/icons/integrations/spotify.png";
-import youtube from "../assets/top-overlay/youtube.svg";
+import youtube from "../assets/icons/integrations/youtube.png";
+import bitbucket from "../assets/icons/integrations/bitbucket.svg";
+import homeAssistant from "../assets/icons/integrations/home-assistant.svg";
+import x from "../assets/icons/integrations/x.svg";
+import mysql from "../assets/icons/integrations/mysql.svg";
+import postgresql from "../assets/icons/integrations/postgresql.svg";
+import redis from "../assets/icons/integrations/redis.svg";
+import tmdb from "../assets/icons/integrations/tmdb.svg";
+import openweather from "../assets/icons/integrations/openweather.svg";
+import zillow from "../assets/icons/integrations/zillow.svg";
+import ssh from "../assets/icons/integrations/ssh.svg";
+import twilio from "../assets/icons/integrations/twilio.svg";
+import unsplash from "../assets/icons/integrations/unsplash.svg";
+import higgsfield from "../assets/icons/integrations/higgsfield.svg";
+import elevenlabs from "../assets/icons/integrations/elevenlabs.svg";
 
 export type UiIconName =
   | "general"
@@ -139,7 +153,22 @@ export type IntegrationId =
   | "loom"
   | "onenote"
   | "spotify"
-  | "youtube";
+  | "youtube"
+  | "bitbucket"
+  | "homeAssistant"
+  | "x"
+  | "mysql"
+  | "postgresql"
+  | "redis"
+  | "smtp"
+  | "tmdb"
+  | "openweather"
+  | "zillow"
+  | "ssh"
+  | "twilio"
+  | "unsplash"
+  | "higgsfield"
+  | "elevenlabs";
 
 export const integrationIcons: Record<IntegrationId, string> = {
   gmail,
@@ -169,4 +198,19 @@ export const integrationIcons: Record<IntegrationId, string> = {
   onenote,
   spotify,
   youtube,
+  bitbucket,
+  homeAssistant,
+  x,
+  mysql,
+  postgresql,
+  redis,
+  smtp: gmail,
+  tmdb,
+  openweather,
+  zillow,
+  ssh,
+  twilio,
+  unsplash,
+  higgsfield,
+  elevenlabs,
 };

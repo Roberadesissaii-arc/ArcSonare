@@ -1,29 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  PlusIcon,
-} from "../components/Icons";
-import { AgentConstellation } from "../features/agents/AgentConstellation";
-import { AgentCreationWizard } from "../features/agents/AgentCreationWizard";
-import { AgentDetail } from "../features/agents/AgentDetail";
-import { ApprovalQueueCard } from "../features/agents/ApprovalQueueCard";
-import { RecentAgentActivityCard } from "../features/agents/RecentAgentActivityCard";
-import {
-  AGENT_TEMPLATES,
-  agentFromTemplate,
-} from "../features/agents/agentTemplates";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BotIcon, ChevronDownIcon, ClockIcon } from "../components/Icons";
+import { EmptyState } from "../components/EmptyState";
 import { agentAvatarSrc } from "../features/agents/agentAvatars";
-import { canActivate as canActivateHealth } from "../features/agents/agentHealth";
+import { relativeTime } from "../features/agents/agentHealth";
 import {
   appendAgentActivity,
-  blankAgent,
-  removeAgent,
   setPrimeAgent,
   setAgentPrefs,
-  updateAgent,
   useAgentPrefs,
   useAgents,
   useApprovals,
   type AgentConfig,
+  agentStatus,
 } from "../features/agents/agentStore";
 import { summarizeAgents } from "../features/agents/agentSelectors";
 import { addActivity } from "../stores/appStore";
@@ -35,14 +23,13 @@ export function AgentPage() {
   const prefs = useAgentPrefs();
   const approvals = useApprovals();
   const tasks = useTasks();
-  const [wizardDraft, setWizardDraft] = useState<AgentConfig | null>(null);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [openAgentId, setOpenAgentId] = useState<string | null>(
     prefs.lastSelectedId,
   );
+  const [teamActivityOpen, setTeamActivityOpen] = useState(false);
   const [assignAgentId, setAssignAgentId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [approvalTick, setApprovalTick] = useState(0);
+  const [directoryHasMore, setDirectoryHasMore] = useState(false);
+  const directoryScrollRef = useRef<HTMLDivElement>(null);
 
   const openAgent = agents.find((a) => a.id === openAgentId) ?? null;
   const assignAgent = agents.find((a) => a.id === assignAgentId) ?? null;
@@ -56,7 +43,7 @@ export function AgentPage() {
 
   const counts = useMemo(
     () => summarizeAgents(agents, tasks, approvals),
-    [agents, tasks, approvals, approvalTick],
+    [agents, tasks, approvals],
   );
 
   useEffect(() => {
@@ -64,216 +51,303 @@ export function AgentPage() {
   }, [openAgentId]);
 
   useEffect(() => {
+    const scroller = directoryScrollRef.current;
+    if (!scroller) return;
+
+    const updateScrollCue = () => {
+      const remaining =
+        scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+      setDirectoryHasMore(remaining > 10);
+    };
+    const frame = window.requestAnimationFrame(updateScrollCue);
+    const observer = new ResizeObserver(updateScrollCue);
+    observer.observe(scroller);
+    scroller.addEventListener("scroll", updateScrollCue, { passive: true });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      scroller.removeEventListener("scroll", updateScrollCue);
+    };
+  }, [agents.length]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const typing =
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable);
-      if (!typing && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        setWizardDraft(blankAgent());
-      }
       if (e.key === "Escape") {
-        if (confirmDeleteId) setConfirmDeleteId(null);
-        else if (assignAgentId) setAssignAgentId(null);
-        else if (templatesOpen) setTemplatesOpen(false);
-        else if (wizardDraft) setWizardDraft(null);
+        if (assignAgentId) setAssignAgentId(null);
+        else if (teamActivityOpen) setTeamActivityOpen(false);
         else if (openAgentId) setOpenAgentId(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [
-    confirmDeleteId,
-    assignAgentId,
-    templatesOpen,
-    wizardDraft,
-    openAgentId,
-  ]);
+  }, [assignAgentId, teamActivityOpen, openAgentId]);
 
-  const toggleAgent = (agent: AgentConfig, next: boolean) => {
-    if (next) {
-      const check = canActivateHealth(agent);
-      if (!check.ok) {
-        window.alert(check.reason ?? "Cannot activate this agent.");
-        return;
-      }
-    }
-    updateAgent(agent.id, { enabled: next });
-    appendAgentActivity(agent.id, {
-      type: next ? "activated" : "paused",
-      title: next ? "Agent activated" : "Agent paused",
-      summary: next
-        ? `${agent.name} is enabled and idle — no autonomous runtime is executing yet.`
-        : `${agent.name} was paused.`,
-      status: "info",
-    });
-    addActivity(`${next ? "Enabled" : "Paused"} agent ${agent.name}`, "agent");
+  const selectAgent = (agentId: string) => {
+    setTeamActivityOpen(false);
+    setOpenAgentId(agentId);
   };
-  void toggleAgent;
 
   return (
     <div className="agent-page">
-      <div className="agent-command-center">
-        <aside className="agent-command-side agent-command-left">
-          <section className="agent-prime-overview agent-surface">
+      <div className="agent-list-workspace">
+        <aside className="agent-resource-panel agent-surface">
+          <div className="agent-resource-head">
             <span className="agent-rail-label">Prime agent</span>
             <strong>{primeAgent?.name ?? "Not assigned"}</strong>
-            <p>Receives new work, selects specialists, and supervises every handoff.</p>
-            <div className="agent-card-actions">
-              <button
-                type="button"
-                className="btn btn-small"
-                onClick={() => setTemplatesOpen(true)}
-              >
-                Templates
-              </button>
-              <button
-                type="button"
-                className="btn btn-small btn-primary"
-                onClick={() => setWizardDraft(blankAgent())}
-              >
-                <PlusIcon size={12} /> Create
-              </button>
-            </div>
-            {primeAgent ? (
-              <button
-                type="button"
-                className="agent-rail-link agent-prime-open"
-                onClick={() => setOpenAgentId(primeAgent.id)}
-              >
-                Open command profile
-              </button>
-            ) : null}
-          </section>
-          <section className="agent-side-feature agent-surface tone-blue">
-            <span className="agent-rail-label">Delegation flow</span>
-            <strong>{tasks.filter((task) => Boolean(task.agent)).length}<small> assigned tasks</small></strong>
-            <p>{tasks.filter((task) => !task.agent).length} waiting for the Prime Agent to route.</p>
-            <div className="agent-side-meter"><span style={{ width: `${tasks.length ? (tasks.filter((task) => Boolean(task.agent)).length / tasks.length) * 100 : 0}%` }} /></div>
-          </section>
-          <section className="agent-side-feature agent-surface tone-green">
-            <span className="agent-rail-label">Team capacity</span>
-            <strong>{counts.active + counts.idleConfigured}<small> ready agents</small></strong>
-            <p>{counts.paused} paused · {counts.failed} need attention</p>
-            <div className="agent-mini-avatars">
-              {agents.slice(0, 5).map((agent) => (
-                <button key={agent.id} type="button" onClick={() => setOpenAgentId(agent.id)} aria-label={agent.name}>
-                  {agentAvatarSrc(agent.avatarId) ? <img src={agentAvatarSrc(agent.avatarId)} alt="" /> : agent.initials}
-                </button>
-              ))}
-            </div>
-          </section>
-        </aside>
-
-        <div className="agent-command-orbit">
-          <div className="agent-command-title">
-            <span>Agent command constellation</span>
-            <strong>Your team, coordinated in real time</strong>
-            <p>Specialists orbit the Prime Agent. Select any profile to inspect its role, workload, and permissions.</p>
+            <p>
+              Receives new work, selects specialists, and supervises every
+              handoff.
+            </p>
           </div>
-          <AgentConstellation
-            agents={agents}
-            onOpen={setOpenAgentId}
-            onCreate={() => setWizardDraft(blankAgent())}
-            centerStage
-          />
-        </div>
-
-        <aside className="agent-command-side agent-command-right">
-          <ApprovalQueueCard
-            approvals={approvals}
-            agents={agents}
-            onChanged={() => setApprovalTick((n) => n + 1)}
-          />
-          <RecentAgentActivityCard
-            agents={agents}
-            onViewAll={() => {
-              if (agents[0]) setOpenAgentId(agents[0].id);
-            }}
-          />
-          <section className="agent-side-feature agent-surface tone-violet">
-            <span className="agent-rail-label">Agent network</span>
-            <strong>{agents.length}<small> specialists</small></strong>
-            <p>{counts.waiting} approvals waiting · {counts.completedToday} completed today</p>
-            <div className="agent-network-status"><span /> Network ready</div>
-          </section>
-        </aside>
-      </div>
-
-      {templatesOpen ? (
-        <div className="modal-backdrop" onClick={() => setTemplatesOpen(false)}>
-          <div
-            className="modal template-gallery"
-            role="dialog"
-            aria-label="Agent templates"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-head">
-              <div>
-                <span className="modal-title">Agent templates</span>
-                <p className="template-gallery-lede">
-                  Prefills identity and instructions. Permissions stay safe by
-                  default — nothing is granted automatically.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn btn-small"
-                onClick={() => setTemplatesOpen(false)}
-              >
-                Close
-              </button>
+          <div className="agent-resource-stats">
+            <div>
+              <span>Specialists</span>
+              <strong>{agents.length}</strong>
             </div>
-            <div className="template-grid">
-              {AGENT_TEMPLATES.map((template) => (
+            <div>
+              <span>Ready</span>
+              <strong>{counts.active + counts.idleConfigured}</strong>
+            </div>
+            <div>
+              <span>Assigned</span>
+              <strong>
+                {tasks.filter((task) => Boolean(task.agent)).length}
+              </strong>
+            </div>
+            <div>
+              <span>Approvals</span>
+              <strong>{counts.waiting}</strong>
+            </div>
+          </div>
+          <div className="agent-resource-block">
+            <span className="agent-rail-label">Team resources</span>
+            {agents.slice(0, 3).map((agent) => (
+              <button
+                key={agent.id}
+                type="button"
+                className={`agent-resource-row${!teamActivityOpen && openAgentId === agent.id ? " active" : ""}`}
+                onClick={() => selectAgent(agent.id)}
+              >
+                <span className="agent-resource-avatar">
+                  {agentAvatarSrc(agent.avatarId) ? (
+                    <img src={agentAvatarSrc(agent.avatarId)} alt="" />
+                  ) : (
+                    agent.initials
+                  )}
+                </span>
+                <span>
+                  <strong>{agent.name}</strong>
+                  <small>{agent.role}</small>
+                </span>
+                <i className={agent.enabled ? "online" : ""} />
+              </button>
+            ))}
+          </div>
+          <div className="agent-resource-summary">
+            <span className="agent-rail-label">Delegation flow</span>
+            <div className="agent-resource-meter"><span style={{ width: `${tasks.length ? (tasks.filter((task) => Boolean(task.agent)).length / tasks.length) * 100 : 0}%` }} /></div>
+            <p><strong>{tasks.filter((task) => Boolean(task.agent)).length}</strong> assigned <span>{tasks.filter((task) => !task.agent).length} waiting</span></p>
+          </div>
+          <div className="agent-resource-foot">
+            <span>
+              <i /> Network ready
+            </span>
+            <small>{counts.completedToday} completed today</small>
+          </div>
+        </aside>
+
+        <section className="agent-directory">
+          <header className="agent-directory-head">
+            <div>
+              <span className="agent-rail-label">Agent workspace</span>
+              <h1>Your agent team</h1>
+              <p>
+                Select a specialist to inspect resources, permissions, and
+                current work.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`btn agent-team-activity-trigger${teamActivityOpen ? " active" : ""}`}
+              onClick={() => setTeamActivityOpen(true)}
+            >
+              <ClockIcon size={13} /> Team activity
+            </button>
+          </header>
+          <div
+            className="agent-card-list"
+            ref={directoryScrollRef}
+            onScroll={() => {
+              const scroller = directoryScrollRef.current;
+              if (!scroller) return;
+              setDirectoryHasMore(
+                scroller.scrollHeight -
+                  scroller.scrollTop -
+                  scroller.clientHeight >
+                  10,
+              );
+            }}
+          >
+            {agents.map((agent) => {
+              const assigned = tasks.filter(
+                (task) => task.agent === agent.name && !task.completed,
+              ).length;
+              return (
                 <button
-                  key={template.id}
+                  key={agent.id}
                   type="button"
-                  className="template-card"
-                  onClick={() => {
-                    setTemplatesOpen(false);
-                    setWizardDraft(agentFromTemplate(template));
-                  }}
+                  className={`agent-directory-card agent-surface${!teamActivityOpen && openAgentId === agent.id ? " selected" : ""}`}
+                  onClick={() => selectAgent(agent.id)}
                 >
-                  <span className="agent-avatar template-avatar" aria-hidden="true">
-                    {agentAvatarSrc(template.avatarId) ? (
-                      <img src={agentAvatarSrc(template.avatarId)} alt="" />
+                  <span className="agent-directory-avatar">
+                    {agentAvatarSrc(agent.avatarId) ? (
+                      <img src={agentAvatarSrc(agent.avatarId)} alt="" />
                     ) : (
-                      template.initials
+                      agent.initials
                     )}
                   </span>
-                  <span className="template-meta">
-                    <span className="template-name">{template.name}</span>
-                    <span className="template-role">{template.role}</span>
-                    <span className="template-purpose">{template.purpose}</span>
-                    <span className="template-note">
-                      {template.recommendedPermissionNote}
+                  <span className="agent-directory-copy">
+                    <span className="agent-directory-name">
+                      {agent.name}
+                      {agent.isPrime ? <em>Prime</em> : null}
+                    </span>
+                    <span className="agent-directory-role">{agent.role}</span>
+                    <span className="agent-directory-description">
+                      {agent.description}
                     </span>
                   </span>
+                  <span className="agent-directory-meta">
+                    <span
+                      className={`agent-status-dot${agent.enabled ? " active" : ""}`}
+                    >
+                      {agentStatus(agent)}
+                    </span>
+                    <strong>{assigned}</strong>
+                    <small>open tasks</small>
+                  </span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </div>
-      ) : null}
+          <button
+            type="button"
+            className={`agent-directory-scroll-cue${directoryHasMore ? " visible" : ""}`}
+            aria-label="Scroll to more agents"
+            onClick={() => {
+              const scroller = directoryScrollRef.current;
+              scroller?.scrollBy({
+                top: Math.max(scroller.clientHeight * 0.72, 240),
+                behavior: "smooth",
+              });
+            }}
+          >
+            <ChevronDownIcon size={17} />
+          </button>
+        </section>
 
-      {wizardDraft ? (
-        <AgentCreationWizard
-          draft={wizardDraft}
-          onClose={() => setWizardDraft(null)}
-          onCreated={(agent) => {
-            setWizardDraft(null);
-            setOpenAgentId(agent.id);
-          }}
-        />
-      ) : null}
-
-      {openAgent ? (
-        <AgentDetail agent={openAgent} onClose={() => setOpenAgentId(null)} />
-      ) : null}
+        <aside className="agent-inspector agent-surface">
+          {teamActivityOpen ? (
+            <TeamActivityPanel agents={agents} onSelectAgent={selectAgent} />
+          ) : openAgent ? (
+            <>
+              <div className="agent-inspector-hero">
+                <span className="agent-inspector-avatar">
+                  {agentAvatarSrc(openAgent.avatarId) ? (
+                    <img src={agentAvatarSrc(openAgent.avatarId)} alt="" />
+                  ) : (
+                    openAgent.initials
+                  )}
+                </span>
+                <span className="agent-rail-label">Selected agent</span>
+                <h2>{openAgent.name}</h2>
+                <p>{openAgent.role}</p>
+                <span
+                  className={`agent-inspector-status${openAgent.enabled ? " active" : ""}`}
+                >
+                  {agentStatus(openAgent)}
+                </span>
+              </div>
+              <div className="agent-inspector-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setAssignAgentId(openAgent.id)}
+                >
+                  Assign task
+                </button>
+                {!openAgent.isPrime ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setPrimeAgent(openAgent.id)}
+                  >
+                    Set as prime
+                  </button>
+                ) : null}
+              </div>
+              <div className="agent-inspector-section">
+                <span className="agent-rail-label">Objective</span>
+                <p>
+                  {openAgent.instructions.objective || openAgent.description}
+                </p>
+              </div>
+              <div className="agent-inspector-grid">
+                <div>
+                  <span>Model</span>
+                  <strong>{openAgent.modelId || "Automatic"}</strong>
+                </div>
+                <div>
+                  <span>Reasoning</span>
+                  <strong>{openAgent.reasoningPreference}</strong>
+                </div>
+                <div>
+                  <span>Memory</span>
+                  <strong>{openAgent.memory.mode}</strong>
+                </div>
+                <div>
+                  <span>Runtime</span>
+                  <strong>{openAgent.runtimeType}</strong>
+                </div>
+              </div>
+              <div className="agent-inspector-section">
+                <span className="agent-rail-label">Resources</span>
+                <div className="agent-permission-list">
+                  {Object.entries(openAgent.permissions)
+                    .slice(0, 6)
+                    .map(([key, level]) => (
+                      <span key={key}>
+                        {key}
+                        <em>{level}</em>
+                      </span>
+                    ))}
+                </div>
+              </div>
+              <div className="agent-inspector-section">
+                <span className="agent-rail-label">Recent activity</span>
+                {openAgent.activity.slice(0, 5).map((entry, index) => (
+                  <div
+                    className="agent-activity-line"
+                    key={`${entry.title}-${index}`}
+                  >
+                    <i />
+                    <span>
+                      <strong>{entry.title}</strong>
+                      <small>{entry.summary}</small>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={<BotIcon size={24} />}
+              title="Select an agent"
+              description="Choose a specialist to inspect its work, permissions, and resources."
+            />
+          )}
+        </aside>
+      </div>
 
       {assignAgent ? (
         <AssignTaskModal
@@ -283,45 +357,97 @@ export function AgentPage() {
         />
       ) : null}
 
-      {confirmDeleteId ? (
-        <div
-          className="modal-backdrop"
-          onClick={() => setConfirmDeleteId(null)}
-        >
-          <div
-            className="modal"
-            role="alertdialog"
-            aria-label="Delete agent"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="modal-title">Delete this agent?</h2>
-            <p className="page-lede" style={{ marginTop: 8 }}>
-              Configuration will be removed. Assigned tasks keep their titles
-              but lose this owner name.
-            </p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setConfirmDeleteId(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => {
-                  removeAgent(confirmDeleteId);
-                  if (openAgentId === confirmDeleteId) setOpenAgentId(null);
-                  setConfirmDeleteId(null);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
+    </div>
+  );
+}
+
+function TeamActivityPanel({
+  agents,
+  onSelectAgent,
+}: {
+  agents: AgentConfig[];
+  onSelectAgent: (agentId: string) => void;
+}) {
+  const activity = agents
+    .flatMap((agent) =>
+      agent.activity.map((entry) => ({
+        ...entry,
+        agentId: agent.id,
+        agentName: agent.name,
+      })),
+    )
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, 12);
+
+  return (
+    <div className="agent-team-activity">
+      <div className="agent-team-activity-head">
+        <span className="agent-rail-label">Team overview</span>
+        <h2>Team activity</h2>
+        <p>See what every built-in specialist is doing and review recent work.</p>
+      </div>
+
+      <section className="agent-inspector-section">
+        <span className="agent-rail-label">Current status</span>
+        <div className="agent-team-status-list">
+          {agents.slice(0, 4).map((agent) => (
+            <button
+              key={agent.id}
+              type="button"
+              onClick={() => onSelectAgent(agent.id)}
+            >
+              <span className="agent-team-status-avatar">
+                {agentAvatarSrc(agent.avatarId) ? (
+                  <img src={agentAvatarSrc(agent.avatarId)} alt="" />
+                ) : (
+                  agent.initials
+                )}
+              </span>
+              <span>
+                <strong>{agent.name}</strong>
+                <small>{agent.role}</small>
+              </span>
+              <em className={agent.enabled ? "active" : ""}>
+                {agentStatus(agent)}
+              </em>
+            </button>
+          ))}
         </div>
-      ) : null}
+      </section>
+
+      <section className="agent-inspector-section">
+        <span className="agent-rail-label">History</span>
+        {activity.length ? (
+          <div className="agent-team-history">
+            {activity.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => onSelectAgent(entry.agentId)}
+              >
+                <i />
+                <span>
+                  <strong>
+                    {entry.agentName}
+                    <em>{entry.title}</em>
+                  </strong>
+                  <small>{entry.summary}</small>
+                  <time dateTime={entry.createdAt}>
+                    {relativeTime(Date.parse(entry.createdAt))}
+                  </time>
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={<ClockIcon size={23} />}
+            title="No activity yet"
+            description="Agent work and assignments will appear here."
+            compact
+          />
+        )}
+      </section>
     </div>
   );
 }

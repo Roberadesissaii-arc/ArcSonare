@@ -9,11 +9,12 @@ import "./styles/cards.css";
 import "./styles/agents.css";
 import "./styles/data-privacy.css";
 import "./styles/voice.css";
+import "./styles/voice-lab.css";
 import "./styles/overlay.css";
 import "./styles/settings.css";
-import "./styles/screen-context.css";
 import "./styles/quick-menu.css";
 import "./styles/responsive.css";
+import "./styles/auth.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

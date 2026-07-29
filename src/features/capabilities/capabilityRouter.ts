@@ -38,6 +38,27 @@ function folderKey(word: string): string {
 }
 
 /**
+ * Remove conversational wrapper words from an application name while keeping
+ * the actual product name intact. Voice transcripts commonly contain phrases
+ * such as "my Discord" or "an application called Arduino".
+ */
+export function normalizeApplicationTarget(raw: string): string {
+  let target = normalize(raw);
+  target = target.replace(/\s+(?:please|for me)$/g, "").trim();
+  target = target
+    .replace(/^(?:(?:my|the|a|an)\s+)+/g, "")
+    .replace(
+      /^(?:(?:desktop|windows)\s+)?(?:app|application|program)\s+(?:called|named)\s+/,
+      "",
+    )
+    .replace(/^(?:called|named)\s+/, "")
+    .replace(/^(?:(?:my|the|a|an)\s+)+/g, "")
+    .replace(/\s+(?:desktop\s+)?(?:app|application|program)$/g, "")
+    .trim();
+  return target;
+}
+
+/**
  * Stage 1 — deterministic routes. Returns null when no obvious match; the
  * request then goes through retrieval + model tool selection.
  */
@@ -47,28 +68,33 @@ export function routeDeterministic(input: string): DeterministicRoute | null {
 
   // ---- time & date -------------------------------------------------------
   if (
-    /^(what time is it|what's the time|what is the time|current time|tell me the time|time now|the time)$/.test(q) ||
-    /^(what('s| is) the (date and time|time and date))$/.test(q)
+    /^(what(?:'s| is) the (?:current )?time|what time is it(?: now)?|tell me the time|current time)$/.test(
+      q,
+    ) ||
+    /^time(?: please)?$/.test(q)
   ) {
     return {
       capabilityId: "system.get_local_datetime",
-      arguments: { format: "spoken" },
+      arguments: { format: "spoken", include_timezone: false },
       localResponse: true,
     };
   }
   if (
-    /^(what day is it|what('s| is) today('s)? date|what('s| is) the date|today's date|current date|what day of the week is it)$/.test(q)
+    /^(what(?:'s| is) (?:the )?(?:current )?date|what(?:'s| is) today(?:'s date)?|tell me the date|current date)$/.test(
+      q,
+    ) ||
+    /^(what day is it(?: today)?)$/.test(q)
   ) {
     return {
       capabilityId: "system.get_local_datetime",
-      arguments: { format: "spoken" },
+      arguments: { format: "spoken", include_timezone: false },
       localResponse: true,
     };
   }
-  if (/^(what timezone am i in|what('s| is) my timezone|current timezone)$/.test(q)) {
+  if (/^(what timezone am i in|what(?:'s| is) my timezone)$/.test(q)) {
     return {
       capabilityId: "system.get_local_datetime",
-      arguments: { format: "full", include_timezone: true },
+      arguments: { format: "spoken", include_timezone: true },
       localResponse: true,
     };
   }
@@ -134,37 +160,13 @@ export function routeDeterministic(input: string): DeterministicRoute | null {
     };
   }
 
-  // ---- create folder -------------------------------------------------------
-  const mkdir = q.match(
-    new RegExp(
-      `^(?:create|make|add)(?: a| a new)? folder(?: (?:called|named))? ['"]?(.+?)['"]?(?: (?:on|in)(?: my| the)? ${KNOWN_FOLDERS})?$`,
-    ),
-  );
-  if (mkdir) {
-    const name = mkdir[1].trim();
-    const folder = mkdir[2] ? folderKey(mkdir[2]) : "desktop";
-    if (name && name.length <= 200) {
-      return {
-        capabilityId: "filesystem.create_directory",
-        // parent_path resolved by the engine from the known folder.
-        arguments: { __known_parent: folder, name },
-        localResponse: true,
-      };
-    }
-  }
+  // ---- create folder / file ------------------------------------------------
+  // Intentionally NOT deterministic. Folder/file creation goes through the
+  // model tool loop so the AI selects the tool, sees the verified result, and
+  // can answer follow-ups (“where did you create it?”).
 
   // ---- delete --------------------------------------------------------------
-  const del = q.match(/^(?:delete|remove|trash)(?: the)? (?:folder |file )?['"]?(.+?)['"]?(?: folder| file)?$/);
-  if (del) {
-    const target = del[1].trim();
-    if (target && target.length <= 200 && !target.includes("task")) {
-      return {
-        capabilityId: "filesystem.delete",
-        arguments: { __find_target: target, mode: "recycle-bin" },
-        localResponse: true,
-      };
-    }
-  }
+  // Destructive deletes also go through the model (confirmation + memory).
 
   // ---- find ------------------------------------------------------------------
   const find = q.match(
@@ -215,6 +217,51 @@ export function routeDeterministic(input: string): DeterministicRoute | null {
       localResponse: true,
     };
   }
+
+  // ---- location / weather / nearby / travel ---------------------------------
+  if (
+    /^(?:what(?:'s| is)|how(?:'s| is))(?: the)? weather(?: like)?(?: (?:outside|today|right now|now))?(?: (?:here|near me))?$/.test(
+      q,
+    ) ||
+    /^(?:weather(?: (?:outside|today|here|near me))?|temperature(?: outside)?|is it (?:raining|snowing|cold|hot|warm)(?: outside)?)$/.test(
+      q,
+    ) ||
+    /^what(?:'s| is) the temperature(?: outside| today| right now| now)?$/.test(q)
+  ) {
+    return {
+      capabilityId: "location.get_weather",
+      arguments: {},
+      localResponse: true,
+    };
+  }
+
+  const nearby =
+    q.match(/^(?:what(?:'s| is)|show(?: me)?|find)(?: (?:places?|spots?))? near(?:by)?(?: me)?$/) ||
+    q.match(/^(?:nearby|near me)(?: (.+))?$/) ||
+    q.match(/^(?:find|show(?: me)?|any) (.+?) near(?:by)?(?: me)?$/);
+  if (nearby) {
+    const query =
+      typeof nearby[1] === "string" && nearby[1].trim()
+        ? nearby[1].trim()
+        : "cafe";
+    return {
+      capabilityId: "location.get_nearby",
+      arguments: { query },
+      localResponse: true,
+    };
+  }
+
+  const travel =
+    q.match(/^(?:how long(?: (?:will it take|does it take))? to (?:get to|reach|drive to) (.+)$)/) ||
+    q.match(/^(?:how far is (.+?)(?: from (?:here|me))?$)/) ||
+    q.match(/^(?:travel time to|eta to|drive time to) (.+)$/);
+  if (travel) {
+    return {
+      capabilityId: "location.get_travel_time",
+      arguments: { destination: travel[1].trim() },
+      localResponse: true,
+    };
+  }
   if (/^(?:show|list)(?: me)?(?: my)? tasks$/.test(q)) {
     return {
       capabilityId: "tasks.list",
@@ -255,15 +302,16 @@ export function routeDeterministic(input: string): DeterministicRoute | null {
   // ---- app focus / close -------------------------------------------------------
   const focus = q.match(/^(?:switch to|focus|bring up) (.+)$/);
   if (focus) {
+    const target = normalizeApplicationTarget(focus[1]);
     return {
       capabilityId: "applications.focus",
-      arguments: { query: focus[1].trim() },
+      arguments: { query: target },
       localResponse: true,
     };
   }
   const close = q.match(/^(?:close|quit|exit) (.+)$/);
   if (close) {
-    const target = close[1].trim();
+    const target = normalizeApplicationTarget(close[1]);
     if (!/^(this|the app|arcsonare)$/.test(target)) {
       return {
         capabilityId: "applications.close",
@@ -274,9 +322,11 @@ export function routeDeterministic(input: string): DeterministicRoute | null {
   }
 
   // ---- open (apps / services / urls) — LAST so specific routes win -------------
-  const open = q.match(/^(?:open|launch|start|run)(?: the)? (.+?)(?: app| application)?$/);
+  const open = q.match(
+    /^(?:(?:(?:can|could|would) you|please|i want you to)\s+)?(?:open|launch|start|run)(?:\s+up)?\s+(.+)$/,
+  );
   if (open) {
-    const target = open[1].trim();
+    const target = normalizeApplicationTarget(open[1]);
     // In-app pages already matched above; URLs go to web.open_url.
     if (/^https?:\/\//.test(target)) {
       return {

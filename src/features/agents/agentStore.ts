@@ -1,11 +1,15 @@
 /**
- * Agent configuration store, persisted to localStorage. Seeded once with the
- * three demo agents (clearly flagged `demo`). Status is derived honestly: an
- * agent without an assigned model is "Not configured" — never "Active".
+ * Agent configuration store. Hydrated from SQLite; defaults seeded once when
+ * the DB is empty (production defaults — not demo-flagged content).
  */
 import { useSyncExternalStore } from "react";
 import { deriveAgentStatus } from "./agentHealth";
 import { defaultAvatarIdForAgent, type AgentAvatarId } from "./agentAvatars";
+import {
+  listAgentsFromDb,
+  softDeleteAgentInDb,
+  upsertAgentToDb,
+} from "../../services/agentPersistence";
 import {
   DEFAULT_AGENT_PREFS,
   emptyMetrics,
@@ -21,7 +25,6 @@ export type PermissionArea =
   | "calendar"
   | "email"
   | "files"
-  | "screen-context"
   | "browser"
   | "integrations"
   | "notifications";
@@ -37,7 +40,6 @@ export const PERMISSION_AREAS: {
   { id: "calendar", label: "Calendar", highRisk: false },
   { id: "email", label: "Email", highRisk: true },
   { id: "files", label: "Files", highRisk: true },
-  { id: "screen-context", label: "Screen Context", highRisk: true },
   { id: "browser", label: "Browser", highRisk: true },
   { id: "integrations", label: "Connected integrations", highRisk: true },
   { id: "notifications", label: "Notifications", highRisk: false },
@@ -51,7 +53,6 @@ export type TriggerId =
   | "task-assignment"
   | "notification"
   | "wake-phrase"
-  | "screen-context"
   | "connected-app";
 
 /** Triggers that actually fire in this build. */
@@ -195,7 +196,6 @@ const STORAGE_KEY = "arcsonare.agents.v2";
 const LEGACY_KEY = "arcsonare.agents.v1";
 const PREFS_KEY = "arcsonare.agents.prefs.v1";
 const APPROVALS_KEY = "arcsonare.agentApprovals.v1";
-const SCHEMA_VERSION = 2;
 
 function normalizeAgent(raw: Partial<AgentConfig> & { id: string }): AgentConfig {
   const base = blankAgent();
@@ -224,8 +224,6 @@ function seedAgents(): AgentConfig[] {
     description: string,
     initials: string,
     accentColor: string,
-    demoCurrentTask: string,
-    demoProgress: number,
   ): AgentConfig =>
     normalizeAgent({
       ...blankAgent(),
@@ -235,10 +233,9 @@ function seedAgents(): AgentConfig[] {
       description,
       initials,
       accentColor,
-      demo: true,
+      demo: false,
       enabled: false,
-      demoCurrentTask,
-      demoProgress,
+      isPrime: id === "project-manager",
       createdAt: Date.now() - 86_400_000,
       updatedAt: Date.now() - 3_600_000,
       activity: [
@@ -247,7 +244,7 @@ function seedAgents(): AgentConfig[] {
           agentId: id,
           type: "created",
           title: "Agent created",
-          summary: `${name} template was added to the workspace.`,
+          summary: `${name} was added to the workspace.`,
           status: "info",
           createdAt: new Date(Date.now() - 86_400_000).toISOString(),
         },
@@ -262,8 +259,6 @@ function seedAgents(): AgentConfig[] {
       "Keeps tasks, owners and deadlines aligned.",
       "PM",
       "#9565FF",
-      "Reorder today's tasks around the launch briefing",
-      66,
     ),
     seed(
       "research-analyst",
@@ -272,8 +267,6 @@ function seedAgents(): AgentConfig[] {
       "Scans sources and summarizes what changed.",
       "RA",
       "#5995F2",
-      "Market scan — 3 sources summarized",
-      40,
     ),
     seed(
       "content-creator",
@@ -282,13 +275,70 @@ function seedAgents(): AgentConfig[] {
       "Drafts documents, decks and messages.",
       "CC",
       "#43BCD3",
-      "Strategy deck outline waiting for review",
-      85,
+    ),
+    seed(
+      "executive-assistant",
+      "Executive Assistant",
+      "Assistant",
+      "Manages schedule, reminders and daily preparation.",
+      "EA",
+      "#8B70E8",
+    ),
+    seed(
+      "email-assistant",
+      "Email Assistant",
+      "Communication",
+      "Triages the inbox and drafts replies.",
+      "EM",
+      "#4EADEB",
+    ),
+    seed(
+      "meeting-assistant",
+      "Meeting Assistant",
+      "Meetings",
+      "Prepares agendas and captures follow-ups.",
+      "MA",
+      "#7B6BE6",
+    ),
+    seed(
+      "file-organizer",
+      "File Organizer",
+      "Files",
+      "Keeps folders tidy and findable.",
+      "FO",
+      "#41C6A5",
+    ),
+    seed(
+      "screen-analyst",
+      "Screen Analyst",
+      "Screen",
+      "Explains what is currently on screen.",
+      "SA",
+      "#557CEB",
+    ),
+    seed(
+      "data-analyst",
+      "Data Analyst",
+      "Analytics",
+      "Finds patterns and turns datasets into clear decisions.",
+      "DA",
+      "#43CBB9",
+    ),
+    seed(
+      "workflow-automator",
+      "Workflow Automator",
+      "Automation",
+      "Connects repeatable steps into reliable workflows.",
+      "WA",
+      "#A16ADD",
     ),
   ];
 }
 
-function load(): AgentConfig[] {
+const MIGRATED_FLAG = "arcsonare.agents.sqliteMigrated.v1";
+const ABSTRACT_TEAM_FLAG = "arcsonare.agents.abstractTeam.v1";
+
+function loadFromLocalStorage(): AgentConfig[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -310,19 +360,14 @@ function load(): AgentConfig[] {
     }
     const legacy = window.localStorage.getItem(LEGACY_KEY);
     if (legacy) {
-      const migrated = (JSON.parse(legacy) as unknown[]).map((a) =>
+      return (JSON.parse(legacy) as unknown[]).map((a) =>
         normalizeAgent(a as Partial<AgentConfig> & { id: string }),
       );
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ version: SCHEMA_VERSION, agents: migrated }),
-      );
-      return migrated;
     }
   } catch (err) {
     console.error("[ArcSonare] failed to load agents:", err);
   }
-  return seedAgents();
+  return [];
 }
 
 function loadPrefs(): AgentPrefs {
@@ -347,26 +392,26 @@ function loadApprovals(): AgentApproval[] {
   return [];
 }
 
-let agents: AgentConfig[] = load();
+let agents: AgentConfig[] = [];
 let prefs: AgentPrefs = loadPrefs();
 let approvals: AgentApproval[] = loadApprovals();
 const listeners = new Set<() => void>();
 const prefsListeners = new Set<() => void>();
 const approvalListeners = new Set<() => void>();
 
-function persistAgents() {
-  try {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ version: SCHEMA_VERSION, agents }),
-    );
-  } catch (err) {
-    console.error("[ArcSonare] failed to persist agents:", err);
-  }
+function syncAgentAsync(agent: AgentConfig) {
+  void upsertAgentToDb({ ...agent, demo: false }).catch((err) =>
+    console.error("[ArcSonare] agent upsert failed:", err),
+  );
+}
+
+function deleteAgentAsync(id: string) {
+  void softDeleteAgentInDb(id).catch((err) =>
+    console.error("[ArcSonare] agent delete failed:", err),
+  );
 }
 
 function emitAgents() {
-  persistAgents();
   listeners.forEach((l) => l());
 }
 
@@ -388,10 +433,76 @@ function emitApprovals() {
   approvalListeners.forEach((l) => l());
 }
 
+/** Hydrate agents from SQLite; seed defaults when empty. */
+export async function hydrateAgentsFromDb(): Promise<void> {
+  try {
+    let fromDb = await listAgentsFromDb(normalizeAgent);
+    const migrated = window.localStorage.getItem(MIGRATED_FLAG) === "1";
+
+    if (fromDb.length === 0 && !migrated) {
+      const local = loadFromLocalStorage().map((a) => ({ ...a, demo: false }));
+      const toWrite = local.length > 0 ? local : seedAgents();
+      for (const agent of toWrite) {
+        try {
+          await upsertAgentToDb({ ...agent, demo: false });
+        } catch (err) {
+          console.error("[ArcSonare] migrate agent failed:", err);
+        }
+      }
+      window.localStorage.setItem(MIGRATED_FLAG, "1");
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(LEGACY_KEY);
+      fromDb = await listAgentsFromDb(normalizeAgent);
+    } else if (fromDb.length === 0) {
+      const defaults = seedAgents();
+      for (const agent of defaults) {
+        await upsertAgentToDb(agent).catch(() => undefined);
+      }
+      fromDb = await listAgentsFromDb(normalizeAgent);
+    } else if (!migrated) {
+      window.localStorage.setItem(MIGRATED_FLAG, "1");
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(LEGACY_KEY);
+    }
+
+    if (window.localStorage.getItem(ABSTRACT_TEAM_FLAG) !== "1") {
+      const existingIds = new Set(fromDb.map((agent) => agent.id));
+      const missing = seedAgents().filter((agent) => !existingIds.has(agent.id));
+      let seededAll = true;
+      for (const agent of missing) {
+        try {
+          await upsertAgentToDb(agent);
+        } catch (err) {
+          seededAll = false;
+          console.error("[ArcSonare] abstract agent seed failed:", err);
+        }
+      }
+      if (seededAll) {
+        window.localStorage.setItem(ABSTRACT_TEAM_FLAG, "1");
+      }
+      if (missing.length > 0) {
+        fromDb = await listAgentsFromDb(normalizeAgent);
+      }
+    }
+
+    agents = fromDb.map((a) => ({ ...a, demo: false }));
+    emitAgents();
+  } catch (err) {
+    console.error("[ArcSonare] hydrate agents failed:", err);
+    const local = loadFromLocalStorage();
+    agents = (local.length > 0 ? local : seedAgents()).map((a) => ({
+      ...a,
+      demo: false,
+    }));
+    emitAgents();
+  }
+}
+
 export function addAgent(agent: AgentConfig) {
   const now = Date.now();
   const withMeta: AgentConfig = {
     ...normalizeAgent(agent),
+    demo: false,
     createdAt: agent.createdAt || now,
     updatedAt: now,
     activity:
@@ -411,13 +522,18 @@ export function addAgent(agent: AgentConfig) {
   };
   agents = [withMeta, ...agents];
   emitAgents();
+  syncAgentAsync(withMeta);
 }
 
 export function updateAgent(id: string, patch: Partial<AgentConfig>) {
-  agents = agents.map((a) =>
-    a.id === id ? { ...a, ...patch, updatedAt: Date.now() } : a,
-  );
+  let next: AgentConfig | null = null;
+  agents = agents.map((a) => {
+    if (a.id !== id) return a;
+    next = { ...a, ...patch, demo: false, updatedAt: Date.now() };
+    return next;
+  });
   emitAgents();
+  if (next) syncAgentAsync(next);
 }
 
 export function setPrimeAgent(id: string) {
@@ -427,6 +543,7 @@ export function setPrimeAgent(id: string) {
     updatedAt: agent.id === id ? Date.now() : agent.updatedAt,
   }));
   emitAgents();
+  for (const agent of agents) syncAgentAsync(agent);
 }
 
 export function removeAgent(id: string) {
@@ -438,6 +555,7 @@ export function removeAgent(id: string) {
   }
   emitApprovals();
   emitAgents();
+  deleteAgentAsync(id);
 }
 
 export function appendAgentActivity(
@@ -467,6 +585,8 @@ export function appendAgentActivity(
       : a,
   );
   emitAgents();
+  const updated = agents.find((a) => a.id === agentId);
+  if (updated) syncAgentAsync(updated);
 }
 
 export function setAgentPrefs(patch: Partial<AgentPrefs>) {

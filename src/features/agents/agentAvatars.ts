@@ -1,11 +1,13 @@
-import novaAvatar from "../../assets/agents/nova-project-manager.webp";
-import atlasAvatar from "../../assets/agents/atlas-research-analyst.webp";
-import lyraAvatar from "../../assets/agents/lyra-content-creator.webp";
-import celesteAvatar from "../../assets/agents/celeste-executive-assistant.webp";
-import echoAvatar from "../../assets/agents/echo-email-assistant.webp";
-import miraAvatar from "../../assets/agents/mira-meeting-assistant.webp";
-import rowanAvatar from "../../assets/agents/rowan-file-organizer.webp";
-import soraAvatar from "../../assets/agents/sora-screen-analyst.webp";
+import novaAvatar from "../../assets/agents/abstract-project-manager-v2.jpg";
+import atlasAvatar from "../../assets/agents/abstract-research-analyst-v2.jpg";
+import lyraAvatar from "../../assets/agents/abstract-content-creator-v2.jpg";
+import celesteAvatar from "../../assets/agents/abstract-executive-assistant-v2.jpg";
+import echoAvatar from "../../assets/agents/abstract-email-assistant-v2.jpg";
+import miraAvatar from "../../assets/agents/abstract-meeting-assistant-v2.jpg";
+import rowanAvatar from "../../assets/agents/abstract-file-organizer-v2.jpg";
+import soraAvatar from "../../assets/agents/abstract-screen-analyst-v2.jpg";
+import pulseAvatar from "../../assets/agents/abstract-data-analyst-v2.jpg";
+import fluxAvatar from "../../assets/agents/abstract-workflow-automator-v2.jpg";
 
 export const AGENT_AVATARS = {
   nova: novaAvatar,
@@ -16,6 +18,8 @@ export const AGENT_AVATARS = {
   mira: miraAvatar,
   rowan: rowanAvatar,
   sora: soraAvatar,
+  pulse: pulseAvatar,
+  flux: fluxAvatar,
 } as const;
 
 export type AgentAvatarId = keyof typeof AGENT_AVATARS;
@@ -34,5 +38,7 @@ export function defaultAvatarIdForAgent(id: string): AgentAvatarId | null {
   if (id === "meeting-assistant") return "mira";
   if (id === "file-organizer") return "rowan";
   if (id === "screen-analyst") return "sora";
+  if (id === "data-analyst") return "pulse";
+  if (id === "workflow-automator") return "flux";
   return null;
 }

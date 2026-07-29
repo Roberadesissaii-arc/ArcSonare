@@ -30,7 +30,7 @@ function composeDatetime(result: ToolResult, request: string): string {
   if (/\b(day|date)\b/.test(q)) {
     return `Today is ${data.date ?? data.local_datetime ?? "unknown"}.`;
   }
-  return `It's ${data.time ?? data.local_datetime ?? "unknown"}.`;
+  return `The current time is ${data.time ?? data.local_datetime ?? "unknown"}.`;
 }
 
 function composeListing(result: ToolResult): string {
@@ -77,9 +77,20 @@ export function composeResponse(result: ToolResult, request: string): string {
     return result.summary;
   }
   if (result.status === "error") {
-    return result.error?.message
-      ? `That didn't work: ${result.error.message}`
-      : result.summary;
+    const raw = result.error?.message || result.summary;
+    // Never echo internal tool ids or raw schema noise to the user.
+    const cleaned = raw
+      .replace(/\b[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*\b/gi, "")
+      .replace(/\bArguments were rejected:?\s*/gi, "")
+      .replace(/\bInvalid arguments:?\s*/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    if (result.error?.code === "invalid-arguments") {
+      return "I couldn't complete that with the details I had. Please try asking again.";
+    }
+    return cleaned
+      ? `That didn't work: ${cleaned}`
+      : "That didn't work. Please try again.";
   }
   if (result.status === "needs-confirmation") {
     return result.summary;
@@ -91,6 +102,20 @@ export function composeResponse(result: ToolResult, request: string): string {
     case "filesystem.list_known_folder":
     case "filesystem.list_directory":
       return composeListing(result);
+    case "filesystem.create_directory": {
+      const data = (result.data ?? {}) as { path?: string };
+      if (data.path) {
+        return `I created the folder at ${data.path}.`;
+      }
+      return result.summary;
+    }
+    case "filesystem.create_file": {
+      const data = (result.data ?? {}) as { path?: string };
+      if (data.path) {
+        return `I created the file at ${data.path}.`;
+      }
+      return result.summary;
+    }
     case "applications.open": {
       const data = (result.data ?? {}) as { application?: string; method?: string; action?: string };
       if (data.action === "focused-existing") {
@@ -108,6 +133,10 @@ export function composeResponse(result: ToolResult, request: string): string {
       return `Opened ${data.page ?? "the page"}.`;
     }
     case "tasks.create":
+      return result.summary;
+    case "location.get_weather":
+    case "location.get_nearby":
+    case "location.get_travel_time":
       return result.summary;
     default:
       return result.summary;

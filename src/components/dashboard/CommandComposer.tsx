@@ -1,42 +1,43 @@
 import { useEffect, useRef, useState, type ComponentType } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import {
-  ChartIcon,
   CheckIcon,
-  CheckSquareIcon,
   ChevronDownIcon,
   CloseIcon,
   CpuIcon,
+  FolderIcon,
   LayersIcon,
-  ListIcon,
-  MailIcon,
+  PaperclipIcon,
   SearchIcon,
   SendIcon,
   SparkleIcon,
+  MicIcon,
+  StopIcon,
   ZapIcon,
 } from "../Icons";
 import { SonareSparkle } from "../brand/SonareSparkle";
 import { addActivity } from "../../stores/appStore";
-import { parseOverlayIntent } from "../../features/top-overlay/iconResolver";
 import {
+  clearCenterWork,
   completeCenterWork,
-  requireCenterConfig,
+  setCenterView,
   startCenterWork,
 } from "../../stores/centerStageStore";
+import {
+  appendAssistantMessageChunk,
+  pushPendingAssistantMessage,
+  pushUserMessage,
+  resolveAssistantMessage,
+} from "../../stores/chatStore";
 import { askAssistant } from "../../services/AssistantService";
 import { getPrefs } from "../../stores/settingsStore";
-import { modelById } from "../../config/modelRegistry";
+import { getVoiceState, setVoiceStatus } from "../../stores/voiceStore";
+import {
+  startSpeechListening,
+  stopSpeechListening,
+} from "../../services/SpeechRecognitionService";
 
-const QUICK_ACTIONS: {
-  label: string;
-  prompt: string;
-  icon: ComponentType<{ size?: number }>;
-}[] = [
-  { label: "Summarize updates", prompt: "Summarize today's updates", icon: ListIcon },
-  { label: "Draft email", prompt: "Draft an email about ", icon: MailIcon },
-  { label: "Find insights", prompt: "Find insights in ", icon: ChartIcon },
-  { label: "Create task", prompt: "Create a task: ", icon: CheckSquareIcon },
-];
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const WAVEFORM_BARS = 20;
 
 interface ComposerMode {
   id: string;
@@ -82,47 +83,40 @@ const MODES: ComposerMode[] = [
   },
 ];
 
-/** Ask the selected default model (or force Ollama in Local mode). */
-async function runAssistant(text: string, forceLocal: boolean) {
-  const role = modelById(getPrefs().models.roles.assistant);
-  const title = text.length > 64 ? `${text.slice(0, 61)}…` : text;
+function formatRecordingTime(totalSeconds: number) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+}
 
-  startCenterWork({
-    kind: "generic",
-    title,
-    status: "Thinking…",
-    step: forceLocal
-      ? "Connecting to Ollama"
-      : role
-        ? `Using ${role.displayName}`
-        : "Connecting…",
-    progress: 28,
-    contextNote: forceLocal
-      ? "Local mode — Ollama on this computer."
-      : "Uses your default model from Settings → Models.",
-    resultReady: false,
-  });
+/** Ask the selected default model (or force Ollama in Local mode) and show the exchange as a chat bubble. */
+async function runAssistant(text: string, forceLocal: boolean) {
+  const assistantId = pushPendingAssistantMessage();
+  setCenterView("chat");
+  setVoiceStatus("thinking");
 
   try {
-    const reply = await askAssistant(text, { forceLocal });
-    completeCenterWork({
-      status: reply.text,
-      step: reply.localTool
-        ? `Answered with ${reply.localTool}`
-        : `Reply from ${reply.sourceLabel}`,
-      contextNote: reply.sourceLabel,
+    const reply = await askAssistant(text, {
+      forceLocal,
+      onChunk: (delta) => appendAssistantMessageChunk(assistantId, delta),
     });
+    resolveAssistantMessage(assistantId, reply.text);
     addActivity(`ArcSonare: ${reply.text.slice(0, 120)}`, "agent");
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "The assistant did not reply.";
-    requireCenterConfig(message);
+    resolveAssistantMessage(assistantId, message);
+  } finally {
+    if (getVoiceState().status === "thinking") {
+      setVoiceStatus("idle");
+    }
   }
 }
 
 /**
- * Bottom command composer. General chat goes to Ollama; app/email intents
- * also drive the top overlay when relevant.
+ * Bottom command composer. Smart mode uses your default model from
+ * Settings → Models (same as the voice overlay). Local mode forces Ollama.
+ * Typed replies stay silent — Pocket TTS only speaks on the voice overlay.
  */
 export function CommandComposer() {
   const [value, setValue] = useState("");
@@ -130,8 +124,21 @@ export function CommandComposer() {
   const [mode, setMode] = useState<ComposerMode>(MODES[0]);
   const [modeOpen, setModeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [searchActive, setSearchActive] = useState(false);
+  const [reasoningActive, setReasoningActive] = useState(false);
+  const [canvasActive, setCanvasActive] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modeRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recordTimerRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const meterRafRef = useRef<number | null>(null);
+  const waveformBarRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
     if (!modeOpen) return;
@@ -149,36 +156,196 @@ export function CommandComposer() {
     };
   }, [modeOpen]);
 
+  // Stop listening if the composer unmounts mid-recording.
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) window.clearInterval(recordTimerRef.current);
+      stopSpeechListening();
+      stopAudioMeter();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (collapsed) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            event.preventDefault();
+            attachFile(file);
+            break;
+          }
+        }
+      }
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collapsed]);
+
+  const attachFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      console.error("[ArcSonare] attachment too large (max 10MB)");
+      return;
+    }
+    setAttachedFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setAttachedPreview((e.target?.result as string) ?? null);
+    reader.readAsDataURL(file);
+  };
+
+  const removeAttachment = () => {
+    setAttachedFile(null);
+    setAttachedPreview(null);
+  };
+
+  const onFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) attachFile(file);
+    event.target.value = "";
+  };
+
+  const onDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+  };
+
+  const onDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    const file = Array.from(event.dataTransfer.files).find((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (file) attachFile(file);
+  };
+
+  const toggleSearch = () => {
+    setSearchActive((v) => {
+      const next = !v;
+      if (next) setReasoningActive(false);
+      return next;
+    });
+  };
+
+  const toggleReasoning = () => {
+    setReasoningActive((v) => {
+      const next = !v;
+      if (next) setSearchActive(false);
+      return next;
+    });
+  };
+
+  const toggleCanvas = () => setCanvasActive((v) => !v);
+
+  const activeModeNote = () => {
+    if (searchActive) return "Search mode requested";
+    if (reasoningActive) return "Reasoning mode requested";
+    if (canvasActive) return "Canvas mode requested";
+    return undefined;
+  };
+
+  /** Drives the waveform bars from real mic input (separate stream from speech recognition). */
+  const startAudioMeter = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.6;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const bucketSize = Math.max(1, Math.floor(data.length / WAVEFORM_BARS));
+
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        for (let i = 0; i < WAVEFORM_BARS; i++) {
+          const start = i * bucketSize;
+          let sum = 0;
+          for (let j = start; j < start + bucketSize && j < data.length; j++) sum += data[j];
+          const avg = sum / bucketSize;
+          const pct = Math.max(12, Math.min(100, (avg / 255) * 100 + 12));
+          const bar = waveformBarRefs.current[i];
+          if (bar) bar.style.height = `${pct}%`;
+        }
+        meterRafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (err) {
+      console.error("[ArcSonare] microphone level meter unavailable:", err);
+    }
+  };
+
+  const stopAudioMeter = () => {
+    if (meterRafRef.current) {
+      cancelAnimationFrame(meterRafRef.current);
+      meterRafRef.current = null;
+    }
+    micStreamRef.current?.getTracks().forEach((track) => track.stop());
+    micStreamRef.current = null;
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+  };
+
+  const stopRecording = () => {
+    stopSpeechListening();
+    stopAudioMeter();
+    if (recordTimerRef.current) {
+      window.clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordSeconds(0);
+  };
+
+  const startRecording = () => {
+    if (busy) return;
+    const started = startSpeechListening({
+      lang: getPrefs().general.voiceLanguage,
+      onFinal: (text) => {
+        setValue((current) => (current ? `${current} ${text}` : text));
+      },
+      onError: (message) => {
+        console.error("[ArcSonare] composer voice input error:", message);
+        stopRecording();
+      },
+    });
+    if (!started) return;
+    setIsRecording(true);
+    setRecordSeconds(0);
+    recordTimerRef.current = window.setInterval(() => {
+      setRecordSeconds((s) => s + 1);
+    }, 1000);
+    void startAudioMeter();
+  };
+
   const submit = () => {
     const text = value.trim();
-    if (!text || busy) return;
-    addActivity(`You: "${text}"`, "command");
+    if ((!text && !attachedFile) || busy) return;
+    if (isRecording) stopRecording();
+
+    const contextNote = activeModeNote();
+    const attachmentNote = attachedFile ? `\n\n[Attached image: ${attachedFile.name}]` : "";
+    const outgoingText = `${text}${attachmentNote}`;
+
+    addActivity(`You: "${text || attachedFile?.name}"`, "command");
     setValue("");
+    removeAttachment();
+    setSearchActive(false);
+    setReasoningActive(false);
+    setCanvasActive(false);
     setBusy(true);
 
     const lower = text.toLowerCase();
-    const intent = parseOverlayIntent(text);
 
     const finish = () => setBusy(false);
-
-    // Structured intents that should open the overlay.
-    if (
-      intent.kind === "open" ||
-      intent.kind === "search" ||
-      intent.kind === "draft-email" ||
-      intent.kind === "schedule-meeting" ||
-      intent.kind === "screen-context" ||
-      intent.kind === "mention" ||
-      intent.kind === "clarify"
-    ) {
-      void invoke("overlay_queue_command", { transcript: text })
-        .then(() => invoke("show_overlay"))
-        .catch((err) =>
-          console.error("[ArcSonare] failed to drive overlay from composer:", err),
-        )
-        .finally(finish);
-      return;
-    }
 
     if (lower.startsWith("create a task") || lower.startsWith("create task")) {
       startCenterWork({
@@ -201,7 +368,11 @@ export function CommandComposer() {
     }
 
     // Everything else — including “hello” — uses the selected default model.
-    void runAssistant(text, mode.id === "local").finally(finish);
+    const bubbleText = contextNote
+      ? `${text || attachedFile?.name || ""}\n\n(${contextNote})`
+      : text || attachedFile?.name || "";
+    pushUserMessage(bubbleText);
+    void runAssistant(outgoingText, mode.id === "local").finally(finish);
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -210,24 +381,6 @@ export function CommandComposer() {
       submit();
     } else if (event.key === "Escape") {
       textareaRef.current?.blur();
-    }
-  };
-
-  const applyQuickAction = (prompt: string) => {
-    if (prompt.endsWith(" ") || prompt.endsWith(":")) {
-      setValue(prompt);
-      textareaRef.current?.focus();
-    } else {
-      setValue(prompt);
-      window.setTimeout(() => {
-        // Let state settle then submit.
-        const text = prompt.trim();
-        if (!text || busy) return;
-        addActivity(`You: "${text}"`, "command");
-        setValue("");
-        setBusy(true);
-        void runAssistant(text, mode.id === "local").finally(() => setBusy(false));
-      }, 0);
     }
   };
 
@@ -245,29 +398,81 @@ export function CommandComposer() {
     );
   }
 
+  const hasContent = value.trim() !== "" || Boolean(attachedFile);
+  const primaryAction = () => {
+    if (isRecording) {
+      stopRecording();
+    } else if (hasContent) {
+      submit();
+    } else {
+      startRecording();
+    }
+  };
+  const primaryLabel = isRecording ? "Stop recording" : hasContent ? "Send" : "Voice input";
+  const primaryDisabled = busy && !hasContent;
+
   return (
-    <div className="composer">
+    <div className="composer" onDragOver={onDragOver} onDrop={onDrop}>
+      {attachedPreview ? (
+        <div className="composer-attachments">
+          <div className="composer-attachment">
+            <img src={attachedPreview} alt={attachedFile?.name ?? "Attached image"} />
+            <button
+              type="button"
+              className="composer-attachment-remove"
+              onClick={removeAttachment}
+              aria-label="Remove attachment"
+            >
+              <CloseIcon size={11} />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="composer-input-row">
         <span className="composer-spark" aria-hidden="true">
           <SonareSparkle size={22} />
         </span>
-        <textarea
-          ref={textareaRef}
-          className="composer-input"
-          rows={1}
-          value={value}
-          placeholder={busy ? "ArcSonare is thinking…" : "Ask ArcSonare anything..."}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={onKeyDown}
-          aria-label="Ask ArcSonare"
-          disabled={busy}
-        />
+
+        {isRecording ? (
+          <div className="composer-recording">
+            <span className="composer-recording-dot" aria-hidden="true" />
+            <span className="composer-recording-time">{formatRecordingTime(recordSeconds)}</span>
+            <div className="composer-waveform" aria-hidden="true">
+              {Array.from({ length: WAVEFORM_BARS }).map((_, i) => (
+                <span
+                  key={i}
+                  ref={(el) => {
+                    waveformBarRefs.current[i] = el;
+                  }}
+                  className="composer-waveform-bar"
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <textarea
+            ref={textareaRef}
+            className="composer-input"
+            rows={1}
+            value={value}
+            placeholder={busy ? "ArcSonare is thinking…" : "Ask ArcSonare anything..."}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={onKeyDown}
+            aria-label="Ask ArcSonare"
+            disabled={busy}
+          />
+        )}
+
         <button
           type="button"
           className="icon-button"
-          onClick={() => setCollapsed(true)}
-          aria-label="Collapse the composer"
-          title="Collapse"
+          onClick={() => {
+            clearCenterWork();
+            setCollapsed(true);
+          }}
+          aria-label="Close the composer"
+          title="Close"
         >
           <CloseIcon size={14} />
         </button>
@@ -275,18 +480,56 @@ export function CommandComposer() {
 
       <div className="composer-foot">
         <div className="composer-quick">
-          {QUICK_ACTIONS.map((qa) => (
-            <button
-              key={qa.label}
-              type="button"
-              className="quick-action"
-              onClick={() => applyQuickAction(qa.prompt)}
-              disabled={busy}
-            >
-              <qa.icon size={14} />
-              {qa.label}
-            </button>
-          ))}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={onFileInputChange}
+          />
+          <button
+            type="button"
+            className="composer-attach"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy || isRecording}
+            aria-label="Attach an image"
+            title="Attach an image"
+          >
+            <PaperclipIcon size={14} />
+          </button>
+
+          <button
+            type="button"
+            className={`toggle-pill${searchActive ? " active" : ""}`}
+            onClick={toggleSearch}
+            disabled={busy || isRecording}
+            aria-pressed={searchActive}
+          >
+            <SearchIcon size={14} />
+            <span className="toggle-pill-label">Search</span>
+          </button>
+
+          <button
+            type="button"
+            className={`toggle-pill${reasoningActive ? " active" : ""}`}
+            onClick={toggleReasoning}
+            disabled={busy || isRecording}
+            aria-pressed={reasoningActive}
+          >
+            <LayersIcon size={14} />
+            <span className="toggle-pill-label">Reasoning</span>
+          </button>
+
+          <button
+            type="button"
+            className={`toggle-pill${canvasActive ? " active" : ""}`}
+            onClick={toggleCanvas}
+            disabled={busy || isRecording}
+            aria-pressed={canvasActive}
+          >
+            <FolderIcon size={14} />
+            <span className="toggle-pill-label">Canvas</span>
+          </button>
         </div>
         <div className="composer-right">
           <div className="composer-mode" ref={modeRef}>
@@ -341,13 +584,19 @@ export function CommandComposer() {
           </div>
           <button
             type="button"
-            className="composer-send"
-            onClick={submit}
-            disabled={!value.trim() || busy}
-            aria-label="Send command"
-            title="Send"
+            className={`composer-send${isRecording ? " recording" : ""}`}
+            onClick={primaryAction}
+            disabled={primaryDisabled}
+            aria-label={primaryLabel}
+            title={primaryLabel}
           >
-            <SendIcon size={15} />
+            {isRecording ? (
+              <StopIcon size={14} />
+            ) : hasContent ? (
+              <SendIcon size={15} />
+            ) : (
+              <MicIcon size={15} />
+            )}
           </button>
         </div>
       </div>

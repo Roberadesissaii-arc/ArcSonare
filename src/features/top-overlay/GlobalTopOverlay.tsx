@@ -7,12 +7,14 @@ import { useAppearance } from "../../hooks/useTheme";
 import { OverlayHeader } from "./OverlayHeader";
 import { OverlayExpandedPanel } from "./OverlayExpandedPanel";
 import {
+  activateOverlayListening,
   cancelOverlaySession,
   collapseOverlayWindow,
   commitOverlayTranscript,
   debugSetOverlayState,
   endOverlaySession,
   OVERLAY_COMMAND_EVENT,
+  resizeOverlayWindow,
   startOverlaySession,
 } from "./overlayActions";
 import {
@@ -22,6 +24,7 @@ import {
   useOverlayStore,
   overlayModeToLegacyVoiceStatus,
 } from "./overlayStore";
+import { OVERLAY_CAPSULE_HEIGHT, OVERLAY_EXPANDED_MAX, OVERLAY_EXPANDED_MIN } from "./overlayTypes";
 import {
   startSpeechListening,
   stopSpeechListening,
@@ -44,6 +47,7 @@ export function GlobalTopOverlay() {
   useAppearance(settings, { applyTheme: false });
 
   const prevPhase = useRef(phase);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     document.documentElement.classList.add("overlay-window");
@@ -74,13 +78,21 @@ export function GlobalTopOverlay() {
     };
   }, []);
 
-  // Keep legacy voiceStore in sync for header Voice button indicator.
+  // Keep legacy voiceStore in sync for header Voice button + Voice Action card.
   useEffect(() => {
     const legacy = overlayModeToLegacyVoiceStatus(overlay.mode);
     setVoiceStatus(
       legacy,
       overlay.mode === "success" ? overlay.status : "",
     );
+  }, [overlay.mode, overlay.status]);
+
+  // While the model is thinking, keep the capsule status on “Thinking...”
+  // even if a prior status string lingered.
+  useEffect(() => {
+    if (overlay.mode === "thinking" && overlay.status !== "Thinking...") {
+      patchOverlay({ status: "Thinking..." });
+    }
   }, [overlay.mode, overlay.status]);
 
   // Local STT: listen while idle/listening, and while an email draft is open
@@ -193,6 +205,48 @@ export function GlobalTopOverlay() {
     }
   }, [overlay.expanded, phase]);
 
+  const showExpanded =
+    overlay.expanded &&
+    phase !== "hidden" &&
+    (overlay.actionPayload || overlay.error || overlay.result);
+
+  // Fit the native window to the real dropdown height so long error/notice
+  // panels never clip the bottom radius or action buttons.
+  useEffect(() => {
+    if (!showExpanded) return;
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    let frame = 0;
+    const fit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const header = shell.querySelector(".overlay-header") as HTMLElement | null;
+        const headerH = header?.offsetHeight ?? OVERLAY_CAPSULE_HEIGHT;
+        const contentH = Math.ceil(shell.scrollHeight - headerH);
+        const clamped = Math.min(
+          OVERLAY_EXPANDED_MAX,
+          Math.max(OVERLAY_EXPANDED_MIN, contentH + 8),
+        );
+        void resizeOverlayWindow(clamped);
+      });
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(shell);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
+  }, [
+    showExpanded,
+    overlay.mode,
+    overlay.error,
+    overlay.actionPayload,
+    overlay.result,
+  ]);
+
   const cancel = () => {
     // Second click while already Cancelled force-hides so it never sticks.
     if (getOverlayState().mode === "closing" || phase === "closing") {
@@ -205,14 +259,10 @@ export function GlobalTopOverlay() {
     requestClose();
   };
 
-  const showExpanded =
-    overlay.expanded &&
-    phase !== "hidden" &&
-    (overlay.actionPayload || overlay.error || overlay.result);
-
   return (
     <div className={`overlay-root phase-${phase}${overlay.expanded ? " is-expanded" : ""}`}>
       <div
+        ref={shellRef}
         className={`voice-overlay-shell${overlay.expanded ? " is-expanded" : ""}`}
         onAnimationEnd={handleAnimationEnd}
       >
@@ -223,6 +273,7 @@ export function GlobalTopOverlay() {
           applicationIcon={overlay.applicationIcon}
           waveformLevels={overlay.waveformLevels}
           onCancel={cancel}
+          onActivateListening={activateOverlayListening}
           expanded={Boolean(showExpanded)}
         />
         {showExpanded ? (

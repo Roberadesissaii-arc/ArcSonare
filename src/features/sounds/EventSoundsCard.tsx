@@ -4,7 +4,6 @@ import {
   CloseIcon,
   HelpIcon,
   MicIcon,
-  MonitorIcon,
   SparkleIcon,
   VolumeIcon,
   WarningIcon,
@@ -25,9 +24,6 @@ const ICONS: Record<SoundEvent, React.ReactNode> = {
   confirmation: <HelpIcon size={14} />,
   error: <WarningIcon size={14} />,
   notification: <BellIcon size={14} />,
-  "screen-context-start": <MonitorIcon size={14} />,
-  "screen-context-stop": <MonitorIcon size={14} />,
-  "annotation-confirmed": <CheckIcon size={14} />,
   "wake-word": <WaveIcon size={14} />,
 };
 

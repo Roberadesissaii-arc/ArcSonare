@@ -9,7 +9,7 @@ import { VOICE_PROFILES } from "../../features/voice/VoiceSelector";
 import { SonareLiveWaveform } from "./SonareLiveWaveform";
 import { SonareMarbleOrb } from "./SonareMarbleOrb";
 
-/** Expanded Voice Action card: marble, current voice, waveform, shortcut. */
+/** Voice Action card: marble-led prompt, clean waveform, and shortcut. */
 export function VoiceActionCard() {
   const { status } = useVoiceState();
   const { settings } = useSettings();
@@ -30,6 +30,15 @@ export function VoiceActionCard() {
       ? "Talk with Sonare"
       : VOICE_STATUS_TEXT[status];
 
+  const voiceStateLabel =
+    status === "thinking"
+      ? "Thinking…"
+      : status === "listening"
+        ? "Listening now"
+        : status === "responding"
+          ? "Responding…"
+          : "Ready when you are";
+
   return (
     <section className="card sonare-card voice-action-card">
       <div className="card-head">
@@ -42,11 +51,13 @@ export function VoiceActionCard() {
       <div className="voice-action-identity">
         <SonareMarbleOrb
           status={status === "idle" ? "idle" : status}
-          size={42}
+          size={50}
         />
         <div className="voice-action-voice-meta">
-          <span className="voice-action-voice-label">Current voice</span>
-          <span className="voice-action-voice-name">{voiceName}</span>
+          <h2 className="voice-action-prompt">{prompt}</h2>
+          <span className="voice-action-voice-name">
+            {voiceName} · {voiceStateLabel}
+          </span>
         </div>
         <button
           type="button"
@@ -75,14 +86,12 @@ export function VoiceActionCard() {
         </div>
       ) : null}
 
-      <h2 className="card-title">{prompt}</h2>
-
       <div className="voice-action-wave">
         <SonareLiveWaveform
           variant={status === "idle" ? "idle" : status}
-          width={280}
-          height={44}
-          bars={60}
+          width={286}
+          height={38}
+          bars={64}
         />
       </div>
 

@@ -7,6 +7,10 @@ import {
 } from "../../components/Icons";
 import { SonareMarbleOrb } from "../../components/voice/SonareMarbleOrb";
 import { VoiceSettingsCard } from "./VoiceSettingsCard";
+import {
+  previewVoiceCharacter,
+  stopVoiceCharacterPreview,
+} from "./previewVoiceCharacter";
 import { VOICE_CHARACTERS, type VoiceCharacter } from "./voiceCharacters";
 
 interface VoiceCharactersCardProps {
@@ -30,6 +34,8 @@ export function VoiceCharactersCard({
   const [page, setPage] = useState(() =>
     Math.floor(selectedIndex / PAGE_SIZE),
   );
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const visible = useMemo(() => {
     const start = page * PAGE_SIZE;
@@ -40,11 +46,28 @@ export function VoiceCharactersCard({
     setPage(Math.max(0, Math.min(pageCount - 1, next)));
   };
 
+  const selectAndPreview = async (character: VoiceCharacter) => {
+    onSelect(character.id);
+    setPreviewError(null);
+    setPreviewingId(character.id);
+    try {
+      await previewVoiceCharacter(character);
+    } catch (err) {
+      setPreviewError(
+        err instanceof Error
+          ? err.message
+          : "Could not play this voice preview. Check Voice Lab / Pocket TTS.",
+      );
+    } finally {
+      setPreviewingId((id) => (id === character.id ? null : id));
+    }
+  };
+
   return (
     <VoiceSettingsCard
       icon={<VolumeIcon size={15} />}
       title="Voice characters"
-      description="Choose the personality ArcSonare speaks with."
+      description="Choose a personality — tap a card to hear how it sounds."
       action={
         <button type="button" className="voice-solid-btn is-ghost" onClick={onManage}>
           Manage voices
@@ -73,7 +96,8 @@ export function VoiceCharactersCard({
               key={character.id}
               character={character}
               selected={character.id === selectedId}
-              onSelect={() => onSelect(character.id)}
+              previewing={previewingId === character.id}
+              onSelect={() => void selectAndPreview(character)}
             />
           ))}
         </div>
@@ -102,6 +126,27 @@ export function VoiceCharactersCard({
           />
         ))}
       </div>
+
+      {previewError ? (
+        <p className="voice-help" role="alert" style={{ marginTop: 10 }}>
+          {previewError}{" "}
+          <button
+            type="button"
+            className="text-action"
+            onClick={() => {
+              stopVoiceCharacterPreview();
+              setPreviewError(null);
+            }}
+          >
+            Dismiss
+          </button>
+        </p>
+      ) : (
+        <p className="voice-help" style={{ marginTop: 10 }}>
+          Each character uses a different Pocket TTS voice. Selecting one also
+          sets the overlay speaking voice.
+        </p>
+      )}
     </VoiceSettingsCard>
   );
 }
@@ -109,10 +154,12 @@ export function VoiceCharactersCard({
 function CharacterTile({
   character,
   selected,
+  previewing,
   onSelect,
 }: {
   character: VoiceCharacter;
   selected: boolean;
+  previewing: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -120,7 +167,8 @@ function CharacterTile({
       type="button"
       role="radio"
       aria-checked={selected}
-      className={`voice-character-tile${selected ? " is-selected" : ""}`}
+      aria-label={`${character.displayName}. ${character.personality}. Press to select and hear a preview.`}
+      className={`voice-character-tile${selected ? " is-selected" : ""}${previewing ? " is-previewing" : ""}`}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -133,7 +181,11 @@ function CharacterTile({
         </span>
       ) : null}
       <span className="voice-character-marble" aria-hidden="true">
-        <SonareMarbleOrb status="idle" size={46} tint={character.marbleTint} />
+        <SonareMarbleOrb
+          status={previewing ? "responding" : "idle"}
+          size={46}
+          tint={character.marbleTint}
+        />
       </span>
       <span className="voice-character-name">{character.displayName}</span>
       <span className="voice-character-personality">{character.personality}</span>

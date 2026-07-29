@@ -4,7 +4,14 @@
 //! through commands. Every change is broadcast to all windows via the
 //! `sonare:settings-changed` event so the UI stays in sync.
 
-use std::{fs, path::PathBuf, sync::Mutex};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
+};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -100,15 +107,46 @@ impl Settings {
 }
 
 /// Managed at Builder time (before any webview can invoke a command) with
-/// defaults; `initialize` swaps in the persisted values during setup.
-#[derive(Default)]
-pub struct SettingsState(pub Mutex<Settings>);
+/// defaults; `ensure_loaded` / `initialize` swap in the persisted values.
+/// Webviews can race ahead of `setup`, so every public reader must call
+/// `ensure_loaded` first — otherwise empty defaults wipe onboardingDone.
+pub struct SettingsState {
+    pub inner: Mutex<Settings>,
+    loaded: AtomicBool,
+}
+
+impl Default for SettingsState {
+    fn default() -> Self {
+        Self {
+            inner: Mutex::new(Settings::default()),
+            loaded: AtomicBool::new(false),
+        }
+    }
+}
 
 /// Loads the persisted settings into the already-managed state and broadcasts
 /// them so windows that rendered against the defaults update immediately.
 pub fn initialize(app: &AppHandle) {
+    ensure_loaded(app);
+    let settings = current(app);
+    if let Err(e) = app.emit(SETTINGS_CHANGED_EVENT, &settings) {
+        log::error!("failed to broadcast settings change: {e}");
+    }
+}
+
+/// Idempotent disk load. Safe to call from commands before `setup` finishes.
+pub fn ensure_loaded(app: &AppHandle) {
+    let state = app.state::<SettingsState>();
+    if state.loaded.load(Ordering::Acquire) {
+        return;
+    }
     let loaded = load(app);
-    apply(app, loaded);
+    let mut guard = state.inner.lock().unwrap();
+    if state.loaded.load(Ordering::Acquire) {
+        return;
+    }
+    *guard = loaded;
+    state.loaded.store(true, Ordering::Release);
 }
 
 fn settings_path(app: &AppHandle) -> Option<PathBuf> {
@@ -121,7 +159,7 @@ fn settings_path(app: &AppHandle) -> Option<PathBuf> {
     }
 }
 
-/// Loads settings from disk (used once, during `initialize`).
+/// Loads settings from disk (used once, during `ensure_loaded` / `initialize`).
 fn load(app: &AppHandle) -> Settings {
     let Some(path) = settings_path(app) else {
         return Settings::default();
@@ -159,12 +197,17 @@ fn save(app: &AppHandle, settings: &Settings) {
 }
 
 pub fn current(app: &AppHandle) -> Settings {
-    app.state::<SettingsState>().0.lock().unwrap().clone()
+    ensure_loaded(app);
+    app.state::<SettingsState>().inner.lock().unwrap().clone()
 }
 
 /// Stores + persists + broadcasts a new settings value.
 pub fn apply(app: &AppHandle, settings: Settings) {
-    *app.state::<SettingsState>().0.lock().unwrap() = settings.clone();
+    ensure_loaded(app);
+    *app.state::<SettingsState>().inner.lock().unwrap() = settings.clone();
+    app.state::<SettingsState>()
+        .loaded
+        .store(true, Ordering::Release);
     save(app, &settings);
     if let Err(e) = app.emit(SETTINGS_CHANGED_EVENT, &settings) {
         log::error!("failed to broadcast settings change: {e}");
@@ -188,6 +231,28 @@ pub fn sync_autostart_state(app: &AppHandle) {
 #[tauri::command]
 pub fn get_settings(app: AppHandle) -> Settings {
     current(&app)
+}
+
+/// Persist voice-overlay unlock without a full frontend settings round-trip.
+#[tauri::command]
+pub fn set_overlay_unlocked(app: AppHandle, unlocked: bool) {
+    let mut settings = current(&app);
+    let mut prefs = settings.prefs.clone();
+    if !prefs.is_object() {
+        prefs = serde_json::json!({});
+    }
+    if let Some(obj) = prefs.as_object_mut() {
+        let general = obj
+            .entry("general")
+            .or_insert_with(|| serde_json::json!({}));
+        if let Some(general_obj) = general.as_object_mut() {
+            general_obj.insert("overlayUnlocked".into(), serde_json::Value::Bool(unlocked));
+        } else {
+            *general = serde_json::json!({ "overlayUnlocked": unlocked });
+        }
+    }
+    settings.prefs = prefs;
+    apply(&app, settings);
 }
 
 /// Applies a full settings object from the frontend. The global shortcut and
@@ -257,6 +322,5 @@ pub fn clear_local_data(app: AppHandle) -> Result<(), String> {
         }
     }
     apply(&app, defaults);
-    crate::overlay::reposition_if_visible(&app);
     Ok(())
 }

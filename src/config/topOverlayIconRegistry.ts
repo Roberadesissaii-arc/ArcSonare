@@ -1006,7 +1006,6 @@ export const TOP_OVERLAY_ICONS: TopOverlayIconDefinition[] = [
 /** System-action icons that are not third-party apps. */
 export const SYSTEM_OVERLAY_ICONS = {
   task: null as string | null,
-  screenContext: null as string | null,
   search: iconUrl("microsoft-bing.svg") || iconUrl("chrome.svg"),
   check: null as string | null,
   error: null as string | null,

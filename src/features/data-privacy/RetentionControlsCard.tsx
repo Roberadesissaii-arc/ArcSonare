@@ -11,6 +11,7 @@ import {
   RETENTION_LABELS,
   retentionOptionsFor,
 } from "./dataCategoryRegistry";
+import { RetentionCategoryIcon } from "./CategoryIcons";
 import { DataPrivacyCard } from "./DataPrivacyCard";
 
 interface RetentionControlsCardProps {
@@ -46,7 +47,7 @@ export function RetentionControlsCard({
       <ul className="data-retention-list">
         {RETENTION_DATA_TYPES.map((id) => (
           <li key={id} className="data-retention-row">
-            <span className="data-retention-icon" aria-hidden="true" />
+            <RetentionCategoryIcon id={id} />
             <div className="data-retention-meta">
               <span className="data-retention-name">{RETENTION_LABELS[id]}</span>
               <span className="data-retention-desc">

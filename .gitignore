@@ -3,3 +3,21 @@ dist
 src-tauri/target
 src-tauri/gen/schemas
 *.local
+.env
+.env.local
+.env.*.local
+*.secret
+supabase/.temp
+supabase/_*.sql
+_mcp_mig2.json
+_apply_payload.json
+graphify-out/
+# Scratch dumps — real assets live under src/assets/ and src-tauri/icons/
+ICO/
+model/
+top_overlay/
+ChatGPT Image*.png
+app-icon.png
+# Large local-only reference material — not part of the app
+Arceclaw/
+background/

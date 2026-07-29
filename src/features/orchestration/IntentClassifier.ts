@@ -14,7 +14,7 @@ const OPEN_VERBS =
   /\b(?:open|launch|start|go\s+to|take\s+me\s+to|navigate\s+to|bring\s+up|switch\s+to|focus|open\s+in\s+browser|open\s+the\s+website|open\s+the\s+desktop\s+app|show\s+the\s+application)\b/i;
 
 const READ_VERBS =
-  /\b(?:what(?:'?s|\s+is|\s+are)?|which|who|when|how\s+many|tell\s+me|list|show(?:\s+me)?|summarize|summary|check|review|read|find|search|latest|next|upcoming|unread|due|available|scheduled|do\s+i\s+have|anything)\b/i;
+  /\b(?:what(?:'?s|\s+is|\s+are)?|which|who|when|how\s+many|tell\s+me|list|show(?:\s+me)?|summarize|summary|check|review|read|find|search|latest|next|upcoming|unread|due|available|scheduled|do\s+i\s+have|anything|connected|connection|linked|link(?:ed)?)\b/i;
 
 function normalize(text: string): string {
   return text
@@ -120,6 +120,26 @@ function tryCalendar(n: string, utterance: string): IntentContract | null {
     /\bwhat\s+do\s+i\s+have\s+(today|tomorrow|this\s+week)\b/.test(n) ||
     /\bdo\s+i\s+have\s+anything\b/.test(n);
   if (!aboutCalendar) return null;
+
+  // Connection status — never open Calendar for these.
+  if (
+    /\b(connected|connection|linked|link(?:ed)?|signed\s+in|logged\s+in)\b/.test(n) ||
+    /\b(?:is|are)\s+(?:my\s+)?(?:google\s+)?calendar\b/.test(n)
+  ) {
+    return base(utterance, {
+      mode: "read",
+      domain: "calendar",
+      object: "connection",
+      requestedData: ["connection"],
+      presentation: "brief-answer",
+      sideEffect: "none",
+      explicitOpen: false,
+      explicitSend: false,
+      explicitDelete: false,
+      explicitConfirmation: false,
+      confidence: 0.97,
+    });
+  }
 
   // Explicit open calendar UI (not “open my next meeting”)
   if (
@@ -262,6 +282,27 @@ function tryEmail(n: string, utterance: string): IntentContract | null {
     /\b(email|emails|inbox|gmail|mail|message|messages|reply)\b/.test(n);
   if (!aboutEmail) return null;
 
+  // Connection status — never open Gmail for these.
+  if (
+    /\b(connected|connection|linked|link(?:ed)?|signed\s+in|logged\s+in)\b/.test(n) ||
+    /\b(?:is|are|am)\s+(?:my\s+)?(?:gmail|email|inbox|mail)\b/.test(n) ||
+    /\b(?:do\s+i\s+have|have\s+i)\s+(?:a\s+)?(?:gmail|email)\s+connect/.test(n)
+  ) {
+    return base(utterance, {
+      mode: "read",
+      domain: "email",
+      object: "connection",
+      requestedData: ["connection"],
+      presentation: "brief-answer",
+      sideEffect: "none",
+      explicitOpen: false,
+      explicitSend: false,
+      explicitDelete: false,
+      explicitConfirmation: false,
+      confidence: 0.97,
+    });
+  }
+
   // Explicit open inbox
   if (
     /\b(open|launch|go\s+to|take\s+me\s+to|bring\s+up)\s+(?:my\s+)?(?:gmail|inbox|email|mail)\b/.test(
@@ -385,9 +426,9 @@ function tryEmail(n: string, utterance: string): IntentContract | null {
     });
   }
 
-  // Inbox / Gmail contents
+  // Inbox / Gmail contents (“in” or “on” my gmail)
   if (
-    /\b(what(?:'?s|\s+is)\s+in\s+my\s+(?:gmail|inbox|email)|check\s+my\s+(?:gmail|inbox|email|mail)|what(?:'?s|\s+is)\s+in\s+gmail)\b/.test(
+    /\b(what(?:'?s|\s+is)\s+(?:in|on)\s+my\s+(?:gmail|inbox|email)|check\s+my\s+(?:gmail|inbox|email|mail)|what(?:'?s|\s+is)\s+(?:in|on)\s+gmail)\b/.test(
       n,
     ) ||
     /\b(show|list|check)\s+(?:my\s+)?(?:inbox|gmail|emails?)\b/.test(n)
@@ -576,10 +617,22 @@ export function isOrchestratedDomain(contract: IntentContract): boolean {
   return false;
 }
 
-/** Defense: never treat a read-flavored utterance as a bare app-open. */
+/** Defense: never treat a read/status utterance as a bare app-open. */
 export function blocksBareAppOpen(utterance: string): boolean {
   const n = normalize(utterance);
   if (!n) return false;
   if (hasExplicitOpen(n) && !looksLikeRead(n)) return false;
-  return looksLikeRead(n) || /\b(on\s+my\s+calendar|in\s+my\s+gmail|my\s+inbox|unread|latest\s+email)\b/.test(n);
+  if (
+    /\b(connected|connection|linked|signed\s+in|logged\s+in|is\s+my\s+|are\s+my\s+)\b/.test(
+      n,
+    )
+  ) {
+    return true;
+  }
+  return (
+    looksLikeRead(n) ||
+    /\b(on\s+my\s+calendar|in\s+my\s+gmail|on\s+my\s+gmail|my\s+inbox|unread|latest\s+email)\b/.test(
+      n,
+    )
+  );
 }

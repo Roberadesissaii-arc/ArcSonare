@@ -1,10 +1,9 @@
 /**
- * Local task state, persisted to localStorage. Seeded once with demo tasks
- * (marked via `demo: true`) so the dashboard has content before any real
- * integration exists.
+ * Task state — hydrated from SQLite (Tauri) with a one-time localStorage migrate.
+ * Demo seeding is disabled for production honesty.
  */
 import { useSyncExternalStore } from "react";
-import { DEMO_TASKS } from "../data/demoData";
+import { invoke } from "@tauri-apps/api/core";
 import type {
   ArcSonareTask,
   Task,
@@ -19,6 +18,12 @@ import {
   newActivityId,
   newSubtaskId,
 } from "../features/tasks/taskUtils";
+import {
+  listTasksFromDb,
+  softDeleteTaskInDb,
+  upsertTaskToDb,
+} from "../services/taskPersistence";
+import { normalizeTaskFromUnknown } from "./taskNormalize";
 
 export type {
   ArcSonareTask,
@@ -37,7 +42,7 @@ export type {
 const STORAGE_KEY = "arcsonare.tasks.v2";
 const LEGACY_KEY = "arcsonare.tasks.v1";
 const PREFS_KEY = "arcsonare.tasks.prefs.v1";
-const SCHEMA_VERSION = 2;
+const MIGRATED_FLAG = "arcsonare.tasks.sqliteMigrated.v1";
 
 const listeners = new Set<() => void>();
 const prefsListeners = new Set<() => void>();
@@ -67,166 +72,7 @@ function activity(
 function normalizeTask(
   raw: Partial<ArcSonareTask> & { id: string },
 ): ArcSonareTask {
-  const now = Date.now();
-  const subtasks = Array.isArray(raw.subtasks) ? raw.subtasks : [];
-  const activityList = Array.isArray(raw.activity) ? raw.activity : [];
-  return {
-    id: raw.id,
-    title: raw.title ?? "Untitled task",
-    note: raw.note,
-    priority: raw.priority ?? "medium",
-    due: raw.due,
-    dueBucket: raw.dueBucket ?? "none",
-    agent: raw.agent,
-    completed: Boolean(raw.completed),
-    urgent: Boolean(raw.urgent),
-    demo: raw.demo,
-    createdAt: typeof raw.createdAt === "number" ? raw.createdAt : now,
-    updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : now,
-    subtasks,
-    progress: raw.progress,
-    activity:
-      activityList.length > 0
-        ? activityList
-        : [
-            activity(
-              "created",
-              `Task "${raw.title ?? "Untitled"}" was created`,
-              "system",
-            ),
-          ],
-    tags: Array.isArray(raw.tags) ? raw.tags : [],
-  };
-}
-
-function seedFromDemo(): ArcSonareTask[] {
-  return DEMO_TASKS.map((t, index) => {
-    const base = normalizeTask({
-      ...t,
-      createdAt: t.createdAt || Date.now() - (index + 1) * 3_600_000,
-      updatedAt: Date.now() - (index + 1) * 1_800_000,
-    });
-
-    if (base.id === "demo-investor-update") {
-      base.subtasks = [
-        makeSubtask("Draft email content", 0),
-        makeSubtask("Review key highlights", 1),
-        makeSubtask("Attach supporting documents", 2),
-        makeSubtask("Get manager approval", 3),
-        makeSubtask("Send email to client", 4),
-      ];
-      base.subtasks[0] = {
-        ...base.subtasks[0],
-        completed: true,
-        completedAt: new Date(Date.now() - 3_600_000).toISOString(),
-      };
-      base.subtasks[1] = {
-        ...base.subtasks[1],
-        completed: true,
-        completedAt: new Date(Date.now() - 1_200_000).toISOString(),
-      };
-      base.activity = [
-        activity("created", "Task created from workspace", "system"),
-        {
-          ...activity(
-            "agent-suggestion",
-            "AI Assistant suggested key highlights",
-            "agent",
-          ),
-          createdAt: new Date(Date.now() - 3_600_000).toISOString(),
-          actorId: "ai-assistant",
-        },
-        {
-          ...activity(
-            "updated",
-            "Project Manager updated progress to 40%",
-            "agent",
-          ),
-          createdAt: new Date(Date.now() - 20 * 60_000).toISOString(),
-          actorId: "project-manager",
-        },
-        {
-          ...activity(
-            "priority-changed",
-            "User changed priority to High",
-            "user",
-          ),
-          createdAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
-        },
-      ];
-    } else if (base.id === "demo-budget-approval") {
-      base.subtasks = [
-        makeSubtask("Collect vendor quotes", 0),
-        makeSubtask("Review against Q3 budget", 1),
-        makeSubtask("Submit for approval", 2),
-      ];
-      base.subtasks[0] = {
-        ...base.subtasks[0],
-        completed: true,
-        completedAt: new Date().toISOString(),
-      };
-    }
-
-    return base;
-  });
-}
-
-function enrichKnownDemo(task: ArcSonareTask): ArcSonareTask {
-  if (!task.demo || task.subtasks.length > 0) return task;
-  if (task.id === "demo-investor-update") {
-    const seeded = seedFromDemo().find((t) => t.id === task.id);
-    if (seeded) {
-      return {
-        ...task,
-        subtasks: seeded.subtasks,
-        activity: task.activity.length > 1 ? task.activity : seeded.activity,
-      };
-    }
-  }
-  if (task.id === "demo-budget-approval") {
-    const seeded = seedFromDemo().find((t) => t.id === task.id);
-    if (seeded) return { ...task, subtasks: seeded.subtasks };
-  }
-  return task;
-}
-
-function migrateLegacy(raw: unknown): ArcSonareTask[] {
-  if (!Array.isArray(raw)) return seedFromDemo();
-  return raw.map((item) =>
-    enrichKnownDemo(
-      normalizeTask(item as Partial<ArcSonareTask> & { id: string }),
-    ),
-  );
-}
-
-function load(): ArcSonareTask[] {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as {
-        version?: number;
-        tasks?: unknown;
-      };
-      if (Array.isArray(parsed?.tasks)) {
-        return migrateLegacy(parsed.tasks);
-      }
-      if (Array.isArray(parsed)) {
-        return migrateLegacy(parsed);
-      }
-    }
-    const legacy = window.localStorage.getItem(LEGACY_KEY);
-    if (legacy) {
-      const migrated = migrateLegacy(JSON.parse(legacy));
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ version: SCHEMA_VERSION, tasks: migrated }),
-      );
-      return migrated;
-    }
-  } catch (err) {
-    console.error("[ArcSonare] failed to load tasks:", err);
-  }
-  return seedFromDemo();
+  return normalizeTaskFromUnknown(raw);
 }
 
 function loadPrefs(): TaskPrefs {
@@ -242,19 +88,41 @@ function loadPrefs(): TaskPrefs {
   return { ...DEFAULT_PREFS };
 }
 
-let tasks: ArcSonareTask[] = load();
-let prefs: TaskPrefs = loadPrefs();
-
-function persist() {
+function readLocalStorageTasks(): ArcSonareTask[] {
   try {
-    window.localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ version: SCHEMA_VERSION, tasks }),
-    );
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { tasks?: unknown } | unknown[];
+      const list = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as { tasks?: unknown }).tasks)
+          ? (parsed as { tasks: unknown[] }).tasks
+          : null;
+      if (list) {
+        return list
+          .map((item) => normalizeTask(item as Partial<ArcSonareTask> & { id: string }))
+          .filter((t) => !t.demo);
+      }
+    }
+    const legacy = window.localStorage.getItem(LEGACY_KEY);
+    if (legacy) {
+      const list = JSON.parse(legacy) as unknown[];
+      if (Array.isArray(list)) {
+        return list
+          .map((item) => normalizeTask(item as Partial<ArcSonareTask> & { id: string }))
+          .filter((t) => !t.demo);
+      }
+    }
   } catch (err) {
-    console.error("[ArcSonare] failed to persist tasks:", err);
+    console.error("[ArcSonare] failed to read local tasks:", err);
   }
+  return [];
 }
+
+let tasks: ArcSonareTask[] = [];
+let prefs: TaskPrefs = loadPrefs();
+let hydrated = false;
+let hydratePromise: Promise<void> | null = null;
 
 function persistPrefs() {
   try {
@@ -265,7 +133,6 @@ function persistPrefs() {
 }
 
 function emit() {
-  persist();
   listeners.forEach((l) => l());
 }
 
@@ -274,39 +141,98 @@ function emitPrefs() {
   prefsListeners.forEach((l) => l());
 }
 
+function syncTaskAsync(task: ArcSonareTask) {
+  void upsertTaskToDb(task).catch((err) =>
+    console.error("[ArcSonare] task upsert failed:", err),
+  );
+}
+
+function deleteTaskAsync(id: string) {
+  void softDeleteTaskInDb(id).catch((err) =>
+    console.error("[ArcSonare] task delete failed:", err),
+  );
+}
+
 function patchTask(
   id: string,
   updater: (task: ArcSonareTask) => ArcSonareTask,
 ): void {
+  let next: ArcSonareTask | null = null;
   tasks = tasks.map((t) => {
     if (t.id !== id) return t;
-    return { ...updater(t), updatedAt: Date.now() };
+    next = { ...updater(t), updatedAt: Date.now(), demo: undefined };
+    return next;
   });
   emit();
+  if (next) syncTaskAsync(next);
 }
 
 /**
- * Re-read tasks from localStorage. Used by the capability engine when a
- * different window (voice overlay) may have written tasks, and to verify
- * persistence after a capability-driven mutation.
+ * Load tasks from SQLite. Migrates non-demo localStorage tasks once when DB is empty.
  */
-export function reloadTasksFromStorage() {
-  tasks = load();
-  listeners.forEach((l) => l());
+export async function hydrateTasksFromDb(): Promise<void> {
+  if (hydratePromise) return hydratePromise;
+  hydratePromise = (async () => {
+    try {
+      let fromDb = await listTasksFromDb();
+      fromDb = fromDb.filter((t) => !t.demo);
+
+      const migrated = window.localStorage.getItem(MIGRATED_FLAG) === "1";
+      if (fromDb.length === 0 && !migrated) {
+        const local = readLocalStorageTasks();
+        for (const task of local) {
+          try {
+            await upsertTaskToDb({ ...task, demo: undefined });
+          } catch (err) {
+            console.error("[ArcSonare] migrate task failed:", err);
+          }
+        }
+        window.localStorage.setItem(MIGRATED_FLAG, "1");
+        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(LEGACY_KEY);
+        fromDb = await listTasksFromDb();
+      } else if (!migrated) {
+        window.localStorage.setItem(MIGRATED_FLAG, "1");
+        window.localStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(LEGACY_KEY);
+      }
+
+      tasks = fromDb.filter((t) => !t.demo);
+      hydrated = true;
+      emit();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("No local database is open")) {
+        try {
+          await invoke("database_open_guest");
+          const fromDb = await listTasksFromDb();
+          tasks = fromDb.filter((t) => !t.demo);
+          hydrated = true;
+          emit();
+          return;
+        } catch (retryErr) {
+          console.error("[ArcSonare] hydrate tasks retry failed:", retryErr);
+        }
+      }
+      console.error("[ArcSonare] hydrate tasks failed:", err);
+      // Fallback: non-demo local only (never re-seed demos).
+      tasks = readLocalStorageTasks();
+      hydrated = true;
+      emit();
+    } finally {
+      // Allow a later call (e.g. after sign-in opens the user DB).
+      hydratePromise = null;
+    }
+  })();
+  return hydratePromise;
 }
 
-/** Read the persisted task list directly (verification readback). */
+export function reloadTasksFromStorage() {
+  void hydrateTasksFromDb();
+}
+
 export function readPersistedTasks(): ArcSonareTask[] {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as { tasks?: unknown };
-      if (Array.isArray(parsed?.tasks)) return parsed.tasks as ArcSonareTask[];
-    }
-  } catch (err) {
-    console.error("[ArcSonare] failed to read persisted tasks:", err);
-  }
-  return [];
+  return tasks.slice();
 }
 
 export function newTaskId(): string {
@@ -336,10 +262,12 @@ export function addTask(
     updatedAt: Date.now(),
     subtasks: input.subtasks ?? [],
     tags: input.tags ?? [],
+    demo: undefined,
     activity: [activity("created", `Created task "${input.title}"`, "user")],
   };
   tasks = [task, ...tasks];
   emit();
+  syncTaskAsync(task);
   return task;
 }
 
@@ -352,9 +280,7 @@ export function toggleTask(id: string) {
       activity: [
         activity(
           completed ? "completed" : "reopened",
-          completed
-            ? `Marked "${t.title}" complete`
-            : `Reopened "${t.title}"`,
+          completed ? `Marked "${t.title}" complete` : `Reopened "${t.title}"`,
         ),
         ...t.activity,
       ],
@@ -364,7 +290,7 @@ export function toggleTask(id: string) {
 
 export function updateTask(id: string, patch: Partial<ArcSonareTask>) {
   patchTask(id, (t) => {
-    const next = { ...t, ...patch };
+    const next = { ...t, ...patch, demo: undefined };
     const entries: TaskActivity[] = [];
     if (patch.priority && patch.priority !== t.priority) {
       entries.push(
@@ -375,9 +301,7 @@ export function updateTask(id: string, patch: Partial<ArcSonareTask>) {
       entries.push(
         activity(
           "agent-assigned",
-          patch.agent
-            ? `Assigned to ${patch.agent}`
-            : "Cleared agent assignment",
+          patch.agent ? `Assigned to ${patch.agent}` : "Cleared agent assignment",
         ),
       );
     }
@@ -398,6 +322,7 @@ export function removeTask(id: string) {
     emitPrefs();
   }
   emit();
+  deleteTaskAsync(id);
 }
 
 export function addSubtask(taskId: string, title: string) {
@@ -520,6 +445,10 @@ export function useTaskPrefs(): TaskPrefs {
     },
     () => prefs,
   );
+}
+
+export function areTasksHydrated(): boolean {
+  return hydrated;
 }
 
 export { newSubtaskId };

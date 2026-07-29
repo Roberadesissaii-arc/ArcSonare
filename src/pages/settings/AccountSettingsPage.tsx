@@ -14,31 +14,72 @@ import { useSettings } from "../../hooks/useSettings";
 import { patchPrefs, usePrefs } from "../../stores/settingsStore";
 import {
   clearAccountProfile,
+  hydrateProfileDisplayName,
   loadAccountProfile,
+  mergeAuthIntoProfile,
   saveAccountProfile,
   type AccountProfile,
 } from "../../features/account/accountProfile";
 import { navigateSettings } from "../../stores/appStore";
 import { modelById } from "../../config/modelRegistry";
 import type { ThemePreference } from "../../types";
+import { getAuthSnapshot, useAuthStore } from "../../auth/authStore";
+import { initializeAuth, signOut } from "../../auth/authService";
+import { AccountSignInPanel } from "../../features/account/AccountSignInPanel";
 
 /**
- * Account overview — profile card + equal-height two-column summary cards.
- * Detailed edits live in the expandable Manage panel and other sections.
+ * Account overview — local profile + settings shortcuts.
+ * Sign-in lives on first-launch welcome; this page never requires an account.
  */
 export function AccountSettingsPage() {
   const { settings, update } = useSettings();
   const prefs = usePrefs();
+  const auth = useAuthStore();
   const [profile, setProfile] = useState<AccountProfile>(loadAccountProfile);
   const [managing, setManaging] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [startupBusy, setStartupBusy] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
+  const [logoutBusy, setLogoutBusy] = useState(false);
+
+  const cloudSignedIn = auth.state === "signed-in";
+
+  const displayProfile = mergeAuthIntoProfile(
+    profile,
+    cloudSignedIn && auth.user ? { displayName: auth.user.displayName } : null,
+  );
 
   useEffect(() => {
-    saveAccountProfile(profile);
+    void initializeAuth();
   }, []);
+
+  useEffect(() => {
+    if (!cloudSignedIn || !auth.user) return;
+    setProfile((current) => {
+      const merged = mergeAuthIntoProfile(current, {
+        displayName: auth.user?.displayName,
+      });
+      if (
+        merged.displayName === current.displayName &&
+        merged.fullName === current.fullName
+      ) {
+        return current;
+      }
+      saveAccountProfile(merged);
+      return merged;
+    });
+  }, [cloudSignedIn, auth.user?.displayName]);
+
+  const onLogout = async () => {
+    setLogoutBusy(true);
+    try {
+      await signOut({ removeLocalData: false });
+    } finally {
+      setLogoutBusy(false);
+    }
+  };
 
   const updateProfile = <K extends keyof AccountProfile>(key: K, value: AccountProfile[K]) => {
     setProfile((p) => ({ ...p, [key]: value }));
@@ -116,23 +157,38 @@ export function AccountSettingsPage() {
         description="Personalize your ArcSonare experience and manage your preferences."
       />
 
-      <div
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest("[data-manage]")) {
-            e.preventDefault();
-            setManaging(true);
-          }
+      <ProfileCard
+        profile={displayProfile}
+        cloudSignedIn={cloudSignedIn}
+        onChange={(next) => {
+          setProfile(next);
+          saveAccountProfile(next);
         }}
-      >
-        <ProfileCard
-          profile={profile}
-          onChange={(next) => {
-            setProfile(next);
-            saveAccountProfile(next);
+        onManage={() => setManaging(true)}
+        onSignIn={() => setSignInOpen(true)}
+        onLogout={() => void onLogout()}
+        logoutBusy={logoutBusy}
+      />
+
+      {signInOpen ? (
+        <AccountSignInPanel
+          onClose={() => setSignInOpen(false)}
+          onSignedIn={() => {
+            setSignInOpen(false);
+            const authSnap = getAuthSnapshot();
+            if (authSnap.user) {
+              const merged = mergeAuthIntoProfile(loadAccountProfile(), {
+                displayName: authSnap.user.displayName,
+              });
+              saveAccountProfile(merged);
+              setProfile(merged);
+            } else {
+              hydrateProfileDisplayName();
+              setProfile(loadAccountProfile());
+            }
           }}
         />
-      </div>
+      ) : null}
 
       <div className="settings-card-grid">
         <SettingsCard title="Application" description="Core behavior and startup options.">
@@ -460,14 +516,14 @@ export function AccountSettingsPage() {
       {managing ? (
         <div className="account-manage-panel">
           <SettingsCard
-            title="Manage local profile"
-            description="Edit the local profile stored on this device."
+            title="Manage profile"
+            description="Edit the profile stored on this device. Cloud fields update when you sign in from the welcome screen."
             footer={
               <div className="card-actions">
                 <button type="button" className="btn" onClick={() => setManaging(false)}>
                   Done
                 </button>
-                <button type="button" className="btn" onClick={onSaveProfile}>
+                <button type="button" className="btn btn-primary" onClick={onSaveProfile}>
                   Save changes
                 </button>
                 <SettingsStatus message={saved} tone="success" />
@@ -479,6 +535,7 @@ export function AccountSettingsPage() {
               <input
                 value={profile.fullName}
                 onChange={(e) => updateProfile("fullName", e.target.value)}
+                placeholder="Your name"
               />
             </label>
             <label className="settings-field">
@@ -486,15 +543,7 @@ export function AccountSettingsPage() {
               <input
                 value={profile.displayName}
                 onChange={(e) => updateProfile("displayName", e.target.value)}
-              />
-            </label>
-            <label className="settings-field">
-              <span>Email address</span>
-              <input
-                type="email"
-                value={profile.email}
-                onChange={(e) => updateProfile("email", e.target.value)}
-                placeholder="Optional"
+                placeholder="Shown in greetings"
               />
             </label>
             <label className="settings-field">
@@ -511,8 +560,23 @@ export function AccountSettingsPage() {
                 onChange={(e) => updateProfile("language", e.target.value)}
               />
             </label>
-            <SettingRow label="Account status" description="Cloud accounts are not available yet.">
-              <span className="badge-muted">Local only</span>
+            <SettingRow
+              label="Account"
+              description={
+                cloudSignedIn
+                  ? "Signed in on this device. Use Log out on the profile card above to switch accounts."
+                  : "No account yet on this device."
+              }
+            >
+              {!cloudSignedIn ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setSignInOpen(true)}
+                >
+                  Create account
+                </button>
+              ) : null}
             </SettingRow>
             <div className="card-actions" style={{ marginTop: 12 }}>
               <button

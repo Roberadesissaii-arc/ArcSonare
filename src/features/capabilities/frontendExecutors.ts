@@ -21,6 +21,11 @@ import {
   type TaskPriority,
 } from "../../stores/taskStore";
 import { addActivity, navigate, type MainPage } from "../../stores/appStore";
+import {
+  fetchNearbyPlaces,
+  fetchTravelTimeTo,
+  fetchWeatherForCurrentLocation,
+} from "../../services/LocationService";
 
 export const NAVIGATE_EVENT = "arcsonare://navigate";
 export const NAVIGATED_EVENT = "arcsonare://navigated";
@@ -382,6 +387,122 @@ export function describeTaskDelete(args: Record<string, unknown>): {
 }
 
 // ---------------------------------------------------------------------------
+// Location (weather / nearby / travel)
+// ---------------------------------------------------------------------------
+
+async function executeWeather(startedAt: string): Promise<ToolResult> {
+  try {
+    const weather = await fetchWeatherForCurrentLocation();
+    const unit = weather.unit === "fahrenheit" ? "°F" : "°C";
+    const windUnit = weather.unit === "fahrenheit" ? "mph" : "km/h";
+    const summary =
+      `It's ${weather.condition} in ${weather.placeLabel} — ` +
+      `${weather.temperature}${unit} (feels like ${weather.feelsLike}${unit}), ` +
+      `${weather.humidity}% humidity, wind ${weather.windSpeed} ${windUnit}.`;
+    return result("location.get_weather", startedAt, "success", summary, {
+      evidence: { verified: true, method: "artifact-validated", details: { source: "open-meteo" } },
+      data: weather,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Couldn't get the weather.";
+    return result("location.get_weather", startedAt, "error", message, {
+      error: { code: "location-failed", message, recoverable: true },
+    });
+  }
+}
+
+async function executeNearby(
+  args: Record<string, unknown>,
+  startedAt: string,
+): Promise<ToolResult> {
+  try {
+    const query =
+      typeof args.query === "string" && args.query.trim()
+        ? args.query.trim()
+        : "cafe";
+    const { places, placeLabel } = await fetchNearbyPlaces(query);
+    if (!places.length) {
+      return result(
+        "location.get_nearby",
+        startedAt,
+        "not-found",
+        `I couldn't find ${query} places near ${placeLabel}.`,
+        {
+          error: {
+            code: "not-found",
+            message: "No nearby matches.",
+            recoverable: true,
+          },
+          data: { places, placeLabel, query },
+        },
+      );
+    }
+    const lines = places
+      .map((p) => {
+        const dist =
+          p.distanceKm < 1
+            ? `${Math.round(p.distanceKm * 1000)} m`
+            : `${p.distanceKm.toFixed(1)} km`;
+        return `${p.name} (${dist})`;
+      })
+      .join("; ");
+    const summary = `Near ${placeLabel}: ${lines}.`;
+    return result("location.get_nearby", startedAt, "success", summary, {
+      evidence: { verified: true, method: "artifact-validated", details: { source: "photon" } },
+      data: { places, placeLabel, query },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Couldn't find nearby places.";
+    return result("location.get_nearby", startedAt, "error", message, {
+      error: { code: "location-failed", message, recoverable: true },
+    });
+  }
+}
+
+async function executeTravelTime(
+  args: Record<string, unknown>,
+  startedAt: string,
+): Promise<ToolResult> {
+  const destination = String(args.destination ?? "").trim();
+  if (!destination) {
+    return result(
+      "location.get_travel_time",
+      startedAt,
+      "error",
+      "Tell me where you want to go.",
+      {
+        error: {
+          code: "invalid-arguments",
+          message: "destination required",
+          recoverable: true,
+        },
+      },
+    );
+  }
+  try {
+    const estimate = await fetchTravelTimeTo(destination);
+    const hours = Math.floor(estimate.durationMinutes / 60);
+    const mins = estimate.durationMinutes % 60;
+    const duration =
+      hours > 0
+        ? `${hours} hour${hours === 1 ? "" : "s"}${mins ? ` ${mins} minutes` : ""}`
+        : `${mins} minute${mins === 1 ? "" : "s"}`;
+    const summary =
+      `From ${estimate.placeLabel}, driving to ${estimate.destination} is about ` +
+      `${duration} (${estimate.distanceKm} km).`;
+    return result("location.get_travel_time", startedAt, "success", summary, {
+      evidence: { verified: true, method: "artifact-validated", details: { source: "osrm" } },
+      data: estimate,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Couldn't estimate travel time.";
+    return result("location.get_travel_time", startedAt, "error", message, {
+      error: { code: "location-failed", message, recoverable: true },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
 
@@ -406,6 +527,12 @@ export async function executeFrontendCapability(
     case "tasks.assign_agent":
     case "tasks.delete":
       return executeTaskMutation(capabilityId, args, startedAt);
+    case "location.get_weather":
+      return executeWeather(startedAt);
+    case "location.get_nearby":
+      return executeNearby(args, startedAt);
+    case "location.get_travel_time":
+      return executeTravelTime(args, startedAt);
     default:
       return result(capabilityId, startedAt, "error", `"${capabilityId}" has no frontend executor.`, {
         error: { code: "unknown-capability", message: capabilityId, recoverable: false },

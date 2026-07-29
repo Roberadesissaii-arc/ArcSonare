@@ -49,14 +49,17 @@ export function EventSoundRow({
         label={`Volume for ${name}`}
         disabled={!masterEnabled || !enabled}
         className="is-event"
+        showPercent={false}
       />
+      <span className="sound-event-pct" aria-hidden="true">
+        {Math.max(0, Math.min(100, volume))}%
+      </span>
       <button
         type="button"
         className={`sound-preview-btn${previewing ? " is-active" : ""}`}
         aria-label={previewing ? `Stop ${name} preview` : `Preview “${name}” sound`}
         title={previewing ? "Stop" : "Preview"}
         onClick={onPreview}
-        disabled={!masterEnabled}
       >
         {previewing ? <StopIcon size={12} /> : <PlayIcon size={12} />}
       </button>

@@ -12,15 +12,32 @@ interface ProfileCardProps {
   profile: AccountProfile;
   onChange: (next: AccountProfile) => void;
   onManage?: () => void;
+  /** Open the create-account flow. */
+  onSignIn?: () => void;
+  /** Log out of the local account (always visible when signed in). */
+  onLogout?: () => void;
+  logoutBusy?: boolean;
+  /** When true, this device has a local account signed in. */
+  cloudSignedIn?: boolean;
 }
 
-/** Wide local-profile card for the Account overview. */
-export function ProfileCard({ profile, onChange, onManage }: ProfileCardProps) {
+/** Wide profile card for the Account overview. */
+export function ProfileCard({
+  profile,
+  onChange,
+  onManage,
+  onSignIn,
+  onLogout,
+  logoutBusy = false,
+  cloudSignedIn = false,
+}: ProfileCardProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const name = profile.fullName || profile.displayName || "Local user";
-  const email = profile.email || "No email on this device";
+  const name =
+    profile.fullName.trim() ||
+    profile.displayName.trim() ||
+    (cloudSignedIn ? "ArcSonare account" : "Your profile");
   const initials = profileInitials(profile);
 
   const applyAvatar = (dataUrl: string) => {
@@ -86,24 +103,51 @@ export function ProfileCard({ profile, onChange, onManage }: ProfileCardProps) {
             <div className="profile-name-row">
               <h2 className="profile-name">{name}</h2>
               <span className="profile-local-badge">
-                Local Profile
+                {cloudSignedIn ? "Local account" : "Not signed in"}
                 <CheckIcon size={11} />
               </span>
             </div>
-            <p className="profile-email">{email}</p>
-            <p className="profile-status">Signed in locally on this device</p>
+            <p className="profile-status">
+              {cloudSignedIn
+                ? "Signed in on this device. Nothing leaves this computer."
+                : "This device has no account yet."}
+            </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          className="profile-manage-btn"
-          onClick={() => onManage?.()}
-          aria-label="Manage account"
-        >
-          Manage Account
-          <ArrowUpRightIcon size={14} />
-        </button>
+        <div className="profile-card-actions">
+          {!cloudSignedIn && onSignIn ? (
+            <button
+              type="button"
+              className="profile-manage-btn profile-signin-btn"
+              onClick={() => onSignIn()}
+              aria-label="Create a local account"
+            >
+              Create account
+              <ArrowUpRightIcon size={14} />
+            </button>
+          ) : null}
+          {cloudSignedIn && onLogout ? (
+            <button
+              type="button"
+              className="profile-manage-btn profile-logout-btn"
+              onClick={() => onLogout()}
+              disabled={logoutBusy}
+              aria-label="Log out"
+            >
+              {logoutBusy ? "Logging out…" : "Log out"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="profile-manage-btn"
+            onClick={() => onManage?.()}
+            aria-label="Manage account"
+          >
+            Manage
+            <ArrowUpRightIcon size={14} />
+          </button>
+        </div>
       </section>
 
       {editorOpen ? (

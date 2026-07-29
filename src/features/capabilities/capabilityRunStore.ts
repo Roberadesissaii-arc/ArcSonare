@@ -84,9 +84,9 @@ export function patchRun(
 function defaultMessage(run: CapabilityRun): string {
   switch (run.state) {
     case "routing":
-      return "Understanding...";
+      return "Thinking...";
     case "planning":
-      return "Planning...";
+      return "Thinking...";
     case "awaiting-confirmation":
       return "Waiting for confirmation...";
     case "executing":

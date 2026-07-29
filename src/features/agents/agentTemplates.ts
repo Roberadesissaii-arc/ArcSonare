@@ -132,12 +132,45 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     role: "Screen",
     initials: "SA",
     avatarId: "sora",
-    suggestedTools: ["screen-context", "notifications"],
-    recommendedPermissionNote: "Screen Context asks every time.",
+    suggestedTools: ["notifications"],
+    recommendedPermissionNote: "Notifications are read-only by default.",
     suggestedModelRole: "Screen understanding",
     suggestedVoiceBehavior: "Spoken answers",
     objective: "Answer questions about captured screen context.",
     guidelines: "Only reads captures the user explicitly confirmed.",
+  },
+  {
+    id: "data-analyst",
+    name: "Data Analyst",
+    purpose: "Finds patterns and turns datasets into clear decisions.",
+    role: "Analytics",
+    initials: "DA",
+    avatarId: "pulse",
+    suggestedTools: ["files", "tasks", "notifications"],
+    recommendedPermissionNote: "Files ask every time; tasks read-only.",
+    suggestedModelRole: "Research",
+    suggestedVoiceBehavior: "Concise spoken findings",
+    objective:
+      "Analyze approved data sources and surface the most decision-relevant patterns.",
+    guidelines:
+      "State assumptions, flag incomplete data, and never alter source files.",
+  },
+  {
+    id: "workflow-automator",
+    name: "Workflow Automator",
+    purpose: "Connects repeatable steps into reliable workflows.",
+    role: "Automation",
+    initials: "WA",
+    avatarId: "flux",
+    suggestedTools: ["tasks", "integrations", "notifications"],
+    recommendedPermissionNote:
+      "Integrations ask every time; tasks read-write.",
+    suggestedModelRole: "Fast commands",
+    suggestedVoiceBehavior: "Report exceptions only",
+    objective:
+      "Design and run approved repeatable workflows with clear checkpoints.",
+    guidelines:
+      "Require approval before external actions and stop safely when any step fails.",
   },
 ];
 

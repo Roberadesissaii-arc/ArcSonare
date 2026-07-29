@@ -1,86 +1,88 @@
-import { useState } from "react";
-import { FOCUS } from "../../data/demoData";
-import { addActivity } from "../../stores/appStore";
-import { DotsIcon } from "../Icons";
+import { useMemo, useState } from "react";
+import { DotsIcon, ListIcon } from "../Icons";
+import { EmptyState } from "../EmptyState";
+import { addActivity, navigate } from "../../stores/appStore";
+import { computeTaskProgress } from "../../features/tasks/taskUtils";
+import { filterTasks, useTasks, type Task } from "../../stores/taskStore";
 
-/** The current focus block — progress in the middle, actions pinned to the bottom. */
+/** Focus block — next real open task, or empty CTA. */
 export function FocusCard() {
-  const [subtasks, setSubtasks] = useState(FOCUS.subtasks);
-  const [active, setActive] = useState(false);
-  const [snoozed, setSnoozed] = useState(false);
+  const tasks = useTasks();
+  const focus = useMemo(() => pickFocusTask(tasks), [tasks]);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  const [snoozed, setSnoozed] = useState(false);
 
-  const done = subtasks.filter((s) => s.done).length;
-  const next = subtasks.find((s) => !s.done)?.label;
-  const currentIndex = subtasks.findIndex((s) => !s.done);
-
-  const startPreparation = () => {
-    setActive(true);
-    setSnoozed(false);
-    addActivity(`Started preparation: ${FOCUS.title}`, "system");
-  };
-
-  const snooze = (minutes: number) => {
-    setSnoozed(true);
-    setActive(false);
-    setSnoozeOpen(false);
-    addActivity(`Snoozed ${FOCUS.title} for ${minutes} min`, "system");
-  };
-
-  const toggleSubtask = (index: number) => {
-    setSubtasks((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, done: !s.done } : s)),
+  if (!focus) {
+    return (
+      <section className="card sonare-card focus-card">
+        <div className="card-head">
+          <span className="card-label">Focus</span>
+        </div>
+        <EmptyState
+          icon={<ListIcon size={23} />}
+          title="Nothing in focus"
+          description="Your next priority will appear here."
+          compact
+        >
+          <button
+            type="button"
+            className="btn-pill"
+            onClick={() => navigate("tasks")}
+          >
+            Open Tasks
+          </button>
+        </EmptyState>
+      </section>
     );
-  };
+  }
 
-  const progressWidth =
-    subtasks.length <= 1
-      ? 0
-      : (Math.max(done - 0.5, 0) / (subtasks.length - 1)) * 100;
+  const progress = computeTaskProgress(focus);
+  const nextSub = focus.subtasks.find((s) => !s.completed)?.title;
 
   return (
-    <section className={`card sonare-card focus-card${active ? " focus-active" : ""}`}>
+    <section className="card sonare-card focus-card">
       <div className="card-head">
         <span className="card-label">Focus</span>
-        <button type="button" className="icon-button" aria-label="Focus options">
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Open task"
+          onClick={() => navigate("tasks")}
+        >
           <DotsIcon size={15} />
         </button>
       </div>
 
-      <h2 className="card-title">{FOCUS.title}</h2>
-      <p className="card-text">{FOCUS.description}</p>
+      <h2 className="card-title">{focus.title}</h2>
+      <p className="card-text">
+        {focus.note?.trim() ||
+          (focus.due ? `Due ${focus.due}` : "Open task from your workspace.")}
+      </p>
 
       <div
         className="focus-progress"
-        aria-label={`${done} of ${subtasks.length} subtasks done`}
+        aria-label={`${progress}% progress`}
       >
         <div className="focus-track">
-          {subtasks.map((s, i) => {
-            const isCurrent = !s.done && i === currentIndex;
-            return (
-              <button
-                key={s.label}
-                type="button"
-                className={`focus-marker${s.done ? " done" : ""}${isCurrent ? " current" : ""}`}
-                aria-label={`${s.label} — ${s.done ? "done" : isCurrent ? "current" : "open"}`}
-                title={s.label}
-                onClick={() => toggleSubtask(i)}
-              />
-            );
-          })}
-          <span className="focus-line" style={{ width: `${progressWidth}%` }} />
+          <span className="focus-line" style={{ width: `${progress}%` }} />
         </div>
         <div className="focus-progress-foot">
-          <span className="focus-progress-text">
-            {done} of {subtasks.length} subtasks done
-          </span>
-          {next ? <span className="focus-next">Next: {next}</span> : null}
+          <span className="focus-progress-text">{progress}% complete</span>
+          {nextSub ? <span className="focus-next">Next: {nextSub}</span> : null}
         </div>
       </div>
 
       <div className="card-actions focus-actions">
-        <button type="button" className="btn-pill" onClick={startPreparation}>
-          {active ? "Preparing…" : "Start preparation"}
+        <button
+          type="button"
+          className="btn-pill"
+          onClick={() => {
+            setSnoozed(false);
+            addActivity(`Opened focus task: ${focus.title}`, "task");
+            navigate("tasks");
+          }}
+        >
+          Open task
         </button>
         <div className="focus-snooze-wrap">
           <button
@@ -100,7 +102,11 @@ export function FocusCard() {
                   type="button"
                   role="menuitem"
                   className="mode-option"
-                  onClick={() => snooze(m)}
+                  onClick={() => {
+                    setSnoozed(true);
+                    setSnoozeOpen(false);
+                    addActivity(`Snoozed ${focus.title} for ${m} min`, "system");
+                  }}
                 >
                   {m} minutes
                 </button>
@@ -111,4 +117,13 @@ export function FocusCard() {
       </div>
     </section>
   );
+}
+
+function pickFocusTask(tasks: Task[]): Task | null {
+  const urgent = filterTasks(tasks, "urgent");
+  if (urgent[0]) return urgent[0];
+  const today = filterTasks(tasks, "today");
+  if (today[0]) return today[0];
+  const open = filterTasks(tasks, "open");
+  return open[0] ?? null;
 }

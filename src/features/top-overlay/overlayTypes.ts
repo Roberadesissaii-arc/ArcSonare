@@ -98,6 +98,17 @@ export interface ClarificationPayload {
   options: { id: string; label: string }[];
 }
 
+/** Informational / connection notice shown in the expanded dropdown. */
+export interface NoticePayload {
+  title: string;
+  message: string;
+  /** Primary CTA label (e.g. "Connect Calendar"). */
+  primaryLabel?: string;
+  /** Where the primary CTA should take the user. */
+  navigateTo?: "connect" | "settings";
+  code?: string;
+}
+
 export type OverlayActionPayload =
   | { type: "email"; data: EmailDraftPayload }
   | { type: "meeting"; data: MeetingPayload }
@@ -105,6 +116,7 @@ export type OverlayActionPayload =
   | { type: "screen-context"; data: ScreenContextPayload }
   | { type: "success"; data: SuccessPayload }
   | { type: "clarification"; data: ClarificationPayload }
+  | { type: "notice"; data: NoticePayload }
   | { type: "none" };
 
 export interface OverlayState {

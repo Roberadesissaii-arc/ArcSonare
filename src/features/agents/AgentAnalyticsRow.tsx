@@ -2,6 +2,8 @@ import type { AgentConfig } from "./agentStore";
 import { deriveAgentHealth, healthLabel } from "./agentHealth";
 import type { Task } from "../../stores/taskStore";
 import { tasksForAgent } from "./agentSelectors";
+import { BotIcon, ChartIcon, ListIcon } from "../../components/Icons";
+import { EmptyState } from "../../components/EmptyState";
 
 interface AgentAnalyticsRowProps {
   agents: AgentConfig[];
@@ -37,15 +39,12 @@ export function AgentAnalyticsRow({ agents, tasks }: AgentAnalyticsRowProps) {
             reports it.
           </p>
         ) : (
-          <div className="agent-analytics-empty">
-            <div className="agent-util-placeholder" aria-hidden="true">
-              {Array.from({ length: 7 }, (_, i) => (
-                <span key={i} />
-              ))}
-            </div>
-            <p>Not enough activity yet</p>
-            <span>Analytics appear after agents complete work.</span>
-          </div>
+          <EmptyState
+            icon={<ChartIcon size={21} />}
+            title="No activity yet"
+            description="Utilization appears after agents complete work."
+            compact
+          />
         )}
       </section>
 
@@ -55,9 +54,12 @@ export function AgentAnalyticsRow({ agents, tasks }: AgentAnalyticsRowProps) {
           <p>Current distribution</p>
         </header>
         {total === 0 ? (
-          <div className="agent-analytics-empty">
-            <p>No tasks yet</p>
-          </div>
+          <EmptyState
+            icon={<ListIcon size={21} />}
+            title="No tasks yet"
+            description="Assigned work will appear here."
+            compact
+          />
         ) : (
           <div className="agent-donut-layout">
             <div
@@ -109,9 +111,12 @@ export function AgentAnalyticsRow({ agents, tasks }: AgentAnalyticsRowProps) {
           <p>System status</p>
         </header>
         {agents.length === 0 ? (
-          <div className="agent-analytics-empty">
-            <p>No agents configured</p>
-          </div>
+          <EmptyState
+            icon={<BotIcon size={21} />}
+            title="No agents yet"
+            description="Create an agent to begin monitoring health."
+            compact
+          />
         ) : (
           <ul className="agent-health-list">
             {agents.map((agent) => {

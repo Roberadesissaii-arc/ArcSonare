@@ -314,7 +314,7 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
       "make a folder named Reports inside Documents",
     ],
     keywords: ["create", "make", "new", "folder", "directory"],
-    supportsDeterministicRouting: true,
+    supportsDeterministicRouting: false,
     inputSchema: {
       type: "object",
       properties: {
@@ -1051,6 +1051,85 @@ export const CAPABILITY_REGISTRY: CapabilityDefinition[] = [
         task_id: { type: ["string", "null"] },
         title_query: { type: ["string", "null"] },
       },
+      additionalProperties: false,
+    },
+  }),
+
+  // ---------------------------------------------------------- location
+  def({
+    id: "location.get_weather",
+    displayName: "Local weather",
+    description:
+      "Get current weather for the user's device location. Use when they ask about weather, temperature, or conditions outside without naming another city.",
+    category: "location",
+    riskLevel: "read-only",
+    aliases: ["weather", "temperature", "forecast"],
+    intentExamples: [
+      "what's the weather",
+      "how's the weather outside",
+      "what's the temperature",
+    ],
+    keywords: ["weather", "temperature", "forecast", "outside", "rain", "humid"],
+    supportsDeterministicRouting: true,
+    executor: "frontend",
+    timeoutMs: 20_000,
+    requiredPermissions: ["location"],
+    inputSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  }),
+  def({
+    id: "location.get_nearby",
+    displayName: "Nearby places",
+    description:
+      "Find places near the user's current location (cafes, restaurants, pharmacies, etc.).",
+    category: "location",
+    riskLevel: "read-only",
+    aliases: ["nearby", "near me", "around me"],
+    intentExamples: [
+      "what's near me",
+      "nearby restaurants",
+      "cafes near me",
+    ],
+    keywords: ["nearby", "near", "around", "places", "restaurant", "cafe"],
+    supportsDeterministicRouting: true,
+    executor: "frontend",
+    timeoutMs: 20_000,
+    requiredPermissions: ["location"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: ["string", "null"], maxLength: 80 },
+      },
+      additionalProperties: false,
+    },
+  }),
+  def({
+    id: "location.get_travel_time",
+    displayName: "Travel time",
+    description:
+      "Estimate driving time and distance from the user's current location to a named destination.",
+    category: "location",
+    riskLevel: "read-only",
+    aliases: ["how long", "travel time", "how far", "eta"],
+    intentExamples: [
+      "how long to get to the airport",
+      "how far is Target",
+      "travel time to downtown",
+    ],
+    keywords: ["how long", "how far", "travel", "drive", "eta", "minutes"],
+    supportsDeterministicRouting: true,
+    executor: "frontend",
+    timeoutMs: 25_000,
+    requiredPermissions: ["location"],
+    inputSchema: {
+      type: "object",
+      properties: {
+        destination: { type: "string", minLength: 1, maxLength: 120 },
+      },
+      required: ["destination"],
       additionalProperties: false,
     },
   }),

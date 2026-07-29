@@ -4,13 +4,7 @@
  */
 import { listen } from "@tauri-apps/api/event";
 import { navigate, navigateSettings } from "../../stores/appStore";
-import { getPrefs, patchPrefs } from "../../stores/settingsStore";
-import {
-  captureAndAnnotate,
-  getScreenContextState,
-  startScreenContext,
-  toggleScreenContext,
-} from "../screen-context/screenContextStore";
+import { patchPrefs, getPrefs } from "../../stores/settingsStore";
 
 export async function handleShortcutAction(action: string): Promise<void> {
   switch (action) {
@@ -31,25 +25,6 @@ export async function handleShortcutAction(action: string): Promise<void> {
       return;
     case "open-voice-settings":
       navigateSettings("voice");
-      return;
-    case "screen-context-toggle":
-      await toggleScreenContext();
-      return;
-    case "screen-annotation": {
-      if (!getPrefs().screenContext.enabled) {
-        patchPrefs("screenContext", { enabled: true });
-      }
-      if (!getScreenContextState().active) {
-        await startScreenContext();
-      }
-      await captureAndAnnotate();
-      return;
-    }
-    case "capture-active-window":
-      await captureAndAnnotate("active-window");
-      return;
-    case "capture-region":
-      await captureAndAnnotate("region");
       return;
     case "mute":
       patchPrefs("voice", {

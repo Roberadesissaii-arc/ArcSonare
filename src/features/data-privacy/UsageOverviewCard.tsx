@@ -1,4 +1,5 @@
 import { USAGE_CATEGORIES } from "./dataCategoryRegistry";
+import { UsageCategoryIcon } from "./CategoryIcons";
 import { DataPrivacyCard } from "./DataPrivacyCard";
 import {
   formatBytes,
@@ -48,7 +49,7 @@ export function UsageOverviewCard({
           const pct = percentOf(bytes, total);
           return (
             <li key={cat.id} className="data-usage-row">
-              <span className={`data-usage-icon tone-${cat.tone}`} aria-hidden="true" />
+              <UsageCategoryIcon id={cat.id} tone={cat.tone} />
               <div className="data-usage-meta">
                 <span className="data-usage-name">{cat.displayName}</span>
                 <span className="data-usage-desc">{cat.description}</span>

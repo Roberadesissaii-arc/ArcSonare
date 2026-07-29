@@ -1,5 +1,6 @@
 import { FolderIcon } from "../../components/Icons";
 import { USAGE_CATEGORIES } from "./dataCategoryRegistry";
+import { DataCategoryIcon } from "./CategoryIcons";
 import { DataPrivacyCard } from "./DataPrivacyCard";
 import { formatBytes, type StorageScanResult } from "./dataPrivacyTypes";
 
@@ -18,7 +19,7 @@ export function DataCategoriesCard({ scan, onViewAll }: DataCategoriesCardProps)
           const items = row?.itemCount;
           return (
             <li key={cat.id}>
-              <span className={`data-cat-icon tone-${cat.tone}`} aria-hidden="true" />
+              <DataCategoryIcon id={cat.id} tone={cat.tone} />
               <div>
                 <strong>{cat.displayName.replace(" & annotations", "").replace(" & raw audio", "").replace(" & agent logs", "").replace(" & caches", "")}</strong>
                 <span>
@@ -34,6 +35,7 @@ export function DataCategoriesCard({ scan, onViewAll }: DataCategoriesCardProps)
           );
         })}
       </ul>
+      <div className="data-categories-spacer" aria-hidden="true" />
       <button type="button" className="btn data-manage-all" onClick={onViewAll}>
         <FolderIcon size={14} />
         View all data

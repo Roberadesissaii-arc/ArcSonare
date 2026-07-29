@@ -16,6 +16,8 @@ interface OverlayHeaderProps {
   applicationIcon?: string;
   waveformLevels: number[];
   onCancel: () => void;
+  /** Tap the marble to barge in — stop speaking / thinking and listen. */
+  onActivateListening: () => void;
   expanded: boolean;
 }
 
@@ -44,6 +46,7 @@ export function OverlayHeader({
   applicationIcon,
   waveformLevels,
   onCancel,
+  onActivateListening,
   expanded,
 }: OverlayHeaderProps) {
   const orb = modeToOrbStatus(mode);
@@ -54,9 +57,15 @@ export function OverlayHeader({
 
   return (
     <div className={`overlay-header${expanded ? " is-expanded" : ""}`}>
-      <span className="overlay-marble">
+      <button
+        type="button"
+        className="overlay-marble"
+        onClick={onActivateListening}
+        aria-label="Listen now — interrupt and start listening"
+        title="Listen now"
+      >
         <SonareMarbleOrb status={toVoiceStatus(orb)} size={50} />
-      </span>
+      </button>
       <OverlayStatusText mode={mode} status={status} />
       <span className="overlay-divider" aria-hidden="true" />
       <div className="overlay-wave">

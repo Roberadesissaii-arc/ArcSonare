@@ -1,7 +1,7 @@
 import type { VoiceStatus } from "../../stores/voiceStore";
 
 /** Character / accent tints for the glass marble (default = ArcSonare violet). */
-export type MarbleTint = "violet" | "warm" | "blue" | "teal" | "rose";
+export type MarbleTint = "violet" | "warm" | "blue" | "teal" | "rose" | "pearl";
 
 interface SonareMarbleOrbProps {
   status?: VoiceStatus;

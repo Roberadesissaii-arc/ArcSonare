@@ -20,6 +20,7 @@ import {
   SparkleIcon,
   TrashIcon,
 } from "../components/Icons";
+import { EmptyState } from "../components/EmptyState";
 import { Dropdown } from "../components/settings/Dropdown";
 import { AskAgentPanel } from "../features/tasks/AskAgentPanel";
 import { TaskSummaryGrid } from "../features/tasks/TaskSummaryGrid";
@@ -240,7 +241,6 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
       <div className="tasks-workspace task-command-shell">
         <aside className="task-command-rail card sonare-card task-surface">
           <div className="task-command-brand">
-            <span className="task-command-mark" aria-hidden="true"><SparkleIcon size={16} /></span>
             <div>
               <p className="tasks-kicker">Task command</p>
               <h1 className="page-heading tasks-heading">Mission control</h1>
@@ -280,7 +280,6 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
               <h2 className="task-mission-title">Mission queue</h2>
               <p className="task-mission-subtitle">{visible.length} tasks in this view · choose one to inspect or delegate</p>
             </div>
-            <span className="task-mission-orb" aria-hidden="true"><BotIcon size={20} /></span>
           </header>
           <div className="tasks-toolbar card sonare-card task-surface">
             <div className="task-toolbar-top">
@@ -356,21 +355,19 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
           </div>
 
           {visible.length === 0 ? (
-            <div className="tasks-empty card sonare-card">
-              <span className="tasks-empty-icon" aria-hidden="true">
-                <ListIcon size={22} />
-              </span>
-              <h2 className="tasks-empty-title">
-                {debouncedQuery || taskFilter !== "all"
-                  ? "No tasks match these filters."
-                  : "You’re all caught up"}
-              </h2>
-              <p className="tasks-empty-text">
-                {debouncedQuery || taskFilter !== "all"
-                  ? "Try clearing search or filters to see more work."
-                  : "Create a task or ask ArcSonare to help plan what’s next."}
-              </p>
-              <div className="tasks-empty-actions">
+            <EmptyState
+              icon={<ListIcon size={23} />}
+              title={
+                debouncedQuery || taskFilter !== "all"
+                  ? "No matching tasks"
+                  : "You’re all caught up"
+              }
+              description={
+                debouncedQuery || taskFilter !== "all"
+                  ? "Clear the search or filters to see more work."
+                  : "Create a task and it will appear here."
+              }
+            >
                 {debouncedQuery || taskFilter !== "all" ? (
                   <button
                     type="button"
@@ -392,8 +389,7 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
                     Create task
                   </button>
                 )}
-              </div>
-            </div>
+            </EmptyState>
           ) : (
             <div
               className={`tasks-groups${prefs.view === "grid" ? " is-grid" : ""}`}
@@ -466,14 +462,11 @@ export function TasksPage({ onCreateTask }: TasksPageProps) {
             className="task-detail task-detail-idle card sonare-card task-surface"
             aria-label="No task selected"
           >
-            <span className="task-detail-idle-icon" aria-hidden="true">
-              <ClockIcon size={22} />
-            </span>
-            <p className="task-detail-idle-title">Select a task</p>
-            <p className="task-detail-idle-text">
-              Open any row to review notes, priority, subtasks, and agent
-              assignment.
-            </p>
+            <EmptyState
+              icon={<ClockIcon size={24} />}
+              title="Select a task"
+              description="Choose a task to review its notes, subtasks, and assignment."
+            />
           </aside>
         )}
       </div>

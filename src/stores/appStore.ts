@@ -14,21 +14,21 @@ export type SettingsSection =
   | "voice"
   | "models"
   | "shortcuts"
-  | "screen-context"
   | "appearance"
   | "sounds"
   | "notifications"
   | "data-privacy"
   | "integrations"
-  | "about";
+  | "about"
+  | "voice-lab";
 
 const SETTINGS_SECTIONS: SettingsSection[] = [
   "account",
   "general",
   "voice",
+  "voice-lab",
   "models",
   "shortcuts",
-  "screen-context",
   "appearance",
   "sounds",
   "notifications",
@@ -100,7 +100,7 @@ let state: AppState = {
   page: "dashboard",
   taskFilter: "all",
   paletteOpen: false,
-  profileName: "Robera",
+  profileName: "",
   activity: loadActivity(),
   notificationsReadAt: loadReadAt(),
   settingsSection: loadSettingsSection(),
@@ -175,7 +175,7 @@ export function addActivity(text: string, source: ActivityEntry["source"]) {
 
 /** Updates the display name used by the Dashboard greeting. */
 export function setProfileDisplayName(name: string) {
-  const trimmed = name.trim() || "Robera";
+  const trimmed = name.trim();
   set({ profileName: trimmed });
 }
 

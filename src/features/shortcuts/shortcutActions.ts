@@ -68,30 +68,6 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
     description: "Jumps to the last visited Settings section.",
   },
   {
-    id: "screen-context-toggle",
-    label: "Toggle Screen Context",
-    description: "Starts or stops the screen indicator using your configured target.",
-    frontendOnly: true,
-  },
-  {
-    id: "screen-annotation",
-    label: "Start screen annotation",
-    description: "Captures the configured target and opens the drawing overlay.",
-    frontendOnly: true,
-  },
-  {
-    id: "capture-active-window",
-    label: "Capture active window",
-    description: "Captures the foreground window into Screen Context.",
-    frontendOnly: true,
-  },
-  {
-    id: "capture-region",
-    label: "Capture selected region",
-    description: "Captures a monitor and lets you crop a region in the annotation view.",
-    frontendOnly: true,
-  },
-  {
     id: "mute",
     label: "Mute ArcSonare",
     description: "Toggles spoken responses off and on.",

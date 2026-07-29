@@ -51,8 +51,14 @@ type MetaSnapshot = {
 };
 
 let memory: MetaSnapshot = { accounts: [], updatedAt: new Date().toISOString() };
+/** Stable snapshot for useSyncExternalStore — never return a fresh array each read. */
+let snapshotCache: ConnectedAccount[] = [];
 let prefs: ServiceAccountPreference[] = [];
 let loaded = false;
+
+function rebuildSnapshotCache() {
+  snapshotCache = memory.accounts.map((a) => ({ ...a }));
+}
 
 function load(): void {
   if (loaded) return;
@@ -66,6 +72,21 @@ function load(): void {
   } catch {
     memory = { accounts: [], updatedAt: new Date().toISOString() };
   }
+  // Drop fake “Connected” rows from earlier builds (Client ID click without tokens).
+  const before = memory.accounts.length;
+  memory.accounts = memory.accounts.filter((a) => {
+    if (a.provider !== "google") return true;
+    if (a.status !== "connected" && a.status !== "connected-limited") return true;
+    return hasVerifiedApiScopes(a);
+  });
+  if (memory.accounts.length !== before) {
+    try {
+      window.localStorage.setItem(META_KEY, JSON.stringify(memory));
+    } catch {
+      // Best-effort.
+    }
+  }
+  rebuildSnapshotCache();
   try {
     const raw = window.localStorage.getItem(PREFS_KEY);
     if (raw) prefs = JSON.parse(raw) as ServiceAccountPreference[];
@@ -74,8 +95,24 @@ function load(): void {
   }
 }
 
+/** True when scopes look like real Google API grants (not openid/email-only fakes). */
+export function hasVerifiedApiScopes(account: ConnectedAccount): boolean {
+  return account.scopes.some(
+    (s) =>
+      s === "*" ||
+      s.includes("gmail") ||
+      s.includes("calendar") ||
+      s.includes("drive") ||
+      s === "email.read" ||
+      s === "calendar.read" ||
+      s === "drive.read" ||
+      s.startsWith("https://www.googleapis.com/"),
+  );
+}
+
 function persist(): void {
   memory.updatedAt = new Date().toISOString();
+  rebuildSnapshotCache();
   try {
     window.localStorage.setItem(META_KEY, JSON.stringify(memory));
   } catch {
@@ -93,7 +130,7 @@ function persistPrefs(): void {
 
 export function getConnectionSnapshot(): ConnectedAccount[] {
   load();
-  return memory.accounts.map((a) => ({ ...a }));
+  return snapshotCache;
 }
 
 export function upsertAccount(account: ConnectedAccount): void {

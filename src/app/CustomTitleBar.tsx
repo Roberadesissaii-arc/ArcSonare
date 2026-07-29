@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ArcSonareLogo } from "../components/brand/ArcSonareLogo";
 
 const appWindow = getCurrentWindow();
 
@@ -46,6 +47,10 @@ export function CustomTitleBar() {
 
   return (
     <header className="titlebar" data-tauri-drag-region>
+      <div className="titlebar-brand" data-tauri-drag-region>
+        <ArcSonareLogo size={16} />
+        <span>ArcSonare</span>
+      </div>
       <div className="titlebar-spacer" data-tauri-drag-region />
       <div className="window-controls" role="group" aria-label="Window">
         <button

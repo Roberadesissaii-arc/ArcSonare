@@ -31,10 +31,6 @@ pub const KNOWN_ACTIONS: &[&str] = &[
     "open-agent",
     "open-connect",
     "open-settings",
-    "screen-context-toggle",
-    "screen-annotation",
-    "capture-active-window",
-    "capture-region",
     "mute",
     "stop-speaking",
 ];
@@ -67,11 +63,6 @@ fn dispatch(app: &AppHandle, action: &str) {
         "open-app" => crate::panels::show_main(app),
         "hide-app" => crate::panels::hide_main_window(app),
         "open-settings" => crate::panels::show_settings(app),
-        "screen-context-toggle" => {
-            // Handled by the frontend so the configured target/confirmation
-            // settings apply; bring the app forward only for confirmation.
-            forward(app, action);
-        }
         _ => forward(app, action),
     }
 }
@@ -80,7 +71,7 @@ fn dispatch(app: &AppHandle, action: &str) {
 /// result of pressing the shortcut).
 fn forward(app: &AppHandle, action: &str) {
     // Mute / stop-speaking must not steal focus; everything else shows the app.
-    if !matches!(action, "mute" | "stop-speaking" | "screen-context-toggle") {
+    if !matches!(action, "mute" | "stop-speaking") {
         crate::panels::show_main(app);
     }
     if let Some(window) = app.get_webview_window(crate::panels::MAIN_LABEL) {

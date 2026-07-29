@@ -249,7 +249,12 @@ export function GeneralSettingsPage() {
             type="button"
             className="btn"
             onClick={() => {
-              set({ onboardingDone: false });
+              set({
+                onboardingDone: false,
+                overlayUnlocked: false,
+                locationPrompted: false,
+                locationPermission: "unknown",
+              });
               setOnboardingStatus("Onboarding will run again on the next start.");
             }}
           >

@@ -35,6 +35,7 @@ import type {
   StripRoleId,
 } from "../../features/models/modelTypes";
 import { deepseekReply } from "../../services/DeepSeekService";
+import { geminiReply } from "../../services/GeminiService";
 import {
   ensureOllamaCloudModel,
   ensureOllamaModel,
@@ -180,13 +181,31 @@ export function ModelsSettingsPage() {
       setRole("assistant", "ollama-cloud");
       return;
     }
+    if (model.provider === "deepseek" && !keys.deepseek) {
+      setAssignError("Save a DeepSeek API key first (Configure DeepSeek).");
+      setProviderPanel("deepseek");
+      return;
+    }
+    if (model.provider === "google" && !keys.google) {
+      setAssignError(
+        "Save a Google AI Studio (Gemini) API key first (Configure Google).",
+      );
+      setProviderPanel("google");
+      return;
+    }
+    if (model.id === "google-gemini" || model.provider === "google") {
+      setRole("assistant", "google-gemini");
+      return;
+    }
     setRole("assistant", model.id);
   };
 
   const canTest = (model: ModelInfo) =>
     model.id === "ollama-local" ||
     model.id === "ollama-cloud" ||
-    model.provider === "deepseek";
+    model.id === "google-gemini" ||
+    model.provider === "deepseek" ||
+    model.provider === "google";
 
   const runTest = async (model: ModelInfo, prompt: string) => {
     setTesting(true);
@@ -235,9 +254,30 @@ export function ModelsSettingsPage() {
         markRecent(model.id);
         return;
       }
+      if (model.provider === "google" || model.id === "google-gemini") {
+        if (!keys.google) {
+          setTestResult(
+            "Save a Google AI Studio (Gemini) API key first, then try again.",
+          );
+          return;
+        }
+        const modelName =
+          prefs.models.googleModel?.trim() || model.modelName || "gemini-3.5-flash";
+        const reply = await geminiReply(prompt, modelName);
+        setTestResult(`✓ Google Gemini (${modelName}): ${reply}`);
+        markRecent("google-gemini");
+        return;
+      }
       setTestResult("Live testing is not wired for this provider yet.");
     } catch (err) {
-      setTestResult(err instanceof Error ? err.message : String(err));
+      const raw = err instanceof Error ? err.message : String(err);
+      if (/403|requires a subscription|upgrade for access/i.test(raw)) {
+        setTestResult(
+          `${raw}\n\nThis cloud model needs Ollama Pro/Max. Open Configure provider → Check free / paid, then pick a Free model (no need to reconnect the key).`,
+        );
+      } else {
+        setTestResult(raw);
+      }
     } finally {
       setTesting(false);
       if (model.id === "ollama-local") refreshOllama();
@@ -413,7 +453,9 @@ export function ModelsSettingsPage() {
                         ? modelsPrefs.ollamaModel || undefined
                         : model.id === "ollama-cloud"
                           ? modelsPrefs.ollamaCloudModel || undefined
-                          : undefined
+                          : model.id === "google-gemini"
+                            ? modelsPrefs.googleModel || undefined
+                            : undefined
                     }
                     view={view}
                     testing={testing && testModelId === model.id}
@@ -479,7 +521,9 @@ export function ModelsSettingsPage() {
               ? modelsPrefs.ollamaModel || undefined
               : detailModel.id === "ollama-cloud"
                 ? modelsPrefs.ollamaCloudModel || undefined
-                : undefined
+                : detailModel.id === "google-gemini"
+                  ? modelsPrefs.googleModel || undefined
+                  : undefined
           }
           testing={testing && testModelId === detailModel.id}
           testResult={testModelId === detailModel.id ? testResult : null}

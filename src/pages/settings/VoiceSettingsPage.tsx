@@ -45,8 +45,8 @@ export function VoiceSettingsPage() {
   const set = (patch: Partial<typeof voice>) => patchPrefs("voice", patch);
 
   const speechModel = modelById(prefs.models.roles.speech);
-  // TTS playback is not wired — never claim preview can speak.
-  const speechConfigured = false;
+  // Previews use Pocket TTS (Voice Lab) — always offer play; runtime boots on demand.
+  const speechConfigured = true;
   const backgroundFilterAvailable = Boolean(
     prefs.models.roles.transcription ||
       (speechModel?.supportsAudioOutput && prefs.models.roles.speech),
@@ -226,7 +226,7 @@ export function VoiceSettingsPage() {
           <VoicePreviewCard
             character={character}
             speechConfigured={speechConfigured}
-            onOpenModels={() => navigateSettings("models")}
+            onOpenModels={() => navigateSettings("voice-lab")}
           />
         </div>
       </div>

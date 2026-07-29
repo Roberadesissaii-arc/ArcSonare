@@ -113,7 +113,8 @@ export interface CapabilityDefinition {
     | "clipboard"
     | "web"
     | "arcsonare"
-    | "tasks";
+    | "tasks"
+    | "location";
   aliases: string[];
   intentExamples: string[];
   negativeExamples?: string[];

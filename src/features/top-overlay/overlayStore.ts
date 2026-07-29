@@ -112,6 +112,8 @@ export function setOverlayError(error: OverlayError) {
     expanded: true,
     status: "Something went wrong",
     error,
+    actionPayload: undefined,
+    result: undefined,
     requiresConfirmation: false,
   });
 }

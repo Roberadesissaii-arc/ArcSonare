@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CloseIcon } from "../../components/Icons";
 import { invoke } from "@tauri-apps/api/core";
 import { USAGE_CATEGORIES } from "./dataCategoryRegistry";
@@ -16,6 +17,7 @@ export function CategoryManagerDrawer({
   onClose,
   onCleared,
 }: CategoryManagerDrawerProps) {
+  const [error, setError] = useState<string | null>(null);
   const def = USAGE_CATEGORIES.find((c) => c.id === categoryId);
   const row = scan?.categories.find((c) => c.id === categoryId);
   if (!def) return null;
@@ -36,6 +38,7 @@ export function CategoryManagerDrawer({
 
   const clear = async () => {
     if (!def.clearable) return;
+    setError(null);
     if (!window.confirm(`Clear ${def.displayName}? This cannot be undone.`)) {
       return;
     }
@@ -48,7 +51,7 @@ export function CategoryManagerDrawer({
       onCleared();
       onClose();
     } catch (err) {
-      window.alert(typeof err === "string" ? err : "Clear failed.");
+      setError(typeof err === "string" ? err : "Clear failed.");
     }
   };
 
@@ -94,6 +97,11 @@ export function CategoryManagerDrawer({
             ? "Sensitive content is not previewed here. Open the folder to inspect files."
             : "Use Clear only when you intend to remove this category’s stored data."}
         </p>
+        {error ? (
+          <p className="data-privacy-error" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="data-drawer-actions">
           <button type="button" className="btn" onClick={openFolder}>
             Open folder

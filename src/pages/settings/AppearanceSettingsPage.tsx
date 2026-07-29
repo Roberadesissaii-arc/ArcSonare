@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { SettingRow } from "../../components/settings/SettingRow";
 import { SettingsGroup } from "../../components/settings/SettingsGroup";
 import { SettingsPageHeader } from "../../components/settings/SettingsPageHeader";
@@ -9,15 +11,39 @@ import { Slider } from "../../components/settings/Slider";
 import { useSettings } from "../../hooks/useSettings";
 import { patchPrefs, usePrefs } from "../../stores/settingsStore";
 import type { OverlayPosition, ThemePreference } from "../../types";
-import type { AccentMode, Density, EdgeStyle } from "../../config/prefs";
+import type { AccentMode, Density } from "../../config/prefs";
 
 export function AppearanceSettingsPage() {
   const { settings, update } = useSettings();
   const prefs = usePrefs();
   const appearance = prefs.appearance;
-  const screen = prefs.screenContext;
+  const [backgroundBusy, setBackgroundBusy] = useState(false);
 
   const set = (patch: Partial<typeof appearance>) => patchPrefs("appearance", patch);
+
+  const chooseBackground = async () => {
+    setBackgroundBusy(true);
+    try {
+      const path = await invoke<string | null>("pick_background_image");
+      if (path) set({ customBackgroundPath: path });
+    } catch (err) {
+      console.error("[ArcSonare] failed to pick background image:", err);
+    } finally {
+      setBackgroundBusy(false);
+    }
+  };
+
+  const resetBackground = async () => {
+    setBackgroundBusy(true);
+    try {
+      await invoke("clear_background_image");
+      set({ customBackgroundPath: "" });
+    } catch (err) {
+      console.error("[ArcSonare] failed to reset background image:", err);
+    } finally {
+      setBackgroundBusy(false);
+    }
+  };
 
   return (
     <div className="page">
@@ -114,6 +140,47 @@ export function AppearanceSettingsPage() {
         </SettingRow>
       </SettingsGroup>
 
+      <SettingsGroup
+        title="Background"
+        description="Replaces the page background behind Dashboard, Tasks and Agent. The orbital animation is unaffected."
+      >
+        <SettingRow
+          label="Background image"
+          description={
+            appearance.customBackgroundPath
+              ? "A custom background is active."
+              : "Using the default background."
+          }
+        >
+          <div className="background-picker-actions">
+            {appearance.customBackgroundPath ? (
+              <img
+                className="background-picker-thumb"
+                src={convertFileSrc(appearance.customBackgroundPath)}
+                alt="Current background"
+              />
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={() => void chooseBackground()}
+              disabled={backgroundBusy}
+            >
+              Choose image…
+            </button>
+            {appearance.customBackgroundPath ? (
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => void resetBackground()}
+                disabled={backgroundBusy}
+              >
+                Reset to default
+              </button>
+            ) : null}
+          </div>
+        </SettingRow>
+      </SettingsGroup>
 
       <SettingsGroup title="Motion and effects">
         <SettingRow
@@ -145,34 +212,6 @@ export function AppearanceSettingsPage() {
             checked={appearance.disableGlow}
             onChange={(disableGlow) => set({ disableGlow })}
             label="Disable glowing effects"
-          />
-        </SettingRow>
-      </SettingsGroup>
-
-      <SettingsGroup
-        title="Screen Context edge"
-        description="How the monitor indicator looks while ArcSonare can view a screen."
-      >
-        <SettingRow label="Edge intensity">
-          <Slider
-            value={screen.edgeIntensity}
-            min={20}
-            max={100}
-            onChange={(edgeIntensity) => patchPrefs("screenContext", { edgeIntensity })}
-            label="Screen Context edge intensity"
-            format={(v) => `${v}%`}
-          />
-        </SettingRow>
-        <SettingRow label="Edge style">
-          <SegmentedControl<EdgeStyle>
-            options={[
-              { value: "perimeter", label: "Full perimeter" },
-              { value: "corners", label: "Corners only" },
-              { value: "pulse", label: "Subtle pulse" },
-            ]}
-            value={screen.edgeStyle}
-            onChange={(edgeStyle) => patchPrefs("screenContext", { edgeStyle })}
-            ariaLabel="Screen Context edge style"
           />
         </SettingRow>
       </SettingsGroup>

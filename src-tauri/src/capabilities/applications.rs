@@ -17,6 +17,7 @@ use crate::top_overlay::web_launcher::open_approved_url;
 
 const INDEX_TTL: Duration = Duration::from_secs(60 * 60 * 12);
 const LAUNCH_VERIFY_BUDGET: Duration = Duration::from_secs(4);
+const INDEX_CACHE_VERSION: u32 = 2;
 
 /// URI protocols that may be launched (checked against the registry too).
 const PROTOCOL_ALLOWLIST: &[(&str, &str)] = &[
@@ -75,6 +76,57 @@ pub fn normalize_name(name: &str) -> String {
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
         .collect();
     lowered.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Normalize conversational application references before matching the index.
+/// This keeps product names while removing voice filler such as "my" and
+/// wrappers such as "an application called".
+pub fn normalize_application_query(query: &str) -> String {
+    let normalized = normalize_name(query);
+    let mut words: Vec<&str> = normalized.split_whitespace().collect();
+
+    if words.len() >= 2 && matches!(words[0], "can" | "could" | "would") && words[1] == "you" {
+        words.drain(0..2);
+    }
+    while matches!(
+        words.first().copied(),
+        Some("please" | "open" | "launch" | "start" | "run" | "up")
+    ) {
+        words.remove(0);
+    }
+    while matches!(words.first().copied(), Some("my" | "the" | "a" | "an")) {
+        words.remove(0);
+    }
+
+    if words.len() >= 3
+        && matches!(words[0], "desktop" | "windows")
+        && matches!(words[1], "app" | "application" | "program")
+        && matches!(words[2], "called" | "named")
+    {
+        words.drain(0..3);
+    } else if words.len() >= 2
+        && matches!(words[0], "app" | "application" | "program")
+        && matches!(words[1], "called" | "named")
+    {
+        words.drain(0..2);
+    } else if matches!(words.first().copied(), Some("called" | "named")) {
+        words.remove(0);
+    }
+
+    while matches!(words.first().copied(), Some("my" | "the" | "a" | "an")) {
+        words.remove(0);
+    }
+    if words.len() >= 2 && words[words.len() - 2..] == ["for", "me"] {
+        words.truncate(words.len() - 2);
+    }
+    while matches!(
+        words.last().copied(),
+        Some("please" | "app" | "application" | "program")
+    ) {
+        words.pop();
+    }
+
+    words.join(" ")
 }
 
 fn index_cache_path(app: &AppHandle) -> Option<PathBuf> {
@@ -157,6 +209,69 @@ fn scan_start_menu() -> Vec<IndexedApplication> {
         }
     }
     out
+}
+
+/// Windows' Start Apps catalog includes packaged/UWP apps and traditional
+/// applications registered with an AppUserModelID. These do not always expose
+/// an App Paths entry or a normal Start Menu shortcut.
+#[cfg(windows)]
+fn scan_start_apps() -> Vec<IndexedApplication> {
+    let script = concat!(
+        "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new();",
+        "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress"
+    );
+    let Ok(output) = std::process::Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .output()
+    else {
+        return Vec::new();
+    };
+    if !output.status.success() {
+        return Vec::new();
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(raw.trim()) else {
+        return Vec::new();
+    };
+    let rows: Vec<&serde_json::Value> = match &value {
+        serde_json::Value::Array(items) => items.iter().collect(),
+        serde_json::Value::Object(_) => vec![&value],
+        _ => Vec::new(),
+    };
+
+    rows.into_iter()
+        .filter_map(|row| {
+            let name = row.get("Name")?.as_str()?.trim();
+            let app_id = row.get("AppID")?.as_str()?.trim();
+            let normalized = normalize_name(name);
+            if normalized.is_empty() || app_id.is_empty() || app_id.chars().any(|c| c.is_control())
+            {
+                return None;
+            }
+            Some(IndexedApplication {
+                id: format!("start-app-{}", normalized.replace(' ', "-")),
+                canonical_name: normalized.clone(),
+                display_name: name.to_string(),
+                normalized_names: vec![normalized, normalize_name(app_id)],
+                target_type: "app-id".into(),
+                executable_path: None,
+                shortcut_path: None,
+                // Reuse the existing optional launch-target field. The value
+                // comes from Windows, never from model/user arguments.
+                protocol_uri: Some(app_id.to_string()),
+                official_web_url: None,
+                process_name: None,
+                installed: true,
+                source: "start-apps".into(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(not(windows))]
+fn scan_start_apps() -> Vec<IndexedApplication> {
+    Vec::new()
 }
 
 #[cfg(windows)]
@@ -290,6 +405,7 @@ fn build_index() -> Vec<IndexedApplication> {
     entries.extend(scan_curated());
     entries.extend(scan_app_paths());
     entries.extend(scan_start_menu());
+    entries.extend(scan_start_apps());
     entries.extend(scan_protocols());
     // Deduplicate by normalized canonical name, preferring installed win32
     // entries with a resolved executable over shortcuts over web entries.
@@ -298,8 +414,9 @@ fn build_index() -> Vec<IndexedApplication> {
         match (e.installed, e.target_type.as_str()) {
             (true, "win32") => 0,
             (true, "shortcut") => 1,
-            (true, "protocol") => 2,
-            _ => 3,
+            (true, "app-id") => 2,
+            (true, "protocol") => 3,
+            _ => 4,
         }
     };
     for entry in entries {
@@ -349,7 +466,10 @@ pub fn get_index(app: &AppHandle, force_refresh: bool) -> Vec<IndexedApplication
                 .and_then(|raw| serde_json::from_str::<IndexCache>(&raw).ok())
             {
                 let age = chrono::Local::now().timestamp() - cached.built_at;
-                if age >= 0 && (age as u64) < INDEX_TTL.as_secs() {
+                if cached.version == INDEX_CACHE_VERSION
+                    && age >= 0
+                    && (age as u64) < INDEX_TTL.as_secs()
+                {
                     let mut cache = state.cache.lock().unwrap();
                     *cache = Some((Instant::now(), cached.entries.clone()));
                     return cached.entries;
@@ -360,7 +480,7 @@ pub fn get_index(app: &AppHandle, force_refresh: bool) -> Vec<IndexedApplication
     let entries = build_index();
     if let Some(path) = index_cache_path(app) {
         let cache_doc = IndexCache {
-            version: 1,
+            version: INDEX_CACHE_VERSION,
             built_at: chrono::Local::now().timestamp(),
             entries: entries.clone(),
         };
@@ -422,7 +542,7 @@ fn score_candidates(
     query: &str,
     preference: &str,
 ) -> Vec<ResolvedCandidate> {
-    let q = normalize_name(query);
+    let q = normalize_application_query(query);
     if q.is_empty() {
         return Vec::new();
     }
@@ -483,11 +603,27 @@ fn score_candidates(
     out
 }
 
+/// Resolve against the current index and automatically rebuild once on a miss.
+/// This makes newly installed applications available immediately instead of
+/// waiting for the persisted index TTL or a manual "rescan apps" command.
+fn candidates_with_refresh(
+    app: &AppHandle,
+    query: &str,
+    preference: &str,
+) -> (Vec<IndexedApplication>, Vec<ResolvedCandidate>) {
+    let mut entries = get_index(app, false);
+    let mut candidates = score_candidates(&entries, query, preference);
+    if candidates.is_empty() {
+        entries = get_index(app, true);
+        candidates = score_candidates(&entries, query, preference);
+    }
+    (entries, candidates)
+}
+
 pub fn resolve(app: &AppHandle, args: ResolveArgs) -> ToolResult {
     let rb = ResultBuilder::new("applications.resolve");
     let preference = args.preference.as_deref().unwrap_or("native-first");
-    let entries = get_index(app, false);
-    let candidates = score_candidates(&entries, &args.query, preference);
+    let (_entries, candidates) = candidates_with_refresh(app, &args.query, preference);
     if candidates.is_empty() {
         return rb.not_found(format!(
             "No installed app or known service matched \"{}\".",
@@ -622,6 +758,20 @@ fn launch_entry(entry: &IndexedApplication) -> Result<String, String> {
                 })
                 .map_err(|e| format!("Windows refused the launch: {e}"))
         }
+        "app-id" => {
+            let Some(app_id) = &entry.protocol_uri else {
+                return Err("No Windows application id recorded.".into());
+            };
+            if app_id.is_empty() || app_id.chars().any(|c| c.is_control()) {
+                return Err("The indexed Windows application id is invalid.".into());
+            }
+            let target = format!(r"shell:AppsFolder\{app_id}");
+            std::process::Command::new("explorer.exe")
+                .arg(&target)
+                .spawn()
+                .map(|_| format!("Launched {} via Windows Apps", entry.display_name))
+                .map_err(|e| format!("Windows refused the app launch: {e}"))
+        }
         "protocol" => {
             let Some(uri) = &entry.protocol_uri else {
                 return Err("No protocol recorded.".into());
@@ -643,12 +793,19 @@ fn launch_entry(entry: &IndexedApplication) -> Result<String, String> {
 pub fn open_application(app: &AppHandle, args: OpenArgs) -> ToolResult {
     let rb = ResultBuilder::new("applications.open");
     let preference = args.preference.as_deref().unwrap_or("native-first");
-    let entries = get_index(app, false);
+    let mut entries = get_index(app, false);
 
     let entry: Option<IndexedApplication> = if let Some(target_id) = &args.target_id {
-        entries.iter().find(|e| &e.id == target_id).cloned()
+        let mut found = entries.iter().find(|e| &e.id == target_id).cloned();
+        if found.is_none() {
+            entries = get_index(app, true);
+            found = entries.iter().find(|e| &e.id == target_id).cloned();
+        }
+        found
     } else if let Some(query) = &args.query {
-        let candidates = score_candidates(&entries, query, preference);
+        let resolved = candidates_with_refresh(app, query, preference);
+        entries = resolved.0;
+        let candidates = resolved.1;
         if candidates.is_empty() {
             None
         } else {
@@ -857,8 +1014,7 @@ pub struct FocusCloseArgs {
 
 pub fn focus_application(app: &AppHandle, args: FocusCloseArgs) -> ToolResult {
     let rb = ResultBuilder::new("applications.focus");
-    let entries = get_index(app, false);
-    let candidates = score_candidates(&entries, &args.query, "native-first");
+    let (entries, candidates) = candidates_with_refresh(app, &args.query, "native-first");
     let entry = candidates
         .first()
         .and_then(|c| entries.iter().find(|e| e.id == c.id));
@@ -887,8 +1043,7 @@ pub fn focus_application(app: &AppHandle, args: FocusCloseArgs) -> ToolResult {
 
 pub fn close_application(app: &AppHandle, args: FocusCloseArgs) -> ToolResult {
     let rb = ResultBuilder::new("applications.close");
-    let entries = get_index(app, false);
-    let candidates = score_candidates(&entries, &args.query, "native-first");
+    let (entries, candidates) = candidates_with_refresh(app, &args.query, "native-first");
     let entry = candidates
         .first()
         .and_then(|c| entries.iter().find(|e| e.id == c.id));
@@ -930,5 +1085,58 @@ pub fn close_application(app: &AppHandle, args: FocusCloseArgs) -> ToolResult {
             );
         }
         std::thread::sleep(Duration::from_millis(300));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn indexed(name: &str) -> IndexedApplication {
+        let normalized = normalize_name(name);
+        IndexedApplication {
+            id: format!("test-{}", normalized.replace(' ', "-")),
+            canonical_name: normalized.clone(),
+            display_name: name.to_string(),
+            normalized_names: vec![normalized],
+            target_type: "shortcut".into(),
+            executable_path: None,
+            shortcut_path: Some(format!(r"C:\Test\{name}.lnk")),
+            protocol_uri: None,
+            official_web_url: None,
+            process_name: None,
+            installed: true,
+            source: "test".into(),
+        }
+    }
+
+    #[test]
+    fn application_query_removes_voice_wrappers() {
+        assert_eq!(normalize_application_query("my Discord"), "discord");
+        assert_eq!(
+            normalize_application_query("an application called Arduino"),
+            "arduino"
+        );
+        assert_eq!(
+            normalize_application_query("Could you open up the Arduino IDE app for me"),
+            "arduino ide"
+        );
+    }
+
+    #[test]
+    fn conversational_queries_match_installed_apps() {
+        let entries = vec![indexed("Discord"), indexed("Arduino IDE")];
+
+        let discord = score_candidates(&entries, "my Discord", "native-first");
+        assert_eq!(
+            discord.first().map(|c| c.display_name.as_str()),
+            Some("Discord")
+        );
+
+        let arduino = score_candidates(&entries, "an application called Arduino", "native-first");
+        assert_eq!(
+            arduino.first().map(|c| c.display_name.as_str()),
+            Some("Arduino IDE")
+        );
     }
 }

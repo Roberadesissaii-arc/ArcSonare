@@ -5,7 +5,6 @@ import { ConnectedToolsCard } from "../components/dashboard/ConnectedToolsCard";
 import { OrbitalCommandMap } from "../components/dashboard/OrbitalCommandMap";
 import { UpNextCard } from "../components/dashboard/UpNextCard";
 import { UrgentCard } from "../components/dashboard/UrgentCard";
-import { RecentActivityCard } from "../components/dashboard/RecentActivityCard";
 import { CommandComposer } from "../components/dashboard/CommandComposer";
 import {
   clearCenterWork,
@@ -210,7 +209,6 @@ export function DashboardPage(_props: DashboardPageProps) {
       <div className="dashboard-col side-column dashboard-right">
         <UpNextCard />
         <UrgentCard />
-        <RecentActivityCard />
       </div>
     </div>
   );

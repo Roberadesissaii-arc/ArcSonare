@@ -60,6 +60,18 @@ const CASES: Case[] = [
     forbidden: ["email.open_inbox_ui"],
   },
   {
+    name: "email-gmail-contents-on",
+    utterance: "What's on my Gmail?",
+    expectedCapability: "email.get_inbox_summary",
+    forbidden: ["email.open_inbox_ui", "applications.open"],
+  },
+  {
+    name: "email-connected-status",
+    utterance: "Is my Gmail connected?",
+    expectedCapability: "email.get_connection_status",
+    forbidden: ["email.open_inbox_ui", "applications.open"],
+  },
+  {
     name: "email-unread",
     utterance: "Show unread emails",
     expectedCapability: "email.list_unread",

@@ -3,7 +3,7 @@
  */
 import { useSyncExternalStore } from "react";
 
-export type CenterStageView = "overview" | "active-work" | "review";
+export type CenterStageView = "overview" | "active-work" | "review" | "chat";
 
 export type CenterWorkKind =
   | "draft-email"

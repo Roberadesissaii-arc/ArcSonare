@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getAuthSnapshot } from "../auth/authStore";
 import { ArcSonareLogo } from "../components/brand/ArcSonareLogo";
 import {
   BellIcon,
@@ -15,9 +16,11 @@ import {
   markNotificationsRead,
   navigate,
   openPalette,
+  addActivity,
   useAppState,
   type ActivityEntry,
 } from "../stores/appStore";
+import { getPrefs, patchPrefs } from "../stores/settingsStore";
 import { useVoiceState } from "../stores/voiceStore";
 import { MainNavigation } from "./MainNavigation";
 
@@ -101,10 +104,45 @@ export function AppHeader({ onCreateTask }: AppHeaderProps) {
   const openSettings = () => navigate("settings");
 
   // Voice activation lives in the global overlay window — press again to close.
+  // Never use window.alert (shows "localhost says…" in Tauri webviews).
   const toggleVoiceOverlay = () => {
-    invoke("toggle_overlay_cmd").catch((err) =>
-      console.error("[ArcSonare] failed to toggle voice overlay:", err),
-    );
+    void (async () => {
+      const auth = getAuthSnapshot();
+      const signedIn =
+        auth.state === "signed-in" || auth.state === "offline-authenticated";
+
+      if (!getPrefs().general.overlayUnlocked) {
+        if (signedIn) {
+          patchPrefs("general", { overlayUnlocked: true });
+          try {
+            await invoke("set_overlay_unlocked", { unlocked: true });
+          } catch (err) {
+            console.error("[ArcSonare] failed to unlock overlay:", err);
+          }
+        } else {
+          addActivity(
+            "Sign in under Settings → Account to unlock the voice overlay.",
+            "system",
+          );
+          navigate("settings");
+          return;
+        }
+      }
+
+      try {
+        const opened = await invoke<boolean>("toggle_overlay_cmd");
+        if (opened === false && !getPrefs().general.overlayUnlocked) {
+          addActivity(
+            "Sign in under Settings → Account to unlock the voice overlay.",
+            "system",
+          );
+          navigate("settings");
+        }
+      } catch (err) {
+        console.error("[ArcSonare] failed to toggle voice overlay:", err);
+        addActivity("Voice overlay could not open. Try again in a moment.", "system");
+      }
+    })();
   };
 
   const voiceActive = status !== "idle" || isOverlayVisible;

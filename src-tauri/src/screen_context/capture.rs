@@ -222,33 +222,3 @@ pub fn get_capture_data_url(app: AppHandle, id: String, annotated: bool) -> Resu
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     Ok(format!("data:image/png;base64,{encoded}"))
 }
-
-/// Stores the annotated PNG produced by the annotation canvas.
-#[tauri::command]
-pub fn save_annotated_capture(
-    app: AppHandle,
-    id: String,
-    png_base64: String,
-) -> Result<(), String> {
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-        return Err("Invalid capture id.".into());
-    }
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(png_base64.as_bytes())
-        .map_err(|_| "Invalid image data.".to_string())?;
-    // Sanity check: PNG magic header.
-    if bytes.len() < 8 || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
-        return Err("Annotated image is not a PNG.".into());
-    }
-    let path = storage::image_path(&app, &id, true)?;
-    std::fs::write(&path, bytes).map_err(|e| format!("Could not save annotation: {e}"))?;
-
-    // Flag the capture as annotated in its metadata.
-    if let Ok(items) = storage::list(&app) {
-        if let Some(mut meta) = items.into_iter().find(|m| m.id == id) {
-            meta.annotated = true;
-            let _ = storage::write_meta(&app, &meta);
-        }
-    }
-    Ok(())
-}

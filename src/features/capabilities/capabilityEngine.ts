@@ -46,6 +46,11 @@ import {
   recordCapabilitySuccess,
   forgetAlias,
 } from "./capabilityMemory";
+import {
+  formatSessionActionContext,
+  getRecentSessionActions,
+  recordSessionAction,
+} from "./actionSessionMemory";
 import type {
   CapabilityConfirmation,
   CapabilityRun,
@@ -59,6 +64,24 @@ import {
   ensureOllamaModel,
   ollamaCloudChat,
 } from "../../services/OllamaService";
+
+/** Strip internal tool ids so users never see system.get_local_datetime etc. */
+function sanitizeUserFacingText(text: string): string {
+  return text
+    .replace(/\b[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*\b/gi, "the system")
+    .replace(/\b(I will call|calling|call(?:ed)?)\s+the system\b/gi, "I'll check")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function isTimeOrDateQuestion(text: string): boolean {
+  const q = text.trim().toLowerCase();
+  return (
+    /\b(what(?:'s| is) the (?:current )?time|what time is it|current time)\b/.test(q) ||
+    /\b(what(?:'s| is) (?:the )?(?:current )?date|what day is it|today(?:'s date)?)\b/.test(q) ||
+    /\b(timezone)\b/.test(q)
+  );
+}
 
 const MAX_TOOL_STEPS = 5;
 const MAX_TOOL_STEPS_COMPLEX = 8;
@@ -494,6 +517,7 @@ async function runSingleCapability(
   if (result.status === "success") {
     recordCapabilitySuccess(capabilityId);
   }
+  recordSessionAction(request, capabilityId, result);
 
   const text = composeResponse(result, request);
   finishRun(run.id, result, text);
@@ -612,14 +636,21 @@ function splitCompound(text: string): string[] {
 
 const TOOL_SYSTEM_PROMPT = [
   "You are ArcSonare, a native Windows assistant with real local capabilities.",
-  "When a user request matches an available tool, call the tool — never answer with manual instructions instead.",
+  "When a user request matches an available tool, YOU must call the tool — never pretend you did something, and never ask the user to do it manually.",
   "Never claim inability before checking the available tools. Never claim completion before a successful tool result.",
   "Never guess current system state (time, files, apps, windows); read it through tools.",
   "Never invent files, folders, applications, windows, screenshots, or tasks. Never generate shell commands.",
+  "To create a folder: first call filesystem.resolve_known_folder (desktop/documents/downloads/…) if needed, then filesystem.create_directory with parent_path + name.",
   "Use the smallest relevant set of tools. Ask a concise clarifying question only when a required argument is genuinely ambiguous.",
-  "After tool results arrive, report exactly what happened — including partial or failed results.",
+  "After tool results arrive, report exactly what happened — including the full path when a folder or file was created.",
+  "If the user asks what you did or where something is, use the recent-actions context and/or tools — do not guess.",
   "Keep replies to one or two sentences.",
 ].join(" ");
+
+function toolSystemPromptWithMemory(): string {
+  const memory = formatSessionActionContext();
+  return memory ? `${TOOL_SYSTEM_PROMPT}\n\n${memory}` : TOOL_SYSTEM_PROMPT;
+}
 
 interface ModelRoute {
   adapter: ProviderToolAdapter | null;
@@ -631,17 +662,27 @@ interface ModelRoute {
 async function resolveModelRoute(): Promise<ModelRoute> {
   const route = getAssistantRoute();
   const allowCloud = getPrefs().dataPrivacy.allowCloud;
-  if (route.provider === "deepseek") {
-    if (!allowCloud) return { adapter: null, model: "", cloudBlocked: true };
-    return { adapter: deepSeekAdapter, model: route.modelName ?? "deepseek-v4-flash" };
-  }
-  if (route.provider === "ollama-local" || route.provider === "none") {
+
+  const localRoute = async (): Promise<ModelRoute> => {
     const ready = await ensureOllamaModel();
     if (!ready.ok) return { adapter: null, model: "", unavailable: ready.message };
     return { adapter: ollamaAdapter, model: ready.model };
+  };
+
+  if (route.provider === "deepseek") {
+    if (!allowCloud) return localRoute();
+    return { adapter: deepSeekAdapter, model: route.modelName ?? "deepseek-v4-flash" };
+  }
+  if (route.provider === "google") {
+    // Gemini is wired for chat replies; tool-calling uses the chat path instead.
+    if (!allowCloud) return localRoute();
+    return { adapter: null, model: "" };
+  }
+  if (route.provider === "ollama-local" || route.provider === "none") {
+    return localRoute();
   }
   if (route.provider === "ollama-cloud") {
-    if (!allowCloud) return { adapter: null, model: "", cloudBlocked: true };
+    if (!allowCloud) return localRoute();
     // No native tool endpoint wired — strict JSON fallback.
     return { adapter: null, model: getPrefs().models.ollamaCloudModel || "" };
   }
@@ -685,6 +726,11 @@ async function runModelToolLoop(
     return { handled: true, run: getRun(run.id), responseText: message, spokenText: message, result };
   }
   if (!routeInfo.adapter && !routeInfo.model) {
+    // Google Gemini: no tool adapter yet — fall through to plain askAssistant chat.
+    if (getAssistantRoute().provider === "google") {
+      patchRun(run.id, { state: "cancelled" });
+      return { handled: false };
+    }
     const message = routeInfo.unavailable ?? "No model is available for tool selection.";
     const result: ToolResult = {
       callId: "unavailable",
@@ -702,7 +748,7 @@ async function runModelToolLoop(
   }
 
   const turns: ChatTurn[] = [
-    { role: "system", content: TOOL_SYSTEM_PROMPT },
+    { role: "system", content: toolSystemPromptWithMemory() },
     { role: "user", content: request },
   ];
   return continueModelLoop(run, request, options, {
@@ -728,14 +774,14 @@ async function continueModelLoop(
   let invalidRetries = 0;
 
   while (loop.stepsUsed < maxSteps) {
-    progress(options, "Understanding...");
+    progress(options, "Thinking...");
     let reply;
     try {
       if (loop.adapter) {
         reply = await loop.adapter.chat(loop.turns, tools, loop.model);
       } else {
         // JSON fallback (Ollama Cloud): one strict object, validated locally.
-        const systemPrompt = `${TOOL_SYSTEM_PROMPT}\n${buildJsonFallbackPrompt(tools)}`;
+        const systemPrompt = `${toolSystemPromptWithMemory()}\n${buildJsonFallbackPrompt(tools)}`;
         const conversation = loop.turns
           .filter((t) => t.role !== "system")
           .map((t) => ({ role: t.role === "tool" ? "user" : t.role, content: t.role === "tool" ? `Tool result: ${t.content}` : t.content }));
@@ -763,19 +809,82 @@ async function continueModelLoop(
     }
 
     if (reply.toolCalls.length === 0) {
-      // Final text from the model. If a tool ran, the text must reflect it —
-      // we already have the verified results in the transcript.
-      const text = reply.text?.trim() || (lastResult ? composeResponse(lastResult, request) : "");
-      if (lastResult) {
+      // Nudge once when the request looks actionable but the model only talked.
+      const actionable =
+        !lastResult &&
+        invalidRetries < 1 &&
+        /\b(create|make|add|delete|remove|trash|open|launch|find|locate|list|show|take|capture|write|save)\b/i.test(
+          request,
+        ) &&
+        tools.some(
+          (t) =>
+            t.category === "filesystem" ||
+            t.category === "applications" ||
+            t.riskLevel !== "read-only",
+        );
+      if (actionable) {
+        loop.turns.push({
+          role: "assistant",
+          content: reply.text?.trim() || "",
+        });
+        loop.turns.push({
+          role: "user",
+          content:
+            "You must call one of the available tools to complete this. Do not only describe the steps.",
+        });
+        invalidRetries += 1;
+        continue;
+      }
+
+      // Final text from the model. Prefer verified tool results over narration
+      // (models often mention tool ids or apologize about a failed first call).
+      if (lastResult?.status === "success") {
+        const text = composeResponse(lastResult, request);
         finishRun(run.id, lastResult, text);
+        return {
+          handled: true,
+          run: getRun(run.id),
+          responseText: text,
+          spokenText: composeSpokenResponse(lastResult, request),
+          result: lastResult,
+        };
+      }
+
+      const text = sanitizeUserFacingText(
+        reply.text?.trim() || (lastResult ? composeResponse(lastResult, request) : ""),
+      );
+      if (!text && !lastResult) {
+        // Pure miss — let the caller fall through to conversational chat.
+        patchRun(run.id, { state: "cancelled" });
+        return { handled: false };
+      }
+
+      // Time/date must never surface a failed tool narrative — read the clock.
+      if (
+        lastResult?.status === "error" &&
+        isTimeOrDateQuestion(request)
+      ) {
+        return runSingleCapability(
+          run,
+          "system.get_local_datetime",
+          { format: "spoken", include_timezone: /\btimezone\b/i.test(request) },
+          request,
+          options,
+        );
+      }
+
+      if (lastResult) {
+        finishRun(run.id, lastResult, text || composeResponse(lastResult, request));
       } else {
         patchRun(run.id, { state: "completed", responseText: text });
       }
       return {
         handled: true,
         run: getRun(run.id),
-        responseText: text,
-        spokenText: lastResult ? composeSpokenResponse(lastResult, request) : text,
+        responseText: text || lastResult?.summary || "",
+        spokenText: lastResult
+          ? composeSpokenResponse(lastResult, request)
+          : text,
         result: lastResult,
       };
     }
@@ -920,6 +1029,7 @@ async function executeModelToolCall(
   }
 
   if (result.status === "success") recordCapabilitySuccess(call.capabilityId);
+  recordSessionAction(request, call.capabilityId, result);
   logActivity(call.capabilityId, result, options);
   feedback(result);
   return { result, engineOutcome: { handled: true } };
@@ -928,6 +1038,37 @@ async function executeModelToolCall(
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/**
+ * Follow-ups about actions already taken this session ("where did I create
+ * that folder?") must NOT re-enter tool selection — create/folder keywords
+ * would retrieve mutation tools and the model might act again. Fall through
+ * to conversational chat, which has session-action memory in the system prompt.
+ */
+function isSessionActionFollowUp(text: string): boolean {
+  const q = text.trim().toLowerCase();
+  if (!q || getRecentSessionActions(1).length === 0) return false;
+  if (
+    /\b(create|make|new|delete|remove|trash|open|launch|start|write|save|rename|move|copy)\b/.test(
+      q,
+    ) &&
+    !/\b(where|what|which|when|did you|have you|you (just )?(create|made|did)|that (folder|file)|the (folder|file) you)\b/.test(
+      q,
+    )
+  ) {
+    // Fresh action request, not a follow-up.
+    return false;
+  }
+  return (
+    /\bwhere (did|was|is) (that|the|it|you|i)\b/.test(q) ||
+    /\bwhere did (you|i) (create|make|put|save)\b/.test(q) ||
+    /\bwhat (did you|was that|folder|file|path)\b/.test(q) ||
+    /\bwhich (folder|file|path)\b/.test(q) ||
+    /\b(that|the) (folder|file) you (just )?(created|made|wrote)\b/.test(q) ||
+    /\b(remind me|tell me) where\b/.test(q) ||
+    /\b(did you|have you) (create|make|write|save)\b/.test(q)
+  );
+}
 
 /**
  * Entry point for chat and voice. Returns handled=false when the request is
@@ -943,6 +1084,21 @@ export async function handleCapabilityRequest(
   // Preference commands (always/forget) run before everything.
   const preference = await handlePreferenceCommand(trimmed, options);
   if (preference) return preference;
+
+  // Follow-ups about recent verified actions → conversation + memory.
+  if (isSessionActionFollowUp(trimmed)) {
+    return { handled: false };
+  }
+
+  // Connected-service intents (Gmail / Calendar / Drive / …) belong to the
+  // IntentOrchestrator — never let applications.open steal “what's on my
+  // Gmail?” or “is my Gmail connected?”.
+  const { classifyIntent, isOrchestratedDomain } = await import(
+    "../orchestration/IntentClassifier"
+  );
+  if (isOrchestratedDomain(classifyIntent(trimmed))) {
+    return { handled: false };
+  }
 
   // Compound deterministic requests become a small sequential plan.
   const segments = splitCompound(trimmed);

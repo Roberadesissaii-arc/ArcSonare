@@ -280,6 +280,47 @@
   background: radial-gradient(circle at 45% 42%, #6b2448 0%, #241018 42%, #06070c 100%);
 }
 
+.marble-tint-pearl .morb-halo {
+  background: radial-gradient(
+    circle,
+    rgba(210, 225, 255, 0.4) 0%,
+    rgba(170, 190, 220, 0.16) 42%,
+    rgba(170, 190, 220, 0) 72%
+  );
+}
+.marble-tint-pearl .morb-sphere {
+  background: radial-gradient(
+    circle at 31% 24%,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(235, 242, 255, 0.7) 6%,
+    rgba(190, 205, 230, 0.75) 16%,
+    rgba(120, 140, 175, 0.88) 34%,
+    rgba(45, 55, 75, 0.96) 58%,
+    rgba(12, 14, 22, 1) 82%,
+    rgba(4, 5, 8, 1) 100%
+  );
+  box-shadow:
+    inset -8px -10px 15px rgba(0, 0, 0, 0.45),
+    inset 5px 5px 9px rgba(255, 255, 255, 0.22),
+    0 0 9px rgba(180, 200, 240, 0.55),
+    0 0 22px rgba(140, 165, 210, 0.28);
+}
+.marble-tint-pearl .morb-ring {
+  background: conic-gradient(
+    from 215deg,
+    rgba(240, 246, 255, 0.95) 0%,
+    rgba(170, 190, 230, 0.4) 16%,
+    rgba(120, 145, 185, 0.08) 34%,
+    rgba(210, 225, 255, 0.75) 52%,
+    rgba(120, 145, 185, 0.1) 70%,
+    rgba(170, 190, 230, 0.35) 86%,
+    rgba(240, 246, 255, 0.95) 100%
+  );
+}
+.marble-tint-pearl .morb-core {
+  background: radial-gradient(circle at 45% 42%, #7a8aaa 0%, #2a3348 42%, #07090f 100%);
+}
+
 /* Orb state variations. */
 .morb-idle .morb-halo,
 .morb-cancelled .morb-halo {

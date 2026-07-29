@@ -12,28 +12,60 @@ import { DEFAULT_PREFS, normalizePrefs, type Prefs } from "../config/prefs";
 interface SettingsSnapshot {
   settings: Settings | null;
   prefs: Prefs;
+  /** False until the first get_settings round-trip finishes. */
+  hydrated: boolean;
 }
 
-let snapshot: SettingsSnapshot = { settings: null, prefs: DEFAULT_PREFS };
+let snapshot: SettingsSnapshot = {
+  settings: null,
+  prefs: DEFAULT_PREFS,
+  hydrated: false,
+};
 const listeners = new Set<() => void>();
 let initialized = false;
+/** Prefs updates made before get_settings resolves — replayed on load. */
+let pendingPrefsUpdaters: Array<(prefs: Prefs) => Prefs> = [];
 
-function publish(settings: Settings | null) {
+function notify() {
+  listeners.forEach((l) => l());
+}
+
+function publish(settings: Settings | null, hydrated = snapshot.hydrated) {
   snapshot = {
     settings,
     prefs: settings ? normalizePrefs(settings.prefs) : DEFAULT_PREFS,
+    hydrated,
   };
-  listeners.forEach((l) => l());
+  notify();
 }
 
 function ensureInitialized() {
   if (initialized) return;
   initialized = true;
   invoke<Settings>("get_settings")
-    .then((loaded) => publish(loaded))
-    .catch((err) => console.error("[ArcSonare] failed to load settings:", err));
+    .then((loaded) => {
+      let prefs = normalizePrefs(loaded.prefs);
+      const before = JSON.stringify(prefs);
+      if (pendingPrefsUpdaters.length > 0) {
+        for (const updater of pendingPrefsUpdaters) {
+          prefs = updater(prefs);
+        }
+        pendingPrefsUpdaters = [];
+      }
+      const merged = { ...loaded, prefs };
+      publish(merged, true);
+      // Only write back when a queued patch actually changed prefs — never
+      // clobber a just-loaded onboardingDone/true with an empty default tree.
+      if (JSON.stringify(prefs) !== before) {
+        persist(merged);
+      }
+    })
+    .catch((err) => {
+      console.error("[ArcSonare] failed to load settings:", err);
+      publish(snapshot.settings, true);
+    });
   listen<Settings>(EVENT_SETTINGS_CHANGED, (event) => {
-    publish(event.payload);
+    publish(event.payload, true);
   }).catch((err) =>
     console.error("[ArcSonare] settings-changed listener failed:", err),
   );
@@ -49,19 +81,29 @@ function persist(next: Settings) {
 export function updateSettings(patch: Partial<Settings>) {
   if (!snapshot.settings) return;
   const next = { ...snapshot.settings, ...patch };
-  publish(next);
+  publish(next, true);
   persist(next);
 }
 
 /**
  * Applies a functional update to the prefs tree and persists it. The updater
  * receives the current normalized prefs and returns the next tree.
+ * If settings are not loaded yet, applies optimistically and queues for persist.
  */
 export function updatePrefs(updater: (prefs: Prefs) => Prefs) {
-  if (!snapshot.settings) return;
+  if (!snapshot.settings) {
+    pendingPrefsUpdaters.push(updater);
+    snapshot = {
+      settings: null,
+      prefs: updater(snapshot.prefs),
+      hydrated: false,
+    };
+    notify();
+    return;
+  }
   const nextPrefs = updater(snapshot.prefs);
   const next = { ...snapshot.settings, prefs: nextPrefs };
-  publish(next);
+  publish(next, true);
   persist(next);
 }
 
@@ -102,4 +144,9 @@ export function useSettingsStore(): SettingsSnapshot {
 
 export function usePrefs(): Prefs {
   return useSettingsStore().prefs;
+}
+
+/** True after the first settings load (success or failure). */
+export function useSettingsHydrated(): boolean {
+  return useSettingsStore().hydrated;
 }

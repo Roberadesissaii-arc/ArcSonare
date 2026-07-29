@@ -53,7 +53,8 @@ export const PROVIDERS: ProviderInfo[] = [
     name: "Google",
     logo: geminiLogo,
     configuration: "api-key",
-    description: "Gemini models via the Google AI API.",
+    description:
+      "Gemini text models via the Gemini API (Google AI Studio key). Text chat only — no image, video, or robotics models.",
   },
   {
     id: "xai",
@@ -201,37 +202,21 @@ export const MODELS: ModelInfo[] = [
     locality: "cloud",
   },
   {
-    id: "gemini-2-5-pro",
+    id: "google-gemini",
     provider: "google",
-    modelName: "gemini-2.5-pro",
-    displayName: "Gemini 2.5 Pro",
+    modelName: "gemini-3.5-flash",
+    displayName: "Google Gemini",
     logo: geminiLogo,
-    description: "Google's long-context multimodal model.",
-    capabilities: ["Text", "Vision", "Audio in", "Tools", "Reasoning"],
+    description:
+      "Gemini text chat via the Gemini API. Pick the exact model in Configure Google.",
+    capabilities: ["Text", "Tools", "Reasoning"],
     contextType: "long",
     supportsText: true,
-    supportsImage: true,
-    supportsAudioInput: true,
+    supportsImage: false,
+    supportsAudioInput: false,
     supportsAudioOutput: false,
     supportsTools: true,
     supportsReasoning: true,
-    locality: "cloud",
-  },
-  {
-    id: "gemini-2-5-flash",
-    provider: "google",
-    modelName: "gemini-2.5-flash",
-    displayName: "Gemini 2.5 Flash",
-    logo: geminiLogo,
-    description: "Fast multimodal model for everyday tasks.",
-    capabilities: ["Text", "Vision", "Audio in", "Tools"],
-    contextType: "long",
-    supportsText: true,
-    supportsImage: true,
-    supportsAudioInput: true,
-    supportsAudioOutput: false,
-    supportsTools: true,
-    supportsReasoning: false,
     locality: "cloud",
   },
   {
@@ -320,6 +305,18 @@ export const MODELS: ModelInfo[] = [
     supportsReasoning: true,
     locality: "cloud",
   },
+];
+
+
+/** Gemini text models selectable under Configure Google (not separate cards). */
+export const GOOGLE_GEMINI_MODELS: { id: string; label: string; description: string }[] = [
+  { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash", description: "Frontier everyday / coding" },
+  { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash-Lite", description: "High-volume, cost-sensitive" },
+  { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro", description: "Most capable reasoning" },
+  { id: "gemini-3-flash", label: "Gemini 3 Flash", description: "Fast Gemini 3" },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Advanced 2.5 reasoning" },
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Balanced 2.5 chat" },
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite", description: "Fastest budget 2.5" },
 ];
 
 export function modelById(id: string | null | undefined): ModelInfo | undefined {

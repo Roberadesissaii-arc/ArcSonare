@@ -3,6 +3,7 @@
  * Never silently overwrite the user's selected default assistant model.
  */
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getPrefs, updatePrefs } from "../stores/settingsStore";
 import { modelById } from "../config/modelRegistry";
 import { assistantSystemContext } from "./assistantTools";
@@ -11,6 +12,21 @@ export interface OllamaStatus {
   available: boolean;
   models: string[];
   message: string;
+}
+
+export type CloudAccess = "free" | "paid" | "unknown";
+
+export interface OllamaCloudModelEntry {
+  name: string;
+  access: CloudAccess;
+  detail: string;
+}
+
+export interface OllamaCloudCatalog {
+  available: boolean;
+  models: OllamaCloudModelEntry[];
+  message: string;
+  checked: boolean;
 }
 
 export interface ChatMessage {
@@ -24,6 +40,13 @@ export async function probeOllama(): Promise<OllamaStatus> {
 
 export async function probeOllamaCloud(): Promise<OllamaStatus> {
   return invoke<OllamaStatus>("ollama_cloud_status");
+}
+
+/** List cloud models; pass checkAccess=true to verify Free vs Paid with the stored key. */
+export async function fetchOllamaCloudCatalog(
+  checkAccess = false,
+): Promise<OllamaCloudCatalog> {
+  return invoke<OllamaCloudCatalog>("ollama_cloud_catalog", { checkAccess });
 }
 
 /**
@@ -95,12 +118,16 @@ export async function ensureOllamaCloudModel(): Promise<
     }
     if (!model) {
       if (status.models.length) {
-        model = status.models[0];
+        // Prefer a lighter free-tier name when auto-picking.
+        const preferred =
+          status.models.find((m) => /gpt-oss:20b|gemma4:31b|gpt-oss:120b/i.test(m)) ??
+          status.models[0];
+        model = preferred;
       } else {
         return {
           ok: false,
           message:
-            "Enter an Ollama Cloud model name (for example gpt-oss:120b) in Settings → Models.",
+            "Enter an Ollama Cloud model name (for example gpt-oss:20b) in Settings → Models.",
         };
       }
     }
@@ -136,6 +163,33 @@ export async function ollamaChat(
     model: ensured.model,
     messages,
   });
+}
+
+/** Streams a local Ollama reply chunk-by-chunk via onChunk; resolves with the full text. */
+export async function ollamaChatStream(
+  messages: ChatMessage[],
+  onChunk: (delta: string) => void,
+  modelOverride?: string,
+): Promise<string> {
+  const ensured = modelOverride?.trim()
+    ? { ok: true as const, model: modelOverride.trim() }
+    : await ensureOllamaModel();
+  if (!ensured.ok) {
+    throw new Error(ensured.message);
+  }
+  const streamId = crypto.randomUUID();
+  const unlisten = await listen<string>(`ollama-chat-chunk:${streamId}`, (event) => {
+    onChunk(event.payload);
+  });
+  try {
+    return await invoke<string>("ollama_chat_stream", {
+      streamId,
+      model: ensured.model,
+      messages,
+    });
+  } finally {
+    unlisten();
+  }
 }
 
 export async function ollamaCloudChat(

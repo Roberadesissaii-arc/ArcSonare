@@ -17,6 +17,12 @@ import {
 import { ollamaDraftEmail } from "../../services/OllamaService";
 import { askAssistant } from "../../services/AssistantService";
 import {
+  ensurePocketTtsRuntime,
+  getPocketTtsVoicePreference,
+  speakWithPocketTts,
+  stopPocketTtsPlayback,
+} from "../../services/PocketTtsService";
+import {
   handleCapabilityRequest,
   resolvePendingConfirmation,
 } from "../capabilities/capabilityEngine";
@@ -26,6 +32,10 @@ import type {
   ToolResult,
 } from "../capabilities/capabilityTypes";
 import { handleOrchestratedRequest } from "../orchestration/IntentOrchestrator";
+import type {
+  ConnectionAction,
+  OrchestrationResult,
+} from "../orchestration/IntentContract";
 import { navigate } from "../../stores/appStore";
 import {
   getOverlayState,
@@ -42,7 +52,6 @@ import type {
   EmailDraftPayload,
   MeetingPayload,
   OverlayActionPayload,
-  ScreenContextPayload,
   TaskPayload,
 } from "./overlayTypes";
 import { OVERLAY_EXPANDED_TYPICAL } from "./overlayTypes";
@@ -58,9 +67,225 @@ export interface OverlayActionResult {
 let sessionTimers: number[] = [];
 let demoActive = false;
 
+/**
+ * Bumped when the user taps the marble to barge in (listen now).
+ * In-flight think/speak work checks this and yields if superseded.
+ */
+let listenEpoch = 0;
+
+function isStale(epoch: number): boolean {
+  return epoch !== listenEpoch;
+}
+
+/** How long the answer dropdown stays visible after returning to listening. */
+const RESULT_PANEL_HOLD_MS = 8_000;
+
+/**
+ * Speak overlay replies with Pocket TTS (voice conversations only).
+ * Dashboard / typed chat must not call this.
+ */
+async function speakOverlayReply(text: string): Promise<void> {
+  const epoch = listenEpoch;
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const spoken =
+    trimmed.length > 480 ? `${trimmed.slice(0, 480).trim()}…` : trimmed;
+  try {
+    await ensurePocketTtsRuntime();
+    if (isStale(epoch)) return;
+    await speakWithPocketTts(spoken, {
+      voice: getPocketTtsVoicePreference(),
+      shouldAbort: () => isStale(epoch),
+    });
+  } catch (err) {
+    console.warn("[ArcSonare] overlay TTS skipped:", err);
+  }
+}
+
+/** Present text, speak it, then reopen the mic (after TTS so it isn’t overheard). */
+async function finishSpokenReply(
+  text: string,
+  opts?: { afterMs?: number; keepPanelMs?: number },
+) {
+  const epoch = listenEpoch;
+  playEventSound("responding");
+  await speakOverlayReply(text);
+  if (isStale(epoch)) return;
+  resumeConversationListening({
+    afterMs: opts?.afterMs ?? 400,
+    keepPanelMs: opts?.keepPanelMs,
+  });
+}
+
+/**
+ * Tap the marble orb: stop speaking / abandon in-flight reply and listen now.
+ * Keeps the result dropdown if one is open.
+ */
+export function activateOverlayListening() {
+  const current = getOverlayState();
+  if (
+    current.mode === "hidden" ||
+    current.mode === "closing" ||
+    current.phase === "hidden" ||
+    current.phase === "closing"
+  ) {
+    return;
+  }
+
+  listenEpoch += 1;
+  stopPocketTtsPlayback();
+  clearSessionTimers();
+  demoActive = false;
+
+  // Interactive draft/confirm flows already accept speech — just cut TTS.
+  if (
+    current.mode === "confirmation" ||
+    current.mode === "drafting-email" ||
+    current.mode === "clarifying" ||
+    current.mode === "scheduling-meeting" ||
+    current.mode === "creating-task" ||
+    current.requiresConfirmation
+  ) {
+    playEventSound("listening");
+    return;
+  }
+
+  const keepPanel = hasResultPanel(current);
+  setOverlayMode("listening", {
+    status: "Listening...",
+    expanded: keepPanel,
+    transcript: "",
+    requiresConfirmation: false,
+    actionPayload: keepPanel ? current.actionPayload : undefined,
+    result: keepPanel ? current.result : undefined,
+    error: keepPanel ? current.error : undefined,
+  });
+
+  if (keepPanel) {
+    scheduleResultPanelDismiss(RESULT_PANEL_HOLD_MS);
+  } else {
+    void collapseOverlayWindow();
+  }
+  playEventSound("listening");
+
+  const windowMs = followUpListenMs();
+  if (windowMs === null) return;
+  sessionTimers.push(
+    window.setTimeout(() => {
+      const s = getOverlayState();
+      if (s.mode !== "listening") return;
+      cancelOverlaySession();
+    }, windowMs),
+  );
+}
+
 function clearSessionTimers() {
   sessionTimers.forEach((t) => window.clearTimeout(t));
   sessionTimers = [];
+}
+
+/** How long the overlay stays in follow-up listening after an answer. */
+function followUpListenMs(): number | null {
+  switch (getPrefs().voice.followUpWindow) {
+    case "off":
+      return null;
+    case "30s":
+      return 30_000;
+    case "1m":
+      return 60_000;
+    case "2m":
+      return 120_000;
+    case "5m":
+      return 300_000;
+    default:
+      return 30_000;
+  }
+}
+
+function hasResultPanel(s: ReturnType<typeof getOverlayState>): boolean {
+  return Boolean(s.expanded && (s.actionPayload || s.result || s.error));
+}
+
+/** Collapse only the bottom dropdown; capsule stays in listening. */
+function scheduleResultPanelDismiss(holdMs: number) {
+  sessionTimers.push(
+    window.setTimeout(() => {
+      const s = getOverlayState();
+      if (s.mode !== "listening") return;
+      if (!hasResultPanel(s)) return;
+      patchOverlay({
+        expanded: false,
+        actionPayload: undefined,
+        result: undefined,
+        error: undefined,
+      });
+      void collapseOverlayWindow();
+    }, holdMs),
+  );
+}
+
+/**
+ * After ArcSonare answers, re-open the mic so the user can keep talking
+ * without pressing the shortcut again.
+ *
+ * If a result dropdown is open, keep it while listening. It dismisses after
+ * `keepPanelMs`, or immediately when a newer answer replaces it.
+ */
+function resumeConversationListening(opts?: {
+  afterMs?: number;
+  keepPanelMs?: number;
+}) {
+  const windowMs = followUpListenMs();
+  if (windowMs === null) return;
+
+  const afterMs = opts?.afterMs ?? 1100;
+  const keepPanelMs = opts?.keepPanelMs ?? RESULT_PANEL_HOLD_MS;
+  // Drop only follow-up timers; keep unrelated ones by clearing then re-arming.
+  clearSessionTimers();
+  sessionTimers.push(
+    window.setTimeout(() => {
+      const current = getOverlayState();
+      if (
+        current.mode === "hidden" ||
+        current.mode === "closing" ||
+        current.mode === "confirmation" ||
+        current.mode === "clarifying" ||
+        current.mode === "drafting-email" ||
+        current.mode === "scheduling-meeting" ||
+        current.mode === "creating-task" ||
+        current.requiresConfirmation
+      ) {
+        return;
+      }
+
+      const keepPanel = hasResultPanel(current);
+      setOverlayMode("listening", {
+        status: "Listening...",
+        expanded: keepPanel,
+        transcript: "",
+        // Keep the last answer in the dropdown while listening for follow-ups.
+        actionPayload: keepPanel ? current.actionPayload : undefined,
+        result: keepPanel ? current.result : undefined,
+        error: keepPanel ? current.error : undefined,
+      });
+
+      if (keepPanel) {
+        scheduleResultPanelDismiss(keepPanelMs);
+      } else {
+        void collapseOverlayWindow();
+      }
+      playEventSound("listening");
+
+      // Soft idle close after the follow-up window if nobody spoke again.
+      sessionTimers.push(
+        window.setTimeout(() => {
+          const s = getOverlayState();
+          if (s.mode !== "listening") return;
+          cancelOverlaySession();
+        }, windowMs),
+      );
+    }, afterMs),
+  );
 }
 
 export const OVERLAY_COMMAND_EVENT = "sonare:overlay-command";
@@ -170,6 +395,8 @@ async function runDemoCycle() {
 
 export function cancelOverlaySession() {
   demoActive = false;
+  listenEpoch += 1;
+  stopPocketTtsPlayback();
   clearSessionTimers();
   const mode = getOverlayState().mode;
   if (mode === "closing") {
@@ -195,10 +422,367 @@ export function endOverlaySession() {
   resetOverlay();
 }
 
+// Run id of a capability run awaiting a spoken/clicked yes/no.
+let pendingConfirmRunId: string | null = null;
+
+const AFFIRM_RE = /^(?:yes|yeah|yep|confirm|do it|go ahead|okay|ok|sure|please do|move to (?:the )?recycle bin|recycle bin)\.?$/i;
+const DENY_RE = /^(?:no|nope|cancel|stop|don'?t|nevermind|never mind|abort)\.?$/i;
+
+/** Map a capability ToolResult/EngineOutcome onto overlay visual states. */
+async function applyEngineOutcome(
+  outcome: Awaited<ReturnType<typeof handleCapabilityRequest>>,
+): Promise<void> {
+  const epoch = listenEpoch;
+  // Paused for confirmation (destructive delete, ambiguous app, overwrite).
+  if (outcome.pendingConfirmation && outcome.run) {
+    pendingConfirmRunId = outcome.run.id;
+    presentConfirmation(outcome.pendingConfirmation);
+    return;
+  }
+  pendingConfirmRunId = null;
+  if (isStale(epoch)) return;
+  const result = outcome.result;
+  const text = outcome.responseText ?? result?.summary ?? "Done";
+
+  // Screenshot artifact → render the image in the expanded panel.
+  const imageArtifact = result?.artifacts?.find((a) => a.kind === "image");
+  if (result?.status === "success" && imageArtifact?.id) {
+    await showScreenshotArtifact(imageArtifact.id, text);
+    return;
+  }
+
+  const appId = engineAppId(result);
+  const icon = appId ? getOverlayIcon(appId) : undefined;
+
+  if (!result || result.status === "success") {
+    if (isStale(epoch)) return;
+    if (appId) setApplicationContext(appId, icon?.iconPath);
+    setOverlaySuccess(
+      { title: text, summary: "", applicationId: appId },
+      text,
+      false,
+    );
+    playEventSound("task-completed");
+    await speakOverlayReply(text);
+    if (isStale(epoch)) return;
+    resumeConversationListening({ afterMs: 400 });
+    return;
+  }
+  if (result.status === "partial") {
+    if (isStale(epoch)) return;
+    if (appId) setApplicationContext(appId, icon?.iconPath);
+    setOverlaySuccess({ title: text, summary: "", applicationId: appId }, text, false);
+    await finishSpokenReply(text, { afterMs: 400 });
+    return;
+  }
+  if (result.status === "cancelled") {
+    if (isStale(epoch)) return;
+    setStatusText(text);
+    setOverlayMode("responding", { status: text, expanded: false });
+    return;
+  }
+  // not-found / denied / unsupported / error → honest error surface.
+  if (isStale(epoch)) return;
+  const friendly =
+    text
+      .replace(/\b[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*\b/gi, "the system")
+      .replace(/\s{2,}/g, " ")
+      .trim() || "Something went wrong. Please try again.";
+  setOverlayError({
+    message: friendly,
+    code: result.error?.code ?? result.status,
+  });
+  playEventSound("error");
+  await expandOverlayWindow(OVERLAY_EXPANDED_TYPICAL);
+  if (isStale(epoch)) return;
+  await speakOverlayReply(friendly);
+  if (isStale(epoch)) return;
+  resumeConversationListening({ afterMs: 400, keepPanelMs: RESULT_PANEL_HOLD_MS });
+}
+
+function engineAppId(result: ToolResult | undefined): string | undefined {
+  if (!result) return undefined;
+  const data = result.data as { application?: string; target_id?: string } | undefined;
+  const raw = data?.target_id ?? data?.application;
+  if (!raw) return undefined;
+  // Map "cur-spotify" / index ids to a top-overlay icon id when possible.
+  const guess = raw.replace(/^(cur|ap|sm|proto)-/, "");
+  return getOverlayIcon(guess) ? guess : undefined;
+}
+
+function presentConfirmation(confirmation: CapabilityConfirmation) {
+  const options = confirmation.candidates?.length
+    ? confirmation.candidates.map((c) => ({ id: c.id ?? c.label, label: c.label }))
+    : [
+        { id: "confirm", label: confirmation.reversible ? "Move to Recycle Bin" : "Confirm" },
+        { id: "cancel", label: "Cancel" },
+      ];
+  setOverlayMode("confirmation", {
+    status: confirmation.title,
+    expanded: true,
+    requiresConfirmation: true,
+    actionPayload: {
+      type: "clarification",
+      data: {
+        question: confirmation.title,
+        options,
+      },
+    },
+  });
+  void expandOverlayWindow(220);
+  playEventSound("confirmation");
+}
+
+async function showScreenshotArtifact(captureId: string, text: string) {
+  let dataUrl: string | undefined;
+  try {
+    dataUrl = await invoke<string>("get_capture_data_url", {
+      id: captureId,
+      annotated: false,
+    });
+  } catch {
+    dataUrl = undefined;
+  }
+  setOverlayMode("screen-context", {
+    status: text,
+    expanded: true,
+    requiresConfirmation: false,
+    actionPayload: {
+      type: "screen-context",
+      data: {
+        capturing: Boolean(dataUrl),
+        previewDataUrl: dataUrl,
+        privacyNote: text,
+        monitorLabel: "Screenshot",
+      },
+    },
+  });
+  await expandOverlayWindow(340);
+  playEventSound("task-completed");
+}
+
+/**
+ * Route a transcript through the capability engine. Returns true when the
+ * engine handled it (action executed / confirmation shown), false when the
+ * request is conversation and should fall through to the chat/intent path.
+ */
+async function driveOverlayFromEngine(trimmed: string): Promise<boolean> {
+  // A pending confirmation captures the next yes/no first.
+  if (pendingConfirmRunId) {
+    if (AFFIRM_RE.test(trimmed)) {
+      const runId = pendingConfirmRunId;
+      pendingConfirmRunId = null;
+      setOverlayMode("responding", { status: "Working...", expanded: false });
+      const outcome = await resolvePendingConfirmation(runId, true);
+      await applyEngineOutcome(outcome);
+      return true;
+    }
+    if (DENY_RE.test(trimmed)) {
+      const runId = pendingConfirmRunId;
+      pendingConfirmRunId = null;
+      const outcome = await resolvePendingConfirmation(runId, false);
+      await applyEngineOutcome(outcome);
+      return true;
+    }
+    // Any other utterance abandons the pending confirmation and re-routes.
+    pendingConfirmRunId = null;
+  }
+
+  let sawProgress = false;
+  const outcome = await handleCapabilityRequest(trimmed, {
+    origin: "voice",
+    onProgress: (message, capabilityId) => {
+      sawProgress = true;
+      const appId = capabilityId ? undefined : undefined;
+      void appId;
+      const opening = message.startsWith("Opening");
+      const working =
+        message.startsWith("Working") ||
+        message.startsWith("Verifying") ||
+        message.startsWith("Done");
+      setOverlayMode(opening ? "opening-app" : working ? "responding" : "thinking", {
+        status: opening || working ? message : "Thinking...",
+        expanded: false,
+      });
+    },
+  });
+  if (!outcome.handled) {
+    return false;
+  }
+  void sawProgress;
+  await applyEngineOutcome(outcome);
+  return true;
+}
+
+/** Confirmation panel button handler (Confirm / Cancel / candidate id). */
+export async function resolveOverlayConfirmation(optionId: string) {
+  const runId = pendingConfirmRunId;
+  if (!runId) return;
+  pendingConfirmRunId = null;
+  if (optionId === "cancel") {
+    const outcome = await resolvePendingConfirmation(runId, false);
+    await applyEngineOutcome(outcome);
+    return;
+  }
+  setOverlayMode("responding", { status: "Working...", expanded: false });
+  const approvedId = optionId === "confirm" ? undefined : optionId;
+  const outcome = await resolvePendingConfirmation(runId, true, approvedId);
+  await applyEngineOutcome(outcome);
+}
+
+/** Capsule status stays short; the dropdown carries the full message. */
+const STATUS_CAPSULE_MAX = 72;
+/** Expand when the reply won't fit the capsule (or needs a CTA). */
+const NOTICE_EXPAND_MIN_CHARS = 90;
+
+function serviceLabel(service: string): string {
+  switch (service) {
+    case "calendar":
+      return "Calendar";
+    case "email":
+      return "Email";
+    case "drive":
+      return "Drive";
+    default:
+      return service.charAt(0).toUpperCase() + service.slice(1);
+  }
+}
+
+function noticeHeading(action: ConnectionAction): string {
+  const svc = serviceLabel(action.service);
+  switch (action.action) {
+    case "connect":
+      return `${svc} isn’t connected`;
+    case "reconnect":
+      return `Reconnect ${svc}`;
+    case "grant-permission":
+      return "Permission needed";
+    case "choose-account":
+      return "Choose an account";
+    case "retry":
+      return `${svc} unavailable`;
+    default:
+      return "Needs attention";
+  }
+}
+
+function shouldExpandOrchestration(result: OrchestrationResult): boolean {
+  if (result.action) return true;
+  return result.text.trim().length >= NOTICE_EXPAND_MIN_CHARS;
+}
+
+async function presentOrchestratedResult(result: OrchestrationResult) {
+  const epoch = listenEpoch;
+  if (result.navigatePage) {
+    navigate(result.navigatePage);
+  }
+  if (result.openAppId) {
+    if (isStale(epoch)) return;
+    await openApplication(result.openAppId);
+    return;
+  }
+
+  if (!shouldExpandOrchestration(result)) {
+    if (isStale(epoch)) return;
+    setOverlayMode("responding", {
+      status: result.text.slice(0, 120),
+      expanded: false,
+      applicationId: undefined,
+      applicationIcon: undefined,
+      actionPayload: undefined,
+      error: undefined,
+    });
+    await finishSpokenReply(result.text);
+    return;
+  }
+
+  if (isStale(epoch)) return;
+  const title = result.action ? noticeHeading(result.action) : "Update";
+  const status = result.action
+    ? title.slice(0, STATUS_CAPSULE_MAX)
+    : result.text.slice(0, STATUS_CAPSULE_MAX);
+  setOverlayMode("responding", {
+    status,
+    expanded: true,
+    applicationId: undefined,
+    applicationIcon: undefined,
+    error: undefined,
+    requiresConfirmation: false,
+    actionPayload: {
+      type: "notice",
+      data: {
+        title,
+        message: result.text,
+        primaryLabel: result.action?.label,
+        navigateTo: result.action?.navigateTo,
+        code: result.action?.action,
+      },
+    },
+  });
+  await expandOverlayWindow(result.action ? 240 : OVERLAY_EXPANDED_TYPICAL);
+  if (isStale(epoch)) return;
+  // Connection CTAs stay open without forcing the mic; free-form answers speak + listen.
+  if (!result.action) {
+    await finishSpokenReply(result.text, { afterMs: 400 });
+  } else {
+    playEventSound("error");
+    void speakOverlayReply(result.text);
+  }
+}
+
+/** Present a longer reply in the dropdown; short replies stay in the capsule. */
+async function presentTextReply(text: string, opts?: { asError?: boolean }) {
+  const epoch = listenEpoch;
+  const trimmed = text.trim();
+  if (opts?.asError) {
+    if (isStale(epoch)) return;
+    setOverlayError({ message: trimmed || "Something went wrong" });
+    playEventSound("error");
+    await expandOverlayWindow(OVERLAY_EXPANDED_TYPICAL);
+    if (isStale(epoch)) return;
+    await speakOverlayReply(trimmed || "Something went wrong");
+    if (isStale(epoch)) return;
+    resumeConversationListening({ afterMs: 400, keepPanelMs: RESULT_PANEL_HOLD_MS });
+    return;
+  }
+  if (trimmed.length < NOTICE_EXPAND_MIN_CHARS) {
+    if (isStale(epoch)) return;
+    setOverlayMode("responding", {
+      status: trimmed.slice(0, 120),
+      expanded: false,
+      applicationId: undefined,
+      applicationIcon: undefined,
+      actionPayload: undefined,
+      error: undefined,
+    });
+    await finishSpokenReply(trimmed);
+    return;
+  }
+  if (isStale(epoch)) return;
+  setOverlayMode("responding", {
+    status: trimmed.slice(0, STATUS_CAPSULE_MAX),
+    expanded: true,
+    applicationId: undefined,
+    applicationIcon: undefined,
+    error: undefined,
+    actionPayload: {
+      type: "notice",
+      data: {
+        title: "Update",
+        message: trimmed,
+      },
+    },
+  });
+  await expandOverlayWindow(OVERLAY_EXPANDED_TYPICAL);
+  if (isStale(epoch)) return;
+  await finishSpokenReply(trimmed, { afterMs: 400 });
+}
+
 /** Commit a transcript (push-to-talk release / typed command). */
 export async function commitOverlayTranscript(transcript: string) {
   demoActive = false;
   clearSessionTimers();
+  const epoch = listenEpoch;
   const trimmed = transcript.trim();
   patchOverlay({ transcript: trimmed });
 
@@ -217,48 +801,33 @@ export async function commitOverlayTranscript(transcript: string) {
 
   // Clear any prior app chip before a new command so leftover Calendar/Gmail
   // icons don’t stick on unrelated answers (“what time is it?”).
+  // Keep the previous dropdown until the new answer replaces it.
+  const prior = getOverlayState();
+  const keepPanel = hasResultPanel(prior);
   setOverlayMode("thinking", {
     status: "Thinking...",
     applicationId: undefined,
     applicationIcon: undefined,
+    expanded: keepPanel,
+    actionPayload: keepPanel ? prior.actionPayload : undefined,
+    result: keepPanel ? prior.result : undefined,
+    error: keepPanel ? prior.error : undefined,
   });
   playEventSound("thinking");
 
   // Local capability engine FIRST — real Windows actions (time, desktop,
   // open apps, folders, screenshots, tasks, navigation) with verification.
   const engineHandled = await driveOverlayFromEngine(trimmed);
-  if (engineHandled) return;
+  if (engineHandled || isStale(epoch)) return;
 
   await new Promise((r) => setTimeout(r, 350));
+  if (isStale(epoch)) return;
 
   // Intent Precision layer — calendar/email/drive/nav before bare app-open.
   const orchestrated = await handleOrchestratedRequest(trimmed);
+  if (isStale(epoch)) return;
   if (orchestrated.handled) {
-    if (orchestrated.navigatePage) {
-      navigate(orchestrated.navigatePage);
-    }
-    if (orchestrated.openAppId) {
-      await openApplication(orchestrated.openAppId);
-      return;
-    }
-    setOverlayMode("responding", {
-      status: orchestrated.text.slice(0, 120),
-      expanded: false,
-      applicationId: undefined,
-      applicationIcon: undefined,
-      actionPayload: orchestrated.action
-        ? {
-            type: "none",
-          }
-        : undefined,
-    });
-    playEventSound("responding");
-    if (orchestrated.action?.navigateTo === "connect") {
-      // Keep response visible; user can open Connect from the hint text.
-      patchOverlay({
-        status: `${orchestrated.text.slice(0, 90)} · Connect in ArcSonare`,
-      });
-    }
+    await presentOrchestratedResult(orchestrated);
     return;
   }
 
@@ -297,9 +866,6 @@ export async function runOverlayIntent(intent: ParsedIntent) {
     case "create-task":
       await beginTaskDraft(intent.title);
       break;
-    case "screen-context":
-      await beginScreenContext();
-      break;
     case "mention":
       setApplicationContext(intent.appId, intent.entry.iconPath);
       setOverlayMode("responding", {
@@ -328,7 +894,7 @@ export async function runOverlayIntent(intent: ParsedIntent) {
           data: { question: intent.question, options: intent.options },
         },
       });
-      await expandOverlayWindow(200);
+      await expandOverlayWindow(OVERLAY_EXPANDED_TYPICAL);
       playEventSound("confirmation");
       break;
     case "respond":
@@ -348,6 +914,8 @@ async function respondWithAssistant(text: string) {
     return;
   }
 
+  const epoch = listenEpoch;
+
   // General Q&A (time, date, chat) — no app icon unless an intent set one.
   setApplicationContext(undefined, undefined);
   setOverlayMode("thinking", {
@@ -359,26 +927,16 @@ async function respondWithAssistant(text: string) {
   playEventSound("thinking");
 
   try {
-    const reply = await askAssistant(text.trim());
-    setOverlayMode("responding", {
-      status: reply.text.slice(0, 120),
-      expanded: false,
-      applicationId: undefined,
-      applicationIcon: undefined,
-    });
-    playEventSound("responding");
+    const reply = await askAssistant(text.trim(), { skipCapabilities: true });
+    if (isStale(epoch)) return;
+    await presentTextReply(reply.text);
   } catch (err) {
+    if (isStale(epoch)) return;
     console.error("[ArcSonare] Assistant respond failed:", err);
-    setOverlayMode("responding", {
-      status:
-        err instanceof Error
-          ? err.message.slice(0, 120)
-          : "Assistant unavailable",
-      expanded: false,
-      applicationId: undefined,
-      applicationIcon: undefined,
-    });
-    playEventSound("error");
+    await presentTextReply(
+      err instanceof Error ? err.message : "Assistant unavailable",
+      { asError: true },
+    );
   }
 }
 
@@ -595,65 +1153,6 @@ async function beginTaskDraft(title: string) {
   playEventSound("responding");
 }
 
-async function beginScreenContext() {
-  setOverlayMode("screen-context", {
-    status: "Screen context enabled",
-    expanded: true,
-    actionPayload: {
-      type: "screen-context",
-      data: {
-        capturing: false,
-        privacyNote: "Capturing key context from your screen",
-        monitorLabel: "Active monitor",
-      } satisfies ScreenContextPayload,
-    },
-  });
-  await expandOverlayWindow(340);
-  playEventSound("screen-context-start");
-
-  try {
-    const monitors = await invoke<{ id: string; name: string }[]>("list_monitors");
-    const ids = monitors.slice(0, 1).map((m) => m.id);
-    if (ids.length === 0) {
-      setStatusText("Screen context enabled");
-      return;
-    }
-    await invoke("start_screen_context", { monitorIds: ids });
-    const capture = await invoke<{ meta: { id: string } }[]>("capture_screen", {
-      target: "monitor",
-      monitorId: ids[0],
-    }).catch(() => null);
-
-    let dataUrl: string | undefined;
-    const captureId = capture?.[0]?.meta?.id;
-    if (captureId) {
-      dataUrl = await invoke<string>("get_capture_data_url", {
-        id: captureId,
-        annotated: false,
-      }).catch(() => undefined);
-    }
-
-    const current = getOverlayState().actionPayload;
-    if (current?.type === "screen-context") {
-      setActionPayload({
-        type: "screen-context",
-        data: {
-          ...current.data,
-          capturing: Boolean(dataUrl),
-          previewDataUrl: dataUrl,
-          monitorLabel: monitors[0]?.name ?? "Active monitor",
-        },
-      });
-      if (dataUrl) {
-        setStatusText("Context captured");
-      }
-    }
-  } catch {
-    // Screen context backend may be unavailable — show panel without false AI claims.
-    setStatusText("Screen context enabled");
-  }
-}
-
 /** Persist a local task — success only after this resolves. */
 export async function confirmCreateTask() {
   const payload = getOverlayState().actionPayload;
@@ -812,7 +1311,6 @@ export function debugSetOverlayState(key: string) {
       void beginEmailDraft({ kind: "draft-email", to: "julia@acme.com", subject: "Q2 Project Update" }),
     "8": () => void beginMeetingDraft("Team Sync"),
     "9": () => void beginTaskDraft("Update campaign deck"),
-    "0": () => void beginScreenContext(),
     e: () => {
       setOverlayError({ message: "Something went wrong", code: "demo" });
       void expandOverlayWindow(220);

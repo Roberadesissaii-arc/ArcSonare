@@ -22,22 +22,6 @@ export type WhisperModelSize =
   | "medium"
   | "turbo";
 export type CostPreference = "economy" | "balanced" | "best";
-export type CaptureTarget =
-  | "active-window"
-  | "mouse-monitor"
-  | "primary-monitor"
-  | "selected-monitor"
-  | "all-monitors"
-  | "region";
-export type ScreenRetention =
-  | "none"
-  | "15m"
-  | "1h"
-  | "1d"
-  | "7d"
-  | "after-processing"
-  | "30d"
-  | "manual";
 export type DataRetention =
   | "never"
   | "after-processing"
@@ -46,7 +30,6 @@ export type DataRetention =
   | "7d"
   | "30d"
   | "manual";
-export type EdgeStyle = "perimeter" | "corners" | "pulse";
 export type Density = "compact" | "comfortable" | "spacious";
 export type AccentMode = "violet" | "monochrome";
 export type NotificationDelivery = "banner" | "center" | "windows";
@@ -76,9 +59,6 @@ export const SOUND_EVENTS = [
   "confirmation",
   "error",
   "notification",
-  "screen-context-start",
-  "screen-context-stop",
-  "annotation-confirmed",
   "wake-word",
 ] as const;
 export type SoundEvent = (typeof SOUND_EVENTS)[number];
@@ -101,8 +81,6 @@ export const NOTIFICATION_CATEGORIES = [
   "agent-failed",
   "connection-lost",
   "connection-restored",
-  "screen-context-started",
-  "screen-context-stopped",
   "model-unavailable",
   "app-update",
   "system-error",
@@ -143,6 +121,12 @@ export interface Prefs {
     pauseWhenUnfocused: boolean;
     confirmQuit: boolean;
     onboardingDone: boolean;
+    /** True only after a successful sign-in / account creation. Gates the voice overlay. */
+    overlayUnlocked: boolean;
+    /** Whether we've shown the first-run location permission prompt. */
+    locationPrompted: boolean;
+    /** Cached OS/app location permission decision. */
+    locationPermission: "unknown" | "granted" | "denied";
   };
 
   voice: {
@@ -198,6 +182,8 @@ export interface Prefs {
     ollamaModel: string;
     /** Ollama Cloud model name, e.g. "gpt-oss:120b". */
     ollamaCloudModel: string;
+    /** Selected Gemini API model id, e.g. "gemini-3.5-flash". */
+    googleModel: string;
     autoRouting: boolean;
     preferFastSimple: boolean;
     preferLocalPrivate: boolean;
@@ -217,45 +203,6 @@ export interface Prefs {
     };
   };
 
-  screenContext: {
-    enabled: boolean;
-    requireConfirmation: boolean;
-    showIndicator: boolean;
-    playCaptureSound: boolean;
-    includePointer: boolean;
-    includeShadows: boolean;
-    hideArcSonareWindows: boolean;
-    autoDeleteTemp: boolean;
-    askBeforeCloud: boolean;
-    cursorCompanionEnabled: boolean;
-    cursorTrailEnabled: boolean;
-    defaultTarget: CaptureTarget;
-    selectedMonitorIds: string[];
-    showLabel: boolean;
-    edgeIntensity: number; // 0..100
-    edgeStyle: EdgeStyle;
-    annotation: {
-      pen: boolean;
-      rectangle: boolean;
-      ellipse: boolean;
-      arrow: boolean;
-      highlighter: boolean;
-      redact: boolean;
-      thickness: number; // 1..10
-      color: string;
-      showToolbar: boolean;
-      keepAfterCapture: boolean;
-      autoCrop: boolean;
-    };
-    privacy: {
-      saveHistory: boolean;
-      retention: ScreenRetention;
-      localOnly: boolean;
-      removeAfterProcessing: boolean;
-      excludePasswordFields: boolean;
-    };
-  };
-
   appearance: {
     accent: AccentMode;
     /** Swatch id used when accent is violet (violet/blue/cyan/green/orange/red). */
@@ -270,6 +217,8 @@ export interface Prefs {
     disableGlow: boolean;
     overlayOffset: number; // px from top, 0..64
     overlayScale: number; // 85..115 (%)
+    /** Absolute path to a user-picked background image, copied into app data. Empty = default. */
+    customBackgroundPath: string;
   };
 
   sounds: {
@@ -321,6 +270,11 @@ export interface Prefs {
     perfMetrics: boolean;
   };
 
+  integrations: {
+    /** Optional runtime override for Google OAuth (Connect). Env still works. */
+    googleOAuthClientId: string;
+  };
+
   /** Extra global shortcuts (action id → shortcut). Written only through the
    * `set_action_shortcut` command after native registration succeeds. */
   shortcuts: Record<string, string>;
@@ -337,9 +291,6 @@ function defaultSoundEvents(): Prefs["sounds"]["events"] {
     confirmation: 75,
     error: 78,
     notification: 65,
-    "screen-context-start": 65,
-    "screen-context-stop": 58,
-    "annotation-confirmed": 68,
     "wake-word": 62,
   };
   const events = {} as Prefs["sounds"]["events"];
@@ -370,7 +321,7 @@ function defaultRetention(): Prefs["dataPrivacy"]["retention"] {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  schemaVersion: 7,
+  schemaVersion: 10,
   general: {
     startMinimized: false,
     keepRunningOnClose: true,
@@ -390,6 +341,9 @@ export const DEFAULT_PREFS: Prefs = {
     pauseWhenUnfocused: true,
     confirmQuit: false,
     onboardingDone: false,
+    overlayUnlocked: false,
+    locationPrompted: false,
+    locationPermission: "unknown",
   },
   voice: {
     inputDeviceId: "default",
@@ -449,6 +403,7 @@ export const DEFAULT_PREFS: Prefs = {
     },
     ollamaModel: "",
     ollamaCloudModel: "",
+    googleModel: "gemini-3.5-flash",
     autoRouting: true,
     preferFastSimple: true,
     preferLocalPrivate: true,
@@ -464,44 +419,6 @@ export const DEFAULT_PREFS: Prefs = {
       recentlyUsed: [],
     },
   },
-  screenContext: {
-    enabled: false,
-    requireConfirmation: true,
-    showIndicator: true,
-    playCaptureSound: true,
-    includePointer: false,
-    includeShadows: true,
-    hideArcSonareWindows: true,
-    autoDeleteTemp: true,
-    askBeforeCloud: true,
-    cursorCompanionEnabled: true,
-    cursorTrailEnabled: true,
-    defaultTarget: "mouse-monitor",
-    selectedMonitorIds: [],
-    showLabel: true,
-    edgeIntensity: 70,
-    edgeStyle: "perimeter",
-    annotation: {
-      pen: true,
-      rectangle: true,
-      ellipse: true,
-      arrow: true,
-      highlighter: true,
-      redact: true,
-      thickness: 3,
-      color: "#A576FF",
-      showToolbar: true,
-      keepAfterCapture: true,
-      autoCrop: false,
-    },
-    privacy: {
-      saveHistory: true,
-      retention: "1h",
-      localOnly: true,
-      removeAfterProcessing: false,
-      excludePasswordFields: true,
-    },
-  },
   appearance: {
     accent: "violet",
     accentColor: "violet",
@@ -515,6 +432,7 @@ export const DEFAULT_PREFS: Prefs = {
     disableGlow: false,
     overlayOffset: 16,
     overlayScale: 100,
+    customBackgroundPath: "",
   },
   sounds: {
     enabled: true,
@@ -561,6 +479,9 @@ export const DEFAULT_PREFS: Prefs = {
     diagnostics: false,
     crashReports: false,
     perfMetrics: false,
+  },
+  integrations: {
+    googleOAuthClientId: "",
   },
   shortcuts: {},
 };
@@ -611,6 +532,35 @@ export function normalizePrefs(raw: unknown): Prefs {
     }
     merged.shortcuts = shortcuts;
   }
+
+  // Legacy: many Gemini cards → one Google Gemini + googleModel picker.
+  const legacyGemini: Record<string, string> = {
+    "gemini-3-5-flash": "gemini-3.5-flash",
+    "gemini-3-1-flash-lite": "gemini-3.1-flash-lite",
+    "gemini-3-1-pro": "gemini-3.1-pro",
+    "gemini-3-flash": "gemini-3-flash",
+    "gemini-2-5-pro": "gemini-2.5-pro",
+    "gemini-2-5-flash": "gemini-2.5-flash",
+    "gemini-2-5-flash-lite": "gemini-2.5-flash-lite",
+  };
+  if (!merged.models.googleModel?.trim()) {
+    merged.models.googleModel = DEFAULT_PREFS.models.googleModel;
+  }
+  for (const role of Object.keys(merged.models.roles) as Array<
+    keyof typeof merged.models.roles
+  >) {
+    const id = merged.models.roles[role];
+    if (id && legacyGemini[id]) {
+      if (role === "assistant") {
+        merged.models.googleModel = legacyGemini[id];
+      }
+      merged.models.roles[role] = "google-gemini";
+    }
+  }
+  merged.models.browser.recentlyUsed = merged.models.browser.recentlyUsed.map(
+    (id) => (legacyGemini[id] ? "google-gemini" : id),
+  );
+
   merged.schemaVersion = DEFAULT_PREFS.schemaVersion;
   return merged;
 }

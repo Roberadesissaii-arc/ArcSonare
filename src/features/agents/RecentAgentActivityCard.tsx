@@ -1,6 +1,8 @@
 import { relativeTime } from "./agentHealth";
 import type { AgentActivity } from "./agentTypes";
 import type { AgentConfig } from "./agentStore";
+import { ClockIcon } from "../../components/Icons";
+import { EmptyState } from "../../components/EmptyState";
 
 interface RecentAgentActivityCardProps {
   agents: AgentConfig[];
@@ -32,9 +34,12 @@ export function RecentAgentActivityCard({
         ) : null}
       </div>
       {events.length === 0 ? (
-        <p className="agent-rail-empty">
-          Agent activity will appear here after agents begin working.
-        </p>
+        <EmptyState
+          icon={<ClockIcon size={21} />}
+          title="No activity yet"
+          description="Agent activity will appear here."
+          compact
+        />
       ) : (
         <ul className="agent-activity-list">
           {events.map((ev) => (

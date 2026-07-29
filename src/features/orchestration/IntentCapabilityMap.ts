@@ -252,6 +252,9 @@ export function mapIntentToCapability(contract: IntentContract): string | undefi
   const { domain, mode, requestedData, object } = contract;
 
   if (domain === "calendar") {
+    if (requestedData?.includes("connection") || object === "connection") {
+      return "calendar.get_connection_status";
+    }
     if (mode === "open") {
       return object === "event" || requestedData?.includes("next")
         ? "calendar.open_event"
@@ -263,6 +266,9 @@ export function mapIntentToCapability(contract: IntentContract): string | undefi
   }
 
   if (domain === "email") {
+    if (requestedData?.includes("connection") || object === "connection") {
+      return "email.get_connection_status";
+    }
     if (mode === "open") {
       return object === "message" || requestedData?.includes("latest")
         ? "email.open_message"

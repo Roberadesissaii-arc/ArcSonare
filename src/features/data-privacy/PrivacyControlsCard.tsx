@@ -5,11 +5,15 @@ import { DataPrivacyCard } from "./DataPrivacyCard";
 interface PrivacyControlsCardProps {
   dataPrivacy: Prefs["dataPrivacy"];
   onChange: (patch: Partial<Prefs["dataPrivacy"]>) => void;
+  locationAllowed: boolean;
+  onLocationAllowedChange: (allowed: boolean) => void;
 }
 
 export function PrivacyControlsCard({
   dataPrivacy: dp,
   onChange,
+  locationAllowed,
+  onLocationAllowedChange,
 }: PrivacyControlsCardProps) {
   return (
     <DataPrivacyCard
@@ -36,6 +40,12 @@ export function PrivacyControlsCard({
             description="Save confirmed screenshots and annotations to history."
             checked={dp.storeCaptures}
             onChange={(storeCaptures) => onChange({ storeCaptures })}
+          />
+          <Control
+            label="Allow device location"
+            description="Used for weather, nearby places, and travel-time answers when you ask."
+            checked={locationAllowed}
+            onChange={onLocationAllowedChange}
           />
         </section>
 

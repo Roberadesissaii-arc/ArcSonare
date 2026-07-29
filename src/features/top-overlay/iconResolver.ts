@@ -104,7 +104,6 @@ export type ParsedIntent =
   | { kind: "send-email" }
   | { kind: "schedule-meeting"; title?: string }
   | { kind: "create-task"; title: string }
-  | { kind: "screen-context" }
   | { kind: "mention"; appId: string; entry: TopOverlayIconDefinition; question: string }
   | { kind: "clarify"; question: string; options: { id: string; label: string }[] }
   | { kind: "respond"; text: string };
@@ -128,8 +127,6 @@ const MEETING_RE =
   /^(?:please\s+)?(?:schedule|set\s+up|book)\s+(?:a\s+)?(?:meeting|call|sync)(?:\s+(?:called|titled|for)\s+(.+))?\.?$/i;
 const TASK_RE =
   /^(?:please\s+)?(?:create|add|make)\s+(?:a\s+)?task(?:\s+to\s+|\s+)(.+)$/i;
-const SCREEN_RE =
-  /^(?:please\s+)?(?:enable\s+)?screen\s+context(?:\s+(?:on|enabled))?\.?$/i;
 const HOW_RE =
   /^(?:how\s+does|what\s+is|tell\s+me\s+about|explain)\s+(.+?)(?:\s+work)?\??$/i;
 
@@ -240,10 +237,6 @@ export function parseOverlayIntent(utterance: string): ParsedIntent {
   const task = text.match(TASK_RE);
   if (task) {
     return { kind: "create-task", title: task[1].replace(/\.$/, "").trim() };
-  }
-
-  if (SCREEN_RE.test(text)) {
-    return { kind: "screen-context" };
   }
 
   const how = text.match(HOW_RE);

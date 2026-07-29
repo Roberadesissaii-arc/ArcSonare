@@ -1,10 +1,16 @@
+mod background;
 mod capabilities;
 mod credentials;
 mod data;
+mod database;
 mod deepseek;
+mod gemini;
+mod google_oauth;
+mod local_auth;
 mod ollama;
 mod overlay;
 mod panels;
+mod pocket_tts;
 mod screen_context;
 mod settings;
 mod shortcuts;
@@ -41,10 +47,11 @@ pub fn run() {
         // may invoke commands before `setup` runs.
         .manage(settings::SettingsState::default())
         .manage(shortcuts::ShortcutActions::default())
-        .manage(screen_context::ScreenContextState::default())
         .manage(capabilities::ConfirmationStore::default())
         .manage(capabilities::AuditStore::default())
         .manage(capabilities::ApplicationIndexState::default())
+        .manage(database::DatabaseManager::default())
+        .manage(pocket_tts::PocketTtsState::default())
         .invoke_handler(tauri::generate_handler![
             capabilities::executor::capability_execute,
             capabilities::executor::capability_confirm_prepare,
@@ -63,6 +70,7 @@ pub fn run() {
             top_overlay::overlay_window::resize_overlay,
             settings::get_settings,
             settings::update_settings,
+            settings::set_overlay_unlocked,
             settings::set_autostart,
             settings::clear_local_data,
             shortcuts::set_global_shortcut,
@@ -77,13 +85,45 @@ pub fn run() {
             credentials::set_provider_key,
             credentials::has_provider_key,
             credentials::delete_provider_key,
+            credentials::secure_storage_get,
+            credentials::secure_storage_set,
+            credentials::secure_storage_remove,
+            credentials::secure_storage_has,
+            database::manager::database_open_guest,
+            database::manager::database_open_for_user,
+            database::manager::database_close_current_user,
+            database::manager::database_status,
+            database::manager::database_remove_current_user_files,
+            database::tasks::tasks_list_local,
+            database::tasks::tasks_upsert_local,
+            database::tasks::tasks_soft_delete_local,
+            database::agents::agents_list_local,
+            database::agents::agents_upsert_local,
+            database::agents::agents_soft_delete_local,
+            database::sync::sync_get_status,
+            database::sync::sync_push_batch,
+            database::sync::sync_pull,
+            database::sync::sync_advance_cursor,
+            database::sync::sync_mark_outbox_completed,
             ollama::ollama_status,
             ollama::ollama_chat,
+            ollama::ollama_chat_stream,
             ollama::ollama_chat_tools,
             ollama::ollama_cloud_status,
+            ollama::ollama_cloud_catalog,
             ollama::ollama_cloud_chat,
             deepseek::deepseek_chat,
             deepseek::deepseek_chat_tools,
+            gemini::gemini_chat,
+            google_oauth::google_oauth_connect,
+            google_oauth::google_oauth_disconnect,
+            google_oauth::google_oauth_has_tokens,
+            google_oauth::google_oauth_status,
+            google_oauth::set_google_oauth_client_secret,
+            google_oauth::has_google_oauth_client_secret,
+            pocket_tts::pocket_tts_status,
+            pocket_tts::pocket_tts_ensure,
+            pocket_tts::pocket_tts_synthesize,
             data::get_data_usage,
             data::scan_data_storage,
             data::open_data_folder,
@@ -91,28 +131,23 @@ pub fn run() {
             data::clear_category_files,
             data::open_microphone_privacy_settings,
             data::send_test_notification,
-            screen_context::screen_context_status,
-            screen_context::start_screen_context,
-            screen_context::stop_screen_context,
-            screen_context::monitors::list_monitors,
             screen_context::capture::capture_screen,
             screen_context::capture::get_capture_data_url,
-            screen_context::capture::save_annotated_capture,
-            screen_context::storage::list_captures,
-            screen_context::storage::delete_capture,
             screen_context::storage::clear_capture_history,
-            screen_context::overlay::open_annotation,
-            screen_context::overlay::close_annotation,
+            background::pick_background_image,
+            background::clear_background_image,
+            local_auth::hash_local_password,
+            local_auth::verify_local_password,
         ])
         .on_window_event(|window, event| match event {
-            // None of our windows may ever be destroyed (e.g. via Alt+F4);
-            // closing always means hiding while ArcSonare keeps running.
+            // Main / tray / voice overlay stay alive (hide instead of destroy).
             tauri::WindowEvent::CloseRequested { api, .. } => {
+                let label = window.label();
                 api.prevent_close();
-                if window.label() == overlay::OVERLAY_LABEL {
+                if label == overlay::OVERLAY_LABEL {
                     overlay::force_hide(window.app_handle());
                 } else if let Err(e) = window.hide() {
-                    log::error!("failed to hide '{}' on close request: {e}", window.label());
+                    log::error!("failed to hide '{label}' on close request: {e}");
                 }
             }
             // Clicking anywhere outside the quick menu dismisses it.
@@ -125,6 +160,10 @@ pub fn run() {
             let handle = app.handle();
             settings::initialize(handle);
             settings::sync_autostart_state(handle);
+
+            if let Err(e) = app.state::<database::DatabaseManager>().open_guest(handle) {
+                log::error!("failed to open guest database: {e}");
+            }
 
             if let Err(e) = tray::create_tray(handle) {
                 // The app is still usable via the global shortcut.
@@ -140,8 +179,7 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 shortcuts::unregister_all(app);
-                // Never leave a capture session or its indicators behind.
-                screen_context::stop_all(app);
+                pocket_tts::stop_all(app);
                 log::info!("ArcSonare exited cleanly");
             }
         });

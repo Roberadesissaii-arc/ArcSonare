@@ -1,22 +1,9 @@
 /**
- * Deterministic local capabilities ArcSonare can answer without a model.
- * These run before LLM routing so “what time is it?” always works.
+ * Shared clock helpers + session action memory for the assistant system prompt.
+ * Conversational answers always come from the model — never a hardcoded reply.
  */
-export interface LocalToolResult {
-  handled: true;
-  reply: string;
-  toolId: string;
-}
 
-export interface LocalToolMiss {
-  handled: false;
-}
-
-export type LocalToolOutcome = LocalToolResult | LocalToolMiss;
-
-function normalize(text: string): string {
-  return text.trim().toLowerCase().replace(/[?.!]+$/g, "").trim();
-}
+import { formatSessionActionContext } from "../features/capabilities/actionSessionMemory";
 
 function formatNow(): { time: string; date: string; full: string; zone: string } {
   const now = new Date();
@@ -49,62 +36,19 @@ function formatNow(): { time: string; date: string; full: string; zone: string }
 /** Context injected into every LLM system prompt. */
 export function assistantSystemContext(): string {
   const { full, zone } = formatNow();
+  const memory = formatSessionActionContext();
   return [
     "You are ArcSonare, a helpful Windows desktop assistant.",
     `Current local datetime: ${full} (${zone}).`,
     "Use this datetime for any time or date questions — do not invent a different clock.",
+    "Answer in your own words. Do not mention internal tool names or function ids.",
     "Keep replies concise (1–4 sentences) unless the user asks for more.",
     "You can help with: current time/date, drafting text, summarizing, planning tasks,",
-    "and explaining how to use ArcSonare settings. You cannot control the OS unless a tool is connected.",
-  ].join(" ");
-}
-
-/**
- * Try to answer with a local tool. Returns handled=true when no model call is needed.
- */
-export function tryLocalAssistantTools(userText: string): LocalToolOutcome {
-  const q = normalize(userText);
-  if (!q) return { handled: false };
-
-  const { time, date, full, zone } = formatNow();
-
-  const timeAsk =
-    /^(what('?s| is) the time|what time is it|current time|tell me the time|time now)$/.test(
-      q,
-    ) ||
-    /\b(what time is it|what'?s the time|current time)\b/.test(q);
-
-  if (timeAsk) {
-    return {
-      handled: true,
-      toolId: "get_current_time",
-      reply: `It’s ${time} (${zone}).`,
-    };
-  }
-
-  const dateAsk =
-    /^(what('?s| is) (the )?(date|day)|what day is it|current date|today'?s date)$/.test(
-      q,
-    ) || /\b(what day is it|what'?s the date|current date)\b/.test(q);
-
-  if (dateAsk) {
-    return {
-      handled: true,
-      toolId: "get_current_date",
-      reply: `Today is ${date}.`,
-    };
-  }
-
-  const datetimeAsk =
-    /^(what('?s| is) (the )?(date and time|time and date)|date and time)$/.test(q);
-
-  if (datetimeAsk) {
-    return {
-      handled: true,
-      toolId: "get_current_datetime",
-      reply: `It’s ${full}.`,
-    };
-  }
-
-  return { handled: false };
+    "explaining ArcSonare settings, and answering follow-ups about actions you already took.",
+    "When recent-actions context is provided below, treat it as ground truth for what you did.",
+    "Do not invent files, folders, paths, or actions that are not listed there.",
+    memory,
+  ]
+    .filter(Boolean)
+    .join(" ");
 }

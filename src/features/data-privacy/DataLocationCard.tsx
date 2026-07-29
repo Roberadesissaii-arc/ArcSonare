@@ -80,7 +80,7 @@ export function DataLocationCard({
         <div className="data-location-actions">
           <button
             type="button"
-            className="btn btn-small"
+            className="btn btn-small data-open-folder-btn"
             onClick={openFolder}
             disabled={!scan || status === "unavailable"}
           >

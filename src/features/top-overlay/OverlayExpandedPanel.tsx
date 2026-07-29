@@ -5,6 +5,7 @@ import { ScreenContextPanel } from "./panels/ScreenContextPanel";
 import { ConfirmationPanel } from "./panels/ConfirmationPanel";
 import { SuccessPanel } from "./panels/SuccessPanel";
 import { ErrorPanel } from "./panels/ErrorPanel";
+import { NoticePanel } from "./panels/NoticePanel";
 import type { OverlayActionPayload, OverlayError, SuccessPayload } from "./overlayTypes";
 
 interface OverlayExpandedPanelProps {
@@ -46,6 +47,9 @@ export function OverlayExpandedPanel({
   }
   if (payload?.type === "clarification") {
     return <ConfirmationPanel data={payload.data} onCancel={onCancel} />;
+  }
+  if (payload?.type === "notice") {
+    return <NoticePanel data={payload.data} onDismiss={onCancel} />;
   }
   if (payload?.type === "success" || result) {
     return (

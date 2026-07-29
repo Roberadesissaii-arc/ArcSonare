@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ComponentType } from "react";
-import { ORBIT_CHIPS } from "../../data/demoData";
+﻿import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { filterTasks, useTasks } from "../../stores/taskStore";
 import { useVoiceState } from "../../stores/voiceStore";
 import { BotIcon, CalendarIcon, ListIcon, SearchIcon } from "../Icons";
 import { ArcSonareCore } from "./ArcSonareCore";
@@ -8,6 +8,12 @@ import { OrbitActionChip } from "./OrbitActionChip";
 const CX = 360;
 const CY = 240;
 const GLOBE_SIZE = 168;
+
+type OrbitChipData = {
+  icon: "search" | "tasks" | "calendar" | "agent";
+  label: string;
+  status: string;
+};
 
 function orbitPath(rx: number, ry: number): string {
   return `M ${CX + rx} ${CY} A ${rx} ${ry} 0 1 1 ${CX - rx} ${CY} A ${rx} ${ry} 0 1 1 ${CX + rx} ${CY} Z`;
@@ -35,7 +41,7 @@ const CHIP_ICONS: Record<string, ComponentType<{ size?: number }>> = {
 
 interface ChipOrbitDef {
   id: string;
-  chip: (typeof ORBIT_CHIPS)[number];
+  chip: OrbitChipData;
   rx: number;
   ry: number;
   counter: number;
@@ -47,53 +53,12 @@ interface ChipOrbitDef {
 const TILT_A = -17;
 const TILT_B = 14;
 
-const CHIPS_A: ChipOrbitDef[] = [
-  {
-    id: "chip-0",
-    chip: ORBIT_CHIPS[0],
-    rx: 268,
-    ry: 104,
-    counter: 17,
-    duration: 72,
-    delay: -38,
-    restAt: 53,
-  },
-  {
-    id: "chip-1",
-    chip: ORBIT_CHIPS[1],
-    rx: 238,
-    ry: 92,
-    counter: 17,
-    duration: 88,
-    delay: -11,
-    restAt: 12,
-  },
+const ORBIT_SLOTS: Omit<ChipOrbitDef, "chip">[] = [
+  { id: "chip-0", rx: 268, ry: 104, counter: 17, duration: 72, delay: -38, restAt: 53 },
+  { id: "chip-1", rx: 238, ry: 92, counter: 17, duration: 88, delay: -11, restAt: 12 },
+  { id: "chip-2", rx: 200, ry: 152, counter: -14, duration: 64, delay: -51, restAt: 80 },
+  { id: "chip-3", rx: 220, ry: 132, counter: -14, duration: 78, delay: -28, restAt: 35 },
 ];
-
-const CHIPS_B: ChipOrbitDef[] = [
-  {
-    id: "chip-2",
-    chip: ORBIT_CHIPS[2],
-    rx: 200,
-    ry: 152,
-    counter: -14,
-    duration: 64,
-    delay: -51,
-    restAt: 80,
-  },
-  {
-    id: "chip-3",
-    chip: ORBIT_CHIPS[3],
-    rx: 220,
-    ry: 132,
-    counter: -14,
-    duration: 78,
-    delay: -28,
-    restAt: 35,
-  },
-];
-
-const ALL_CHIPS = [...CHIPS_A, ...CHIPS_B];
 
 function Traveler({
   rx,
@@ -216,16 +181,54 @@ function ChipSetFront({
   );
 }
 
-/**
- * Atmospheric intelligence map: starfield, orbits, dotted globe core, and
- * task chips that pass in front of / behind the globe based on orbit phase.
- */
+/** Atmospheric map with orbit chips driven by real open tasks. */
 export function OrbitalCommandMap() {
   const voice = useVoiceState();
+  const tasks = useTasks();
   const [chipHover, setChipHover] = useState(false);
-  const [front, setFront] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(ALL_CHIPS.map((c) => [c.id, true])),
-  );
+
+  const allChips = useMemo(() => {
+    const open = filterTasks(tasks, "open");
+    const urgent = filterTasks(tasks, "urgent");
+    const today = filterTasks(tasks, "today");
+    const ranked = [
+      ...urgent,
+      ...today.filter((t) => !urgent.some((u) => u.id === t.id)),
+      ...open.filter(
+        (t) =>
+          !urgent.some((u) => u.id === t.id) && !today.some((d) => d.id === t.id),
+      ),
+    ].slice(0, 4);
+
+    // No placeholder cards — empty galaxy until the user has real open tasks.
+    if (ranked.length === 0) return [] as ChipOrbitDef[];
+
+    return ranked.map((t, i) => ({
+      ...ORBIT_SLOTS[i],
+      chip: {
+        icon: (t.agent
+          ? "agent"
+          : t.dueBucket !== "none"
+            ? "calendar"
+            : i % 2 === 0
+              ? "tasks"
+              : "search") as OrbitChipData["icon"],
+        label: t.title.length > 22 ? `${t.title.slice(0, 20)}…` : t.title,
+        status: t.urgent
+          ? "Urgent"
+          : t.due
+            ? t.due
+            : t.dueBucket === "today"
+              ? "Today"
+              : "Open",
+      },
+    }));
+  }, [tasks]);
+
+  const chipsA = allChips.slice(0, 2);
+  const chipsB = allChips.slice(2, 4);
+
+  const [front, setFront] = useState<Record<string, boolean>>({});
   const mapRef = useRef<HTMLDivElement>(null);
 
   const systemActive =
@@ -240,8 +243,7 @@ export function OrbitalCommandMap() {
       const root = mapRef.current;
       if (root) {
         const next: Record<string, boolean> = {};
-        for (const def of ALL_CHIPS) {
-          // Sample the front-layer instance (always mounted, always animating).
+        for (const def of allChips) {
           const el = root.querySelector(
             `[data-chip-id="${def.id}"][data-depth="front"]`,
           ) as SVGElement | null;
@@ -263,7 +265,7 @@ export function OrbitalCommandMap() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [allChips]);
 
   return (
     <div
@@ -305,12 +307,11 @@ export function OrbitalCommandMap() {
           <Traveler rx={200} ry={152} r={1.7} duration={104} delay={-14} />
         </g>
 
-        {/* Back chips (both tilt groups) */}
         <g transform={`rotate(${TILT_A} ${CX} ${CY})`} className="orbit-chip-layer-back">
-          <ChipSet chips={CHIPS_A} front={front} onHoverChange={setChipHover} />
+          <ChipSet chips={chipsA} front={front} onHoverChange={setChipHover} />
         </g>
         <g transform={`rotate(${TILT_B} ${CX} ${CY})`} className="orbit-chip-layer-back">
-          <ChipSet chips={CHIPS_B} front={front} onHoverChange={setChipHover} />
+          <ChipSet chips={chipsB} front={front} onHoverChange={setChipHover} />
         </g>
 
         <foreignObject
@@ -329,12 +330,11 @@ export function OrbitalCommandMap() {
           </div>
         </foreignObject>
 
-        {/* Front chips */}
         <g transform={`rotate(${TILT_A} ${CX} ${CY})`} className="orbit-chip-layer-front">
-          <ChipSetFront chips={CHIPS_A} front={front} onHoverChange={setChipHover} />
+          <ChipSetFront chips={chipsA} front={front} onHoverChange={setChipHover} />
         </g>
         <g transform={`rotate(${TILT_B} ${CX} ${CY})`} className="orbit-chip-layer-front">
-          <ChipSetFront chips={CHIPS_B} front={front} onHoverChange={setChipHover} />
+          <ChipSetFront chips={chipsB} front={front} onHoverChange={setChipHover} />
         </g>
 
         <g className="orbit-flares">

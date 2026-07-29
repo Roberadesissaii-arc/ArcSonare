@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { MonitorIcon } from "../../../components/Icons";
 import type { ScreenContextPayload } from "../overlayTypes";
 import { setOverlaySuccess } from "../overlayStore";
@@ -9,23 +8,14 @@ interface ScreenContextPanelProps {
   onCancel: () => void;
 }
 
+/** Generic screenshot-artifact preview — shown whenever a capability returns an image. */
 export function ScreenContextPanel({ data, onCancel }: ScreenContextPanelProps) {
-  const stop = async () => {
-    try {
-      await invoke("stop_screen_context");
-      playEventSound("screen-context-stop");
-    } catch {
-      // ignore
-    }
-    onCancel();
-  };
-
   const useContext = () => {
     if (!data.previewDataUrl) {
       setOverlaySuccess(
         {
           title: "No capture yet",
-          summary: "Start capturing before using screen context. Nothing was analyzed.",
+          summary: "Nothing was captured yet.",
         },
         "No capture yet",
         true,
@@ -34,10 +24,10 @@ export function ScreenContextPanel({ data, onCancel }: ScreenContextPanelProps) 
     }
     setOverlaySuccess(
       {
-        title: "Context captured",
+        title: "Screenshot captured",
         summary: "Screenshot retained for this session. No AI analysis has run yet.",
       },
-      "Context captured",
+      "Screenshot captured",
       true,
     );
     playEventSound("task-completed");
@@ -49,7 +39,7 @@ export function ScreenContextPanel({ data, onCancel }: ScreenContextPanelProps) 
         <span className="panel-sys-icon" aria-hidden="true">
           <MonitorIcon size={18} />
         </span>
-        <span className="panel-heading">{data.monitorLabel ?? "Screen context"}</span>
+        <span className="panel-heading">{data.monitorLabel ?? "Screenshot"}</span>
       </div>
       <div className="screen-preview">
         {data.previewDataUrl ? (
@@ -63,20 +53,11 @@ export function ScreenContextPanel({ data, onCancel }: ScreenContextPanelProps) 
         {data.privacyNote}
       </p>
       <div className="panel-actions">
-        <button type="button" className="btn-ghost" onClick={() => void stop()}>
-          Stop
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={() =>
-            void invoke("open_annotation", { monitorId: null }).catch(() => undefined)
-          }
-        >
-          Annotate
+        <button type="button" className="btn-ghost" onClick={onCancel}>
+          Close
         </button>
         <button type="button" className="btn-primary" onClick={useContext}>
-          Use context
+          Use screenshot
         </button>
       </div>
     </div>

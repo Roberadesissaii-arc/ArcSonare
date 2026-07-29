@@ -68,11 +68,80 @@ function navigateArcPage(
   }
 }
 
+/** Honest yes/no for “is my Gmail connected?” — never opens the web app. */
+function connectionStatusResult(
+  contract: IntentContract,
+  capabilityId: string,
+  service: "email" | "calendar" | "drive",
+  started: number,
+): OrchestrationResult {
+  const required =
+    service === "email"
+      ? ["email.read"]
+      : service === "calendar"
+        ? ["calendar.read"]
+        : ["drive.read"];
+  const resolved = resolveConnection({ service, requiredScopes: required });
+  const label =
+    service === "email"
+      ? "Gmail"
+      : service === "calendar"
+        ? "Google Calendar"
+        : "Google Drive";
+
+  let text: string;
+  let action = resolveFailureMessage(service, resolved).action;
+  let resultStatus:
+    | "success"
+    | "disconnected"
+    | "missing-scope"
+    | "authentication-required" = "disconnected";
+
+  if (resolved.status === "ready") {
+    text = `Yes — ${label} is connected to ArcSonare.`;
+    action = undefined;
+    resultStatus = "success";
+  } else if (
+    resolved.status === "missing-scope" ||
+    resolved.status === "authentication-required"
+  ) {
+    text = `${label} shows up in Connect, but ArcSonare doesn’t have permission to read it yet. Reconnect with Google and approve access. I did not open ${label}.`;
+    resultStatus =
+      resolved.status === "missing-scope"
+        ? "missing-scope"
+        : "authentication-required";
+  } else {
+    text = `No — ${label} isn’t connected. Open Connect and sign in with Google to link it. I did not open ${label}.`;
+    action = disconnectedMessage(service).action;
+    resultStatus = "disconnected";
+  }
+
+  const audit = auditFromContract(contract, {
+    selectedCapabilityId: capabilityId,
+    connectionStatus: resolved.status,
+    connectionAccountId: resolved.accountIds[0],
+    resultStatus,
+    durationMs: Date.now() - started,
+  });
+  return {
+    handled: true,
+    contract,
+    capabilityId,
+    text,
+    action,
+    auditId: audit.id,
+  };
+}
+
 async function executeCalendar(
   contract: IntentContract,
   capabilityId: string,
   started: number,
 ): Promise<OrchestrationResult> {
+  if (capabilityId === "calendar.get_connection_status") {
+    return connectionStatusResult(contract, capabilityId, "calendar", started);
+  }
+
   if (capabilityId === "calendar.open_ui") {
     const ok = await openAppById("google-calendar");
     const audit = auditFromContract(contract, {
@@ -216,6 +285,10 @@ async function executeEmail(
   capabilityId: string,
   started: number,
 ): Promise<OrchestrationResult> {
+  if (capabilityId === "email.get_connection_status") {
+    return connectionStatusResult(contract, capabilityId, "email", started);
+  }
+
   if (capabilityId === "email.open_inbox_ui") {
     const ok = await openAppById("gmail");
     const audit = auditFromContract(contract, {

@@ -38,14 +38,30 @@ pub fn toggle_overlay(app: &AppHandle) {
 }
 
 /// Frontend command — same toggle as the global voice shortcut.
+/// Returns whether the overlay is open after the call. Never errors for the
+/// locked case (no browser dialogs); returns `Ok(false)` when still locked.
 #[tauri::command]
-pub fn toggle_overlay_cmd(app: AppHandle) {
+pub fn toggle_overlay_cmd(app: AppHandle) -> Result<bool, String> {
+    let settings = crate::settings::current(&app);
+    if !is_open(&app) && !settings.pref_bool("general.overlayUnlocked", false) {
+        log::info!("overlay toggle ignored — still locked");
+        return Ok(false);
+    }
     toggle_overlay(&app);
+    Ok(is_open(&app))
 }
 
 /// Positions the window on the active monitor, shows it and triggers the
 /// React opening animation. Reuses the one existing window every time.
 pub fn open_overlay(app: &AppHandle) {
+    // Voice overlay is locked until the user actually signs in or creates an
+    // account. "Continue without signing in" does not unlock it.
+    let settings = crate::settings::current(app);
+    if !settings.pref_bool("general.overlayUnlocked", false) {
+        log::info!("overlay open blocked until the user signs in");
+        return;
+    }
+
     let Some(window) = app.get_webview_window(OVERLAY_LABEL) else {
         log::error!("overlay window '{OVERLAY_LABEL}' not found");
         return;

@@ -6,6 +6,8 @@ interface SoundVolumeSliderProps {
   label: string;
   disabled?: boolean;
   className?: string;
+  /** When false, only the range track is rendered (pct shown elsewhere). */
+  showPercent?: boolean;
 }
 
 /** Custom violet volume slider — not the native browser range look. */
@@ -15,6 +17,7 @@ export function SoundVolumeSlider({
   label,
   disabled,
   className,
+  showPercent = true,
 }: SoundVolumeSliderProps) {
   const clamped = Math.max(0, Math.min(100, value));
   return (
@@ -30,9 +33,11 @@ export function SoundVolumeSlider({
         style={{ "--sound-fill": `${clamped}%` } as CSSProperties}
         onChange={(e) => onChange(Number(e.target.value))}
       />
-      <span className="sound-volume-pct" aria-hidden="true">
-        {clamped}%
-      </span>
+      {showPercent ? (
+        <span className="sound-volume-pct" aria-hidden="true">
+          {clamped}%
+        </span>
+      ) : null}
     </div>
   );
 }

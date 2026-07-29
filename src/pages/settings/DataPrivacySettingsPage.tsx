@@ -7,6 +7,11 @@ import {
   type RetentionDataType,
 } from "../../config/prefs";
 import { patchPrefs, updatePrefs, usePrefs } from "../../stores/settingsStore";
+import {
+  clearLocationCache,
+  requestDeviceLocation,
+  setLocationPermission,
+} from "../../services/LocationService";
 import { CategoryManagerDrawer } from "../../features/data-privacy/CategoryManagerDrawer";
 import { DataActionsCard } from "../../features/data-privacy/DataActionsCard";
 import { DataCategoriesCard } from "../../features/data-privacy/DataCategoriesCard";
@@ -84,6 +89,24 @@ export function DataPrivacySettingsPage() {
         }
       />
 
+      <section className="settings-group" style={{ marginBottom: "1.25rem" }}>
+        <h3>Where data lives</h3>
+        <p className="settings-muted">
+          <strong>Local:</strong> SQLite database, screen captures, audio,
+          local models, application index.
+        </p>
+        <p className="settings-muted">
+          <strong>Cloud-synchronized (when signed in):</strong> profile, tasks,
+          agents, account settings, integration metadata, approvals, selected
+          activity.
+        </p>
+        <p className="settings-muted">
+          <strong>Secrets:</strong> API keys and auth sessions stay in Windows
+          Credential Manager — never in normal exports or public tables.
+          Deleting local data does not delete your cloud account.
+        </p>
+      </section>
+
       {scanError ? (
         <p className="data-privacy-error" role="alert">
           {scanError}{" "}
@@ -94,18 +117,29 @@ export function DataPrivacySettingsPage() {
       ) : null}
 
       <div className="data-privacy-layout">
-        <div className="data-privacy-main">
+        <div className="data-privacy-area data-privacy-area-location">
           <DataLocationCard
             scan={scan}
             scanning={scanning}
             onRefresh={refresh}
           />
+        </div>
+        <div className="data-privacy-area data-privacy-area-usage">
           <UsageOverviewCard
             scan={scan}
             scanning={scanning}
             onRefresh={refresh}
             onManage={(id) => setManageCategory(id)}
           />
+        </div>
+        <div className="data-privacy-area data-privacy-area-glance">
+          <PrivacyAtGlanceCard
+            dataPrivacy={dp}
+            folderReady={folderReady}
+            onManageAll={() => setManagerOpen(true)}
+          />
+        </div>
+        <div className="data-privacy-area data-privacy-area-retention">
           <RetentionControlsCard
             retention={dp.retention}
             onChange={setRetention}
@@ -119,25 +153,37 @@ export function DataPrivacySettingsPage() {
               }))
             }
           />
-          <PrivacyControlsCard dataPrivacy={dp} onChange={setDp} />
+        </div>
+        <div className="data-privacy-area data-privacy-area-categories">
+          <DataCategoriesCard
+            scan={scan}
+            onViewAll={() => setManagerOpen(true)}
+          />
+        </div>
+        <div className="data-privacy-area data-privacy-area-controls">
+          <PrivacyControlsCard
+            dataPrivacy={dp}
+            onChange={setDp}
+            locationAllowed={prefs.general.locationPermission === "granted"}
+            onLocationAllowedChange={(allowed) => {
+              if (allowed) {
+                void requestDeviceLocation({ force: true }).catch(() => {
+                  setLocationPermission("denied");
+                });
+              } else {
+                setLocationPermission("denied");
+                clearLocationCache();
+              }
+            }}
+          />
+        </div>
+        <div className="data-privacy-area data-privacy-area-actions">
           <DataActionsCard
             onExport={() => setExportOpen(true)}
             onDeleteAll={() => setDeleteOpen(true)}
             onCleared={refresh}
           />
         </div>
-
-        <aside className="data-privacy-rail">
-          <PrivacyAtGlanceCard
-            dataPrivacy={dp}
-            folderReady={folderReady}
-            onManageAll={() => setManagerOpen(true)}
-          />
-          <DataCategoriesCard
-            scan={scan}
-            onViewAll={() => setManagerOpen(true)}
-          />
-        </aside>
       </div>
 
       {manageCategory ? (

@@ -5,6 +5,8 @@ import {
   type AgentConfig,
 } from "./agentStore";
 import { relativeTime } from "./agentHealth";
+import { CheckIcon } from "../../components/Icons";
+import { EmptyState } from "../../components/EmptyState";
 
 interface ApprovalQueueCardProps {
   approvals: AgentApproval[];
@@ -33,10 +35,12 @@ export function ApprovalQueueCard({
         </span>
       </div>
       {pending.length === 0 ? (
-        <p className="agent-rail-empty">
-          No approvals waiting. Agents will ask before performing protected
-          actions once the runtime can execute them.
-        </p>
+        <EmptyState
+          icon={<CheckIcon size={21} />}
+          title="All clear"
+          description="Approval requests will appear here."
+          compact
+        />
       ) : (
         <ul className="agent-approval-list">
           {pending.map((item) => (

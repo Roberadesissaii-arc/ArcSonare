@@ -33,7 +33,6 @@ const TRIGGER_INFO: { id: TriggerId; label: string; description: string }[] = [
   { id: "task-assignment", label: "Task assignment", description: "Runs when a task is assigned to it." },
   { id: "notification", label: "Incoming notification", description: "Runs on matching notifications." },
   { id: "wake-phrase", label: "Wake phrase", description: "Runs on a wake phrase (requires the wake-word engine)." },
-  { id: "screen-context", label: "Screen Context event", description: "Runs when screen context is captured." },
   { id: "connected-app", label: "Connected app event", description: "Runs on integration events." },
 ];
 

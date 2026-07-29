@@ -156,17 +156,6 @@ pub fn dir_size_bytes(app: &AppHandle) -> u64 {
 }
 
 #[tauri::command]
-pub fn list_captures(app: AppHandle) -> Result<Vec<CaptureMeta>, String> {
-    apply_retention(&app);
-    list(&app)
-}
-
-#[tauri::command]
-pub fn delete_capture(app: AppHandle, id: String) -> Result<(), String> {
-    delete(&app, &id)
-}
-
-#[tauri::command]
 pub fn clear_capture_history(app: AppHandle) -> Result<(), String> {
     clear(&app)
 }

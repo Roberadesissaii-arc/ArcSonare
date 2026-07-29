@@ -1,8 +1,8 @@
 import type { MarbleTint } from "../../components/voice/SonareMarbleOrb";
 
 /**
- * ArcSonare voice characters (personalities). Distinct from provider TTS voices.
- * Portraits use tinted glass marbles matching the Live Assistant preview orb.
+ * ArcSonare voice characters (personalities).
+ * Each character maps to a distinct Pocket TTS voice for live preview + overlay speech.
  */
 export interface VoiceCharacter {
   id: string;
@@ -11,7 +11,8 @@ export interface VoiceCharacter {
   description: string;
   marbleTint: MarbleTint;
   sampleGreeting: string;
-  preferredProviderVoiceId?: string;
+  /** Pocket TTS voice id used for preview and overlay replies. */
+  preferredProviderVoiceId: string;
 }
 
 export const VOICE_CHARACTERS: VoiceCharacter[] = [
@@ -21,7 +22,9 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     personality: "Default",
     description: "The signature ArcSonare voice. Calm and clear.",
     marbleTint: "violet",
-    sampleGreeting: "Hello, I’m Sonare.",
+    sampleGreeting:
+      "Hello, I’m Sonare — your calm ArcSonare assistant. Ready when you are.",
+    preferredProviderVoiceId: "vera",
   },
   {
     id: "vela",
@@ -29,7 +32,9 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     personality: "Warm",
     description: "Soft and friendly for long sessions.",
     marbleTint: "warm",
-    sampleGreeting: "Hi there — I’m Vela.",
+    sampleGreeting:
+      "Hi there — I’m Vela. Soft, friendly, and here for the long haul.",
+    preferredProviderVoiceId: "anna",
   },
   {
     id: "orion",
@@ -37,7 +42,9 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     personality: "Professional",
     description: "Grounded and precise for briefings.",
     marbleTint: "blue",
-    sampleGreeting: "Good day. I’m Orion.",
+    sampleGreeting:
+      "Good day. I’m Orion. Concise briefings and clear next steps.",
+    preferredProviderVoiceId: "michael",
   },
   {
     id: "lyra",
@@ -45,7 +52,9 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     personality: "Energetic",
     description: "Bright and articulate for quick answers.",
     marbleTint: "teal",
-    sampleGreeting: "Hey! I’m Lyra.",
+    sampleGreeting:
+      "Hey! I’m Lyra — bright, quick, and ready with a sharp answer.",
+    preferredProviderVoiceId: "eve",
   },
   {
     id: "nova",
@@ -53,7 +62,19 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     personality: "Expressive",
     description: "Lively and expressive for casual chats.",
     marbleTint: "rose",
-    sampleGreeting: "Hi — Nova here.",
+    sampleGreeting:
+      "Hi — Nova here. Lively, expressive, and happy to chat.",
+    preferredProviderVoiceId: "mary",
+  },
+  {
+    id: "jane",
+    displayName: "Jane",
+    personality: "Conversational",
+    description: "Natural Pocket TTS conversation voice.",
+    marbleTint: "pearl",
+    sampleGreeting:
+      "Hi — I’m Jane. Clear conversational speech for everyday talk.",
+    preferredProviderVoiceId: "jane",
   },
 ];
 
@@ -61,7 +82,11 @@ export function characterById(id: string | null | undefined): VoiceCharacter {
   return VOICE_CHARACTERS.find((c) => c.id === id) ?? VOICE_CHARACTERS[0];
 }
 
-export const PREVIEW_SAMPLES: { id: string; label: string; text: (name: string) => string }[] = [
+export const PREVIEW_SAMPLES: {
+  id: string;
+  label: string;
+  text: (name: string) => string;
+}[] = [
   {
     id: "greeting",
     label: "Greeting",
@@ -70,16 +95,19 @@ export const PREVIEW_SAMPLES: { id: string; label: string; text: (name: string) 
   {
     id: "briefing",
     label: "Professional briefing",
-    text: () => "Here’s a concise briefing of what needs your attention today.",
+    text: () =>
+      "Here’s a concise briefing of what needs your attention today.",
   },
   {
     id: "friendly",
     label: "Friendly response",
-    text: () => "Sure — I can help with that. What would you like to do next?",
+    text: () =>
+      "Sure — I can help with that. What would you like to do next?",
   },
   {
     id: "task",
     label: "Task confirmation",
-    text: () => "Done. I’ve saved that task and can remind you when it’s due.",
+    text: () =>
+      "Done. I’ve saved that task and can remind you when it’s due.",
   },
 ];

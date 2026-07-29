@@ -37,13 +37,22 @@ export function subscribeSoundPlayback(cb: () => void): () => void {
   return () => listeners.delete(cb);
 }
 
-function ctx(): AudioContext | null {
+function ensureAudioContext(): AudioContext | null {
   try {
     context ??= new AudioContext();
-    if (context.state === "suspended") void context.resume();
     return context;
   } catch {
     return null;
+  }
+}
+
+async function resumeAudio(audio: AudioContext): Promise<boolean> {
+  if (audio.state !== "suspended") return true;
+  try {
+    await audio.resume();
+    return audio.state !== "suspended";
+  } catch {
+    return false;
   }
 }
 
@@ -58,53 +67,41 @@ interface ToneStep {
 
 const DESIGNS: Record<SoundEvent, ToneStep[]> = {
   "overlay-open": [
-    { freq: 620, glideTo: 830, at: 0, dur: 0.16, peak: 0.05 },
-    { freq: 930, at: 0.1, dur: 0.14, peak: 0.035 },
+    { freq: 620, glideTo: 830, at: 0, dur: 0.16, peak: 0.12 },
+    { freq: 930, at: 0.1, dur: 0.14, peak: 0.085 },
   ],
   "overlay-close": [
-    { freq: 830, glideTo: 610, at: 0, dur: 0.15, peak: 0.045 },
-    { freq: 520, at: 0.09, dur: 0.12, peak: 0.028 },
+    { freq: 830, glideTo: 610, at: 0, dur: 0.15, peak: 0.11 },
+    { freq: 520, at: 0.09, dur: 0.12, peak: 0.07 },
   ],
   listening: [
-    { freq: 1040, at: 0, dur: 0.07, peak: 0.03, type: "triangle" },
-    { freq: 1320, at: 0.05, dur: 0.08, peak: 0.024, type: "triangle" },
+    { freq: 1040, at: 0, dur: 0.07, peak: 0.08, type: "triangle" },
+    { freq: 1320, at: 0.05, dur: 0.08, peak: 0.065, type: "triangle" },
   ],
-  thinking: [{ freq: 240, at: 0, dur: 0.16, peak: 0.03, type: "sine" }],
+  thinking: [{ freq: 240, at: 0, dur: 0.16, peak: 0.08, type: "sine" }],
   responding: [
-    { freq: 720, at: 0, dur: 0.09, peak: 0.03 },
-    { freq: 910, at: 0.06, dur: 0.1, peak: 0.026 },
+    { freq: 720, at: 0, dur: 0.09, peak: 0.08 },
+    { freq: 910, at: 0.06, dur: 0.1, peak: 0.07 },
   ],
   "task-completed": [
-    { freq: 660, at: 0, dur: 0.12, peak: 0.045 },
-    { freq: 830, at: 0.09, dur: 0.16, peak: 0.04 },
+    { freq: 660, at: 0, dur: 0.12, peak: 0.11 },
+    { freq: 830, at: 0.09, dur: 0.16, peak: 0.095 },
   ],
   confirmation: [
-    { freq: 560, at: 0, dur: 0.1, peak: 0.04 },
-    { freq: 560, at: 0.14, dur: 0.1, peak: 0.04 },
+    { freq: 560, at: 0, dur: 0.1, peak: 0.1 },
+    { freq: 560, at: 0.14, dur: 0.1, peak: 0.1 },
   ],
   error: [
-    { freq: 440, glideTo: 340, at: 0, dur: 0.18, peak: 0.045 },
-    { freq: 280, at: 0.14, dur: 0.14, peak: 0.03 },
+    { freq: 440, glideTo: 340, at: 0, dur: 0.18, peak: 0.11 },
+    { freq: 280, at: 0.14, dur: 0.14, peak: 0.075 },
   ],
   notification: [
-    { freq: 780, at: 0, dur: 0.09, peak: 0.04 },
-    { freq: 980, at: 0.07, dur: 0.11, peak: 0.03 },
-  ],
-  "screen-context-start": [
-    { freq: 500, glideTo: 700, at: 0, dur: 0.14, peak: 0.04 },
-    { freq: 1050, at: 0.11, dur: 0.09, peak: 0.024, type: "triangle" },
-  ],
-  "screen-context-stop": [
-    { freq: 700, glideTo: 480, at: 0, dur: 0.14, peak: 0.04 },
-  ],
-  "annotation-confirmed": [
-    { freq: 620, at: 0, dur: 0.08, peak: 0.04 },
-    { freq: 780, at: 0.06, dur: 0.09, peak: 0.034 },
-    { freq: 990, at: 0.12, dur: 0.1, peak: 0.026 },
+    { freq: 780, at: 0, dur: 0.09, peak: 0.1 },
+    { freq: 980, at: 0.07, dur: 0.11, peak: 0.075 },
   ],
   "wake-word": [
-    { freq: 880, at: 0, dur: 0.07, peak: 0.035, type: "triangle" },
-    { freq: 1180, at: 0.05, dur: 0.09, peak: 0.028, type: "triangle" },
+    { freq: 880, at: 0, dur: 0.07, peak: 0.09, type: "triangle" },
+    { freq: 1180, at: 0.05, dur: 0.09, peak: 0.07, type: "triangle" },
   ],
 };
 
@@ -168,9 +165,8 @@ function playSteps(
   steps: ToneStep[],
   volume: number,
   profileId: SoundProfileId,
+  audio: AudioContext,
 ) {
-  const audio = ctx();
-  if (!audio) return 0;
   const profile = profileById(profileId).params;
   const brightnessBoost = 0.85 + profile.brightness * 0.35;
   const attack = 0.018 * profile.attackMultiplier;
@@ -267,7 +263,15 @@ export function playEventSound(
     publish({ currentlyPreviewing: event });
   }
 
-  const volume = (sounds.masterVolume / 100) * (eventPref.volume / 100);
+  // Previews always use an audible floor so Settings play buttons work
+  // even when a slider is parked at 0%.
+  const eventVol = options?.preview
+    ? Math.max(eventPref.volume, 55)
+    : eventPref.volume;
+  const masterVol = options?.preview
+    ? Math.max(sounds.masterVolume, 45)
+    : sounds.masterVolume;
+  const volume = (masterVol / 100) * (eventVol / 100);
   if (volume <= 0) {
     if (options?.preview && !playback.previewAllActive) {
       publish({ currentlyPreviewing: null });
@@ -275,17 +279,43 @@ export function playEventSound(
     return;
   }
 
-  const duration = playSteps(DESIGNS[event], volume, sounds.profile);
-  if (options?.preview && duration > 0) {
-    pulseAmplitude(duration);
-    if (!playback.previewAllActive) {
-      window.setTimeout(() => {
-        if (playback.currentlyPreviewing === event && !playback.previewAllActive) {
-          publish({ currentlyPreviewing: null, amplitude: 0 });
-        }
-      }, duration + 40);
+  const audio = ensureAudioContext();
+  if (!audio) {
+    if (options?.preview && !playback.previewAllActive) {
+      publish({ currentlyPreviewing: null });
     }
+    return;
   }
+
+  const start = () => {
+    const duration = playSteps(DESIGNS[event], volume, sounds.profile, audio);
+    if (options?.preview && duration > 0) {
+      pulseAmplitude(duration);
+      if (!playback.previewAllActive) {
+        window.setTimeout(() => {
+          if (playback.currentlyPreviewing === event && !playback.previewAllActive) {
+            publish({ currentlyPreviewing: null, amplitude: 0 });
+          }
+        }, duration + 40);
+      }
+    } else if (options?.preview && duration <= 0 && !playback.previewAllActive) {
+      publish({ currentlyPreviewing: null });
+    }
+  };
+
+  if (audio.state === "suspended") {
+    void resumeAudio(audio).then((ok) => {
+      if (!ok) {
+        if (options?.preview && !playback.previewAllActive) {
+          publish({ currentlyPreviewing: null });
+        }
+        return;
+      }
+      start();
+    });
+    return;
+  }
+  start();
 }
 
 /** Sequential preview of enabled sounds (cancellable). */
@@ -317,12 +347,20 @@ export function previewAllSounds() {
 
 /** Plays a short test tone on the default output (Voice page "Test output"). */
 export function playOutputTestTone(volume: number) {
-  playSteps(
-    [
-      { freq: 520, at: 0, dur: 0.16, peak: 0.06 },
-      { freq: 660, at: 0.14, dur: 0.18, peak: 0.06 },
-    ],
-    Math.max(0.05, volume / 100),
-    getPrefs().sounds.profile ?? "balanced",
-  );
+  const audio = ensureAudioContext();
+  if (!audio) return;
+  const steps: ToneStep[] = [
+    { freq: 520, at: 0, dur: 0.16, peak: 0.12 },
+    { freq: 660, at: 0.14, dur: 0.18, peak: 0.12 },
+  ];
+  const level = Math.max(0.05, volume / 100);
+  const start = () =>
+    playSteps(steps, level, getPrefs().sounds.profile ?? "balanced", audio);
+  if (audio.state === "suspended") {
+    void resumeAudio(audio).then((ok) => {
+      if (ok) start();
+    });
+    return;
+  }
+  start();
 }

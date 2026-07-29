@@ -22,8 +22,6 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   "agent-failed": "Agent failed",
   "connection-lost": "Connection lost",
   "connection-restored": "Connection restored",
-  "screen-context-started": "Screen Context started",
-  "screen-context-stopped": "Screen Context stopped",
   "model-unavailable": "Model unavailable",
   "app-update": "Application update",
   "system-error": "System error",
