@@ -4,7 +4,7 @@
 const SERVICE: &str = "ArcSonare";
 
 /// Provider ids we accept credentials for; rejects arbitrary account names.
-const KNOWN_PROVIDERS: &[&str] = &["anthropic", "openai", "google", "xai", "deepseek", "ollama"];
+const KNOWN_PROVIDERS: &[&str] = &["anthropic", "openai", "google", "xai", "deepseek"];
 
 const ALLOWED_SECURE_PREFIXES: &[&str] = &[
     "oauth.google:",
@@ -124,4 +124,47 @@ pub(crate) fn secure_storage_write(key: &str, value: &str) -> Result<(), String>
     secure_entry(key)?
         .set_password(value)
         .map_err(|e| format!("Credential write failed: {e}"))
+}
+
+const fn opt(v: Option<&'static str>) -> &'static str {
+    match v {
+        Some(s) => s,
+        None => "",
+    }
+}
+
+/// Provider keys that may be compiled in at build time from `.env`.
+///
+/// `env!` reads at COMPILE time, so whatever is in `.env` when the installer is
+/// built travels with the binary. That is the point — the app ships ready to
+/// use — but it also means anyone with the .exe can extract these. Ship blank
+/// values if the installer goes to people you would not hand your API keys to.
+const BUNDLED_KEYS: &[(&str, &str)] = &[
+    // option_env! so a missing value is simply empty rather than a build
+    // failure — building without a .env must always work.
+    ("openai", opt(option_env!("ARCSONARE_OPENAI_API_KEY"))),
+    ("deepseek", opt(option_env!("ARCSONARE_DEEPSEEK_API_KEY"))),
+    ("google", opt(option_env!("ARCSONARE_GEMINI_API_KEY"))),
+];
+
+/// Copy any compiled-in keys into Credential Manager, once, on startup.
+///
+/// Only fills empty slots. A key the user saved in Settings always wins — a
+/// bundled default must never overwrite someone's own credentials.
+pub(crate) fn seed_bundled_keys() {
+    for (provider, key) in BUNDLED_KEYS {
+        let key = key.trim();
+        if key.is_empty() {
+            continue;
+        }
+        let Ok(entry) = entry(provider) else { continue };
+        if entry.get_password().is_ok() {
+            continue; // user already has one here
+        }
+        match entry.set_password(key) {
+            // Never log the key itself.
+            Ok(()) => log::info!("seeded bundled {provider} key"),
+            Err(e) => log::warn!("could not seed {provider} key: {e}"),
+        }
+    }
 }
