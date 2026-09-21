@@ -1,27 +1,47 @@
 import { useState } from "react";
-import { DotsIcon, GearIcon } from "../Icons";
+import { GearIcon } from "../Icons";
 import { useSettings } from "../../hooks/useSettings";
 import { shortcutKeys } from "../../services/shortcutFormat";
-import { getPrefs } from "../../stores/settingsStore";
+import { patchPrefs, usePrefs } from "../../stores/settingsStore";
 import { navigateSettings } from "../../stores/appStore";
 import { useVoiceState, VOICE_STATUS_TEXT } from "../../stores/voiceStore";
-import { characterById } from "../../features/voice-settings/voiceCharacters";
+import {
+  VOICE_CHARACTERS,
+  characterById,
+  type VoiceCharacter,
+} from "../../features/voice-settings/voiceCharacters";
+import {
+  previewVoiceCharacter,
+  stopVoiceCharacterPreview,
+} from "../../features/voice-settings/previewVoiceCharacter";
 import { SonareLiveWaveform } from "./SonareLiveWaveform";
 import { SonareMarbleOrb } from "./SonareMarbleOrb";
 
-/** Voice Action card: marble-led prompt, clean waveform, and shortcut. */
+/** Voice Action card: marble, waveform, and inline character picker. */
 export function VoiceActionCard() {
   const { status } = useVoiceState();
   const { settings } = useSettings();
+  const prefs = usePrefs();
   const keys = shortcutKeys(settings?.globalShortcut ?? "Ctrl+Shift+Space");
-  const prefs = getPrefs();
-  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   const character = characterById(prefs.voice.voiceId);
   const voiceName = character.displayName;
 
   const openVoiceSettings = () => {
     navigateSettings("voice");
+  };
+
+  const selectCharacter = async (next: VoiceCharacter) => {
+    patchPrefs("voice", { voiceId: next.id });
+    setPreviewingId(next.id);
+    try {
+      await previewVoiceCharacter(next);
+    } catch (err) {
+      console.error("[ArcSonare] voice preview failed:", err);
+    } finally {
+      setPreviewingId((id) => (id === next.id ? null : id));
+    }
   };
 
   const prompt =
@@ -42,15 +62,13 @@ export function VoiceActionCard() {
     <section className="card sonare-card voice-action-card">
       <div className="card-head">
         <span className="card-label">Voice Action</span>
-        <button type="button" className="icon-button" aria-label="Voice action options">
-          <DotsIcon size={15} />
-        </button>
       </div>
+      <p className="card-lede">Talk hands-free with your voice shortcut.</p>
 
       <div className="voice-action-identity">
         <SonareMarbleOrb
           status={status === "idle" ? "idle" : status}
-          size={50}
+          size={44}
           tint={character.marbleTint}
         />
         <div className="voice-action-voice-meta">
@@ -59,40 +77,50 @@ export function VoiceActionCard() {
             {voiceName} · {voiceStateLabel}
           </span>
         </div>
-        <button
-          type="button"
-          className="text-action"
-          onClick={() => {
-            setVoiceOpen((v) => !v);
-          }}
-        >
-          Change
-        </button>
       </div>
-
-      {voiceOpen ? (
-        <div
-          className="mode-list"
-          role="dialog"
-          aria-label="Voice selector"
-          style={{ position: "relative", marginBottom: 8 }}
-        >
-          <p className="card-text" style={{ margin: "8px 10px" }}>
-            Configure voices in Settings → Voice.
-          </p>
-          <button type="button" className="mode-option" onClick={openVoiceSettings}>
-            Open Voice settings
-          </button>
-        </div>
-      ) : null}
 
       <div className="voice-action-wave">
         <SonareLiveWaveform
           variant={status === "idle" ? "idle" : status}
-          width={286}
-          height={38}
-          bars={64}
+          width={260}
+          height={32}
+          bars={56}
         />
+      </div>
+
+      <div
+        className="voice-action-characters"
+        role="radiogroup"
+        aria-label="Voice characters"
+      >
+        {VOICE_CHARACTERS.map((c) => {
+          const selected = c.id === prefs.voice.voiceId;
+          const previewing = previewingId === c.id;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              aria-label={`${c.displayName}. ${c.personality}`}
+              title={`${c.displayName} · ${c.personality}`}
+              className={`voice-action-char${selected ? " is-selected" : ""}${
+                previewing ? " is-previewing" : ""
+              }`}
+              onClick={() => {
+                stopVoiceCharacterPreview();
+                void selectCharacter(c);
+              }}
+            >
+              <SonareMarbleOrb
+                status={previewing ? "responding" : "idle"}
+                size={26}
+                tint={c.marbleTint}
+              />
+              <span className="voice-action-char-name">{c.displayName}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="voice-action-foot">

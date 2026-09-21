@@ -1,0 +1,591 @@
+/* ---------------------------------------------------------------------------
+ * ArcSonare Meeting Intelligence — Component styles.
+ *
+ * Uses design tokens from tokens.css.
+ * All selectors are prefixed with .mi- to avoid collisions.
+ *
+ * Owned by Agent 3.
+ * ----------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+ * Card container
+ * ----------------------------------------------------------------------- */
+
+.mi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.mi-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--sonare-border-soft);
+}
+
+.mi-card-header .card-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sonare-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Platform support row (icons in the card header)
+ * ----------------------------------------------------------------------- */
+
+/*
+ * The supported-platform row in the card header.
+ *
+ * The icons were 13px of hand-drawn SVG and unrecognisable at normal Dashboard
+ * scale — the reported complaint. They are now the real integration artwork at
+ * Connect's proportions: a 28px slot around 20px of brand, which is the
+ * smallest size at which a Zoom mark still reads as Zoom.
+ */
+.mi-platform-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mi-platform-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  opacity: 0.9;
+  transition: opacity 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  cursor: default;
+}
+
+.mi-platform-chip .mi-platform-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.mi-platform-chip img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* A platform with no artwork in the repository. Neutral on purpose: it says
+   "a meeting application", it does not impersonate a brand. */
+.mi-platform-icon-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--sonare-text-secondary);
+  font-weight: 650;
+}
+
+.mi-platform-chip:hover {
+  opacity: 1;
+}
+
+/* Detection unavailable — dimmed, never hidden. Which platforms exist should
+   not change with which one happens to be in a call. */
+.mi-platform-chip.is-inactive {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+/*
+ * The platform currently in a meeting. A ring in ArcSonare's accent — the
+ * others stay exactly as they are, because hiding them would make the header
+ * change shape every time a call started.
+ */
+.mi-platform-chip.is-detected {
+  opacity: 1;
+  filter: none;
+  border-color: rgba(145, 104, 255, 0.55);
+  background: rgba(145, 104, 255, 0.12);
+}
+
+/* ---------------------------------------------------------------------------
+ * Active meeting panel
+ * ----------------------------------------------------------------------- */
+
+.mi-active-panel {
+  padding: 12px 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(145, 104, 255, 0.07) 0%,
+    rgba(145, 104, 255, 0.03) 100%
+  );
+  border-bottom: 1px solid rgba(145, 104, 255, 0.12);
+}
+
+.mi-active-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.mi-active-platform {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sonare-text-primary);
+}
+
+.mi-active-duration {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sonare-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-active-title {
+  font-size: 11.5px;
+  color: var(--sonare-text-secondary);
+  margin: 0 0 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------------------
+ * Recording dot
+ * ----------------------------------------------------------------------- */
+
+.mi-recording-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mi-recording-dot.is-recording {
+  background: var(--sonare-red);
+  box-shadow: 0 0 8px rgba(229, 108, 115, 0.6);
+  animation: mi-pulse 1.5s infinite;
+}
+
+.mi-recording-dot.is-paused {
+  background: var(--sonare-yellow);
+  box-shadow: 0 0 6px rgba(231, 173, 84, 0.4);
+}
+
+.mi-recording-dot.is-notes {
+  background: var(--sonare-violet);
+  box-shadow: 0 0 6px rgba(145, 104, 255, 0.4);
+  animation: mi-pulse 2.5s infinite;
+}
+
+@keyframes mi-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ---------------------------------------------------------------------------
+ * State badges
+ * ----------------------------------------------------------------------- */
+
+.mi-active-state-row {
+  margin-bottom: 9px;
+}
+
+.mi-state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.mi-state-badge.is-recording {
+  background: rgba(229, 108, 115, 0.14);
+  color: var(--sonare-red);
+  border: 1px solid rgba(229, 108, 115, 0.2);
+}
+
+.mi-state-badge.is-paused {
+  background: rgba(231, 173, 84, 0.12);
+  color: var(--sonare-yellow);
+  border: 1px solid rgba(231, 173, 84, 0.2);
+}
+
+.mi-state-badge.is-processing {
+  background: rgba(102, 150, 228, 0.12);
+  color: var(--sonare-blue);
+  border: 1px solid rgba(102, 150, 228, 0.2);
+}
+
+.mi-state-badge.is-notes {
+  background: rgba(145, 104, 255, 0.12);
+  color: var(--sonare-violet-light);
+  border: 1px solid rgba(145, 104, 255, 0.2);
+}
+
+/* ---------------------------------------------------------------------------
+ * Active meeting action buttons
+ * ----------------------------------------------------------------------- */
+
+.mi-active-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mi-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.mi-action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mi-action-btn.is-pause {
+  background: rgba(229, 108, 115, 0.1);
+  color: var(--sonare-red);
+  border-color: rgba(229, 108, 115, 0.2);
+}
+
+.mi-action-btn.is-pause:hover:not(:disabled) {
+  background: rgba(229, 108, 115, 0.18);
+}
+
+.mi-action-btn.is-resume {
+  background: rgba(89, 217, 153, 0.1);
+  color: var(--sonare-green);
+  border-color: rgba(89, 217, 153, 0.2);
+}
+
+.mi-action-btn.is-resume:hover:not(:disabled) {
+  background: rgba(89, 217, 153, 0.18);
+}
+
+.mi-action-btn.is-end {
+  background: var(--sonare-control);
+  color: var(--sonare-text-secondary);
+  border-color: var(--sonare-border);
+  margin-left: auto;
+}
+
+.mi-action-btn.is-end:hover {
+  background: var(--sonare-control-hover);
+}
+
+/* ---------------------------------------------------------------------------
+ * Consent prompt
+ * ----------------------------------------------------------------------- */
+
+.mi-consent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mi-consent-card {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--sonare-border-soft);
+  background: linear-gradient(
+    135deg,
+    rgba(102, 150, 228, 0.05) 0%,
+    rgba(102, 150, 228, 0.02) 100%
+  );
+  animation: mi-slide-in 0.25s ease;
+}
+
+@keyframes mi-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mi-consent-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.mi-consent-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(145, 104, 255, 0.12);
+  color: var(--sonare-violet-light);
+  flex-shrink: 0;
+}
+
+.mi-consent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mi-consent-platform {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sonare-text-primary);
+}
+
+.mi-consent-title {
+  font-size: 11px;
+  color: var(--sonare-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mi-consent-body {
+  font-size: 11.5px;
+  color: var(--sonare-text-secondary);
+  margin: 0 0 9px;
+}
+
+.mi-consent-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mi-btn-accept {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--sonare-violet);
+  color: var(--sonare-on-accent);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.12s ease;
+}
+
+.mi-btn-accept:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.mi-btn-accept:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.mi-btn-accept:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mi-btn-dismiss {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--sonare-text-muted);
+  background: none;
+  border: none;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.mi-btn-dismiss:hover {
+  color: var(--sonare-text-secondary);
+  background: var(--sonare-control);
+}
+
+/* ---------------------------------------------------------------------------
+ * Recent meetings
+ * ----------------------------------------------------------------------- */
+
+.mi-recent-section {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mi-recent-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sonare-text-muted);
+}
+
+.mi-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mi-recent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.mi-recent-row:hover {
+  background: var(--sonare-control);
+}
+
+.mi-recent-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mi-recent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mi-recent-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sonare-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mi-recent-meta {
+  font-size: 10.5px;
+  color: var(--sonare-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mi-recent-has-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--sonare-green);
+}
+
+.mi-recent-chevron {
+  background: none;
+  border: none;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: var(--sonare-text-disabled);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.mi-recent-row:hover .mi-recent-chevron {
+  opacity: 1;
+  color: var(--sonare-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * Idle / empty state
+ * ----------------------------------------------------------------------- */
+
+.mi-idle-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.mi-idle-icon {
+  color: var(--sonare-text-disabled);
+}
+
+.mi-idle-text {
+  font-size: 11.5px;
+  color: var(--sonare-text-muted);
+  line-height: 1.5;
+  max-width: 220px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Platform icon wrapper
+ * ----------------------------------------------------------------------- */
+
+.mi-platform-icon {
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Recording indicator (floating, always visible during active capture)
+ * The indicator appears in the top-right of any window when recording is active.
+ * This ensures the user always knows when ArcSonare is capturing.
+ * ----------------------------------------------------------------------- */
+
+.mi-recording-indicator {
+  position: fixed;
+  top: 12px;
+  right: 14px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 7px;
+  background: rgba(10, 14, 16, 0.92);
+  border: 1px solid rgba(229, 108, 115, 0.3);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sonare-red);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: mi-slide-in 0.2s ease;
+  pointer-events: none;
+}
+
+.mi-recording-indicator .mi-recording-dot {
+  width: 7px;
+  height: 7px;
+}

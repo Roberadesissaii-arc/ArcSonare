@@ -6,6 +6,7 @@ import { ShortcutRecorder } from "../../components/settings/ShortcutRecorder";
 import { useSettings } from "../../hooks/useSettings";
 import { usePrefs } from "../../stores/settingsStore";
 import { DEFAULT_SHORTCUT_ACTIONS } from "../../features/shortcuts/shortcutActions";
+import { DEFAULT_ACTION_SHORTCUTS } from "../../config/prefs";
 
 export function ShortcutsSettingsPage() {
   const { settings } = useSettings();
@@ -45,12 +46,15 @@ export function ShortcutsSettingsPage() {
     try {
       for (const action of DEFAULT_SHORTCUT_ACTIONS) {
         if (action.id === "voice-toggle") continue;
-        if (prefs.shortcuts[action.id]) {
-          await invoke("set_action_shortcut", { action: action.id, shortcut: null });
+        const shortcut = DEFAULT_ACTION_SHORTCUTS[action.id] ?? null;
+        if ((prefs.shortcuts[action.id] ?? null) !== shortcut) {
+          await invoke("set_action_shortcut", { action: action.id, shortcut });
         }
       }
       await invoke("set_global_shortcut", { shortcut: "Ctrl+Shift+Space" });
-      setResetStatus("Defaults restored: voice toggle is Ctrl+Shift+Space; other actions are unbound.");
+      setResetStatus(
+        "Defaults restored: every shortcut action now has a binding.",
+      );
     } catch (err) {
       setResetStatus(typeof err === "string" ? err : "Defaults could not be fully restored.");
     }

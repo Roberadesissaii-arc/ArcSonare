@@ -1,0 +1,33 @@
+{
+  "model": "deepseek-v4-flash",
+  "scenarios": 40,
+  "evaluated": 40,
+  "confirmationPct": 100,
+  "toolSelectionPct": 95,
+  "modelScenariosSkipped": 0,
+  "browserOpens": 15,
+  "youtubeApiCalls": 9,
+  "invariants": {
+    "no duplicate executions": true,
+    "no browser action outside browser-intent and confirmed opens": true,
+    "no real YouTube API call": true,
+    "no expired action executed": true,
+    "no action without context": true
+  },
+  "failures": [
+    {
+      "group": "connected-search",
+      "turns": [
+        "What did MrBeast upload recently?"
+      ],
+      "candidates": [],
+      "expected": "youtube.search | youtube.list_channel_videos · browser=0",
+      "actual": "(no tool call) · browser=0",
+      "pendingState": "n/a",
+      "resultSetState": "n/a",
+      "sideEffectCount": 0,
+      "finalResponse": "",
+      "repair": "model answered without a tool — sharpen the capability description"
+    }
+  ]
+}

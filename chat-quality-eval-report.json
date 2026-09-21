@@ -1,0 +1,435 @@
+{
+  "at": "2026-07-30T07:00:41.467Z",
+  "live": false,
+  "model": null,
+  "total": 42,
+  "pass": 42,
+  "routeFails": [],
+  "styleFails": [],
+  "rows": [
+    {
+      "id": "conn-gmail",
+      "category": "connect",
+      "q": "is my gmail connected",
+      "expect": "orchestrated:email.get_connection_status",
+      "got": "orchestrated:email.get_connection_status",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "conn-email",
+      "category": "connect",
+      "q": "is my email connected",
+      "expect": "orchestrated:email.get_connection_status",
+      "got": "orchestrated:email.get_connection_status",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "conn-drive",
+      "category": "connect",
+      "q": "is google drive linked",
+      "expect": "orchestrated:drive.get_connection_status",
+      "got": "orchestrated:drive.get_connection_status",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "conn-calendar",
+      "category": "connect",
+      "q": "is my calendar connected",
+      "expect": "orchestrated:calendar.get_connection_status",
+      "got": "orchestrated:calendar.get_connection_status",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "email-check",
+      "category": "connect",
+      "q": "check my email",
+      "expect": "orchestrated:email.get_inbox_summary",
+      "got": "orchestrated:email.get_inbox_summary",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "email-latest",
+      "category": "connect",
+      "q": "what is my latest email",
+      "expect": "orchestrated:email.get_latest_message",
+      "got": "orchestrated:email.get_latest_message",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "run-whats",
+      "category": "watch",
+      "q": "what's running",
+      "expect": "running-apps",
+      "got": "running-apps",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "run-what-apps",
+      "category": "watch",
+      "q": "what apps are running",
+      "expect": "running-apps",
+      "got": "running-apps",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "run-open-now",
+      "category": "watch",
+      "q": "what is open right now",
+      "expect": "running-apps",
+      "got": "running-apps",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "run-browser",
+      "category": "watch",
+      "q": "which browser is open",
+      "expect": "running-apps",
+      "got": "running-apps",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "run-edge",
+      "category": "watch",
+      "q": "is edge open",
+      "expect": "running-apps",
+      "got": "running-apps",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "run-watching",
+      "category": "watch",
+      "q": "what am i watching",
+      "expect": "running-apps",
+      "got": "running-apps",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "run-youtube-page",
+      "category": "watch",
+      "q": "what's on youtube",
+      "expect": "running-apps",
+      "got": "running-apps",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "shot-that",
+      "category": "watch",
+      "q": "take a screenshot of that application",
+      "expect": "capability:screen.capture",
+      "got": "capability:screen.capture",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "yt-open",
+      "category": "youtube",
+      "q": "open youtube",
+      "expect": "capability:applications.open",
+      "got": "capability:applications.open",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": [],
+      "sampleReply": "Opened YouTube."
+    },
+    {
+      "id": "yt-first",
+      "category": "youtube",
+      "q": "open the first video",
+      "expect": "capability:web.activate_listed_item",
+      "got": "capability:web.activate_listed_item",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": [],
+      "sampleReply": "Playing “Sample Video” on YouTube."
+    },
+    {
+      "id": "yt-second",
+      "category": "youtube",
+      "q": "open the second video",
+      "expect": "capability:web.activate_listed_item",
+      "got": "capability:web.activate_listed_item",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "yt-third",
+      "category": "youtube",
+      "q": "open the third video",
+      "expect": "capability:web.activate_listed_item",
+      "got": "capability:web.activate_listed_item",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "yt-theird-stt",
+      "category": "youtube",
+      "q": "open the theird video",
+      "expect": "capability:web.activate_listed_item",
+      "got": "capability:web.activate_listed_item",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "yt-3rd",
+      "category": "youtube",
+      "q": "open the 3rd video",
+      "expect": "capability:web.activate_listed_item",
+      "got": "capability:web.activate_listed_item",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "yt-like-third",
+      "category": "youtube",
+      "q": "i like to open the third video",
+      "expect": "capability:web.activate_listed_item",
+      "got": "capability:web.activate_listed_item",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "yt-play-3",
+      "category": "youtube",
+      "q": "play video 3",
+      "expect": "capability:web.activate_listed_item",
+      "got": "capability:web.activate_listed_item",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "shot-screen",
+      "category": "screen",
+      "q": "take a screenshot",
+      "expect": "capability:screen.capture",
+      "got": "capability:screen.capture",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": [],
+      "sampleReply": "Got the screenshot."
+    },
+    {
+      "id": "shot-that-short",
+      "category": "screen",
+      "q": "screenshot that",
+      "expect": "capability:screen.capture",
+      "got": "capability:screen.capture",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "shot-snapshot",
+      "category": "screen",
+      "q": "snapshot of that application",
+      "expect": "capability:screen.capture",
+      "got": "capability:screen.capture",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "shot-edge",
+      "category": "screen",
+      "q": "take a screenshot of edge",
+      "expect": "capability:screen.capture",
+      "got": "capability:screen.capture",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "app-spotify",
+      "category": "apps",
+      "q": "open spotify",
+      "expect": "capability:applications.open",
+      "got": "capability:applications.open",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": [],
+      "sampleReply": "Opened Spotify."
+    },
+    {
+      "id": "app-time",
+      "category": "apps",
+      "q": "what time is it",
+      "expect": "capability:system.get_local_datetime",
+      "got": "capability:system.get_local_datetime",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "app-desktop",
+      "category": "apps",
+      "q": "what's on my desktop",
+      "expect": "capability:filesystem.list_known_folder",
+      "got": "capability:filesystem.list_known_folder",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "app-clipboard",
+      "category": "apps",
+      "q": "what's on my clipboard",
+      "expect": "capability:clipboard.read_text",
+      "got": "capability:clipboard.read_text",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "app-search-yt",
+      "category": "apps",
+      "q": "search youtube for jazz piano",
+      "expect": "capability:web.search",
+      "got": "capability:web.search",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "app-settings",
+      "category": "apps",
+      "q": "go to settings",
+      "expect": "orchestrated:arcsonare.navigate",
+      "got": "orchestrated:arcsonare.navigate",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "chat-hi",
+      "category": "chat",
+      "q": "hi",
+      "expect": "chat",
+      "got": "chat",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "chat-thanks",
+      "category": "chat",
+      "q": "thanks",
+      "expect": "chat",
+      "got": "chat",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "chat-how",
+      "category": "chat",
+      "q": "hey how's it going",
+      "expect": "chat",
+      "got": "chat",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "chat-what-can",
+      "category": "chat",
+      "q": "what can you do",
+      "expect": "chat",
+      "got": "chat",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "clarify-task",
+      "category": "chat",
+      "q": "can you create a task for me",
+      "expect": "clarify",
+      "got": "clarify",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "clarify-search",
+      "category": "chat",
+      "q": "search youtube",
+      "expect": "clarify",
+      "got": "clarify",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "cal-today",
+      "category": "connect",
+      "q": "what's on my calendar today",
+      "expect": "orchestrated:calendar.list_events",
+      "got": "orchestrated:calendar.list_events",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "cal-aug-8",
+      "category": "connect",
+      "q": "what do I have on August 8th",
+      "expect": "orchestrated:calendar.list_events",
+      "got": "orchestrated:calendar.list_events",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "cal-check-aug",
+      "category": "connect",
+      "q": "check my calendar for August 8",
+      "expect": "orchestrated:calendar.list_events",
+      "got": "orchestrated:calendar.list_events",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    },
+    {
+      "id": "drive-list",
+      "category": "connect",
+      "q": "what's in my google drive",
+      "expect": "orchestrated:drive.list",
+      "got": "orchestrated:drive.list",
+      "routeOk": true,
+      "argsOk": true,
+      "robotic": []
+    }
+  ]
+}

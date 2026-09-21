@@ -185,6 +185,16 @@ export function FolderIcon({ size }: IconProps) {
   );
 }
 
+/** Eye — used for Watch mode (desktop context awareness). */
+export function EyeIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export function KeyIcon({ size }: IconProps) {
   return (
     <svg {...base(size)}>
@@ -415,6 +425,17 @@ export function SearchIcon({ size }: IconProps) {
     <svg {...base(size)}>
       <circle cx="11" cy="11" r="7" />
       <path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
+/** Globe — Browser mode (read / scrape a link). */
+export function GlobeIcon({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z" />
     </svg>
   );
 }

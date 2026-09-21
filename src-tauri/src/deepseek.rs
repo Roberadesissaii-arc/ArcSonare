@@ -1,7 +1,7 @@
 //! DeepSeek cloud API — OpenAI-compatible chat at https://api.deepseek.com
 
+use crate::chat_message::ChatMessage;
 use crate::credentials;
-use crate::ollama::ChatMessage;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -139,7 +139,21 @@ pub async fn deepseek_chat_tools(
     if !status.is_success() {
         return Err(format!("DeepSeek error {status}"));
     }
-    body.pointer("/choices/0/message")
+    let mut message = body
+        .pointer("/choices/0/message")
         .cloned()
-        .ok_or_else(|| "DeepSeek returned no assistant message.".into())
+        .ok_or_else(|| String::from("DeepSeek returned no assistant message."))?;
+    // Carry the provider's completion id through with the message. Chat tool
+    // provenance is only checkable if a tool call can be tied back to the
+    // response that produced it, and the id lives on the envelope, not here.
+    if let (Some(obj), Some(id)) = (
+        message.as_object_mut(),
+        body.get("id").and_then(|v| v.as_str()),
+    ) {
+        obj.insert(
+            "__completion_id".into(),
+            serde_json::Value::String(id.to_string()),
+        );
+    }
+    Ok(message)
 }

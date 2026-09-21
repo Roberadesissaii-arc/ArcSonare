@@ -5,11 +5,18 @@
 @media (max-width: 1450px) {
   .dashboard {
     grid-template-columns:
-      minmax(280px, 316px)
-      minmax(560px, 1fr)
-      minmax(280px, 316px);
-    gap: 16px;
-    padding: 0 20px 10px;
+      minmax(260px, 300px)
+      minmax(0, 1fr)
+      minmax(260px, 300px);
+    column-gap: 16px;
+    padding: 0 16px 10px;
+  }
+
+  /* The rails are `display: contents` here, so the gap belongs to the grid
+     that actually lays the cards out. */
+  .dashboard {
+    --dashboard-row-gap: 10px;
+    --dashboard-column-gap: 16px;
   }
 
   .app-header {
@@ -33,12 +40,11 @@
   }
 }
 
-/* Below ~1180px the side columns collapse into toggleable rows beneath the
- * center workspace; the center stays dominant and navigation stays intact. */
+/* Below ~1180px the side columns stack under the center workspace. */
 @media (max-width: 1180px) {
   .dashboard {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: minmax(0, 1.4fr) minmax(0, 0.8fr);
+    grid-template-rows: minmax(0, 1.4fr) minmax(420px, 0.9fr);
     grid-template-areas:
       "center center"
       "left right";
@@ -47,15 +53,46 @@
 
   .dashboard-center {
     grid-area: center;
-    min-height: 560px;
+    min-height: 480px;
   }
 
-  .dashboard-left {
+  /*
+   * Stacked layout: the rails become real columns again, side by side under the
+   * centre. `display: contents` is undone here because the cards are no longer
+   * paired across a shared row — there is no row to share.
+   */
+  .dashboard-left,
+  .dashboard-left-stretch {
+    display: grid;
     grid-area: left;
+    min-height: 420px;
   }
 
-  .dashboard-right {
+  .dashboard-right,
+  .dashboard-right-stretch {
+    display: grid;
     grid-area: right;
+    min-height: 420px;
+  }
+
+  .dashboard-left-stretch,
+  .dashboard-right-stretch {
+    gap: var(--dashboard-row-gap);
+    grid-template-rows:
+      minmax(130px, 1fr)
+      minmax(190px, 1.2fr)
+      minmax(140px, 1fr);
+  }
+
+  /* Placement came from the Dashboard grid; inside a rail the cards just flow. */
+  .dashboard .focus-card,
+  .dashboard .mi-card,
+  .dashboard .applications-card,
+  .dashboard .upnext-card,
+  .dashboard .urgent-card,
+  .dashboard .opened-apps-card {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .header-wordmark {

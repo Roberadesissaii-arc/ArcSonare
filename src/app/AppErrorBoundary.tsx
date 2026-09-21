@@ -26,6 +26,9 @@ export class AppErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.error) return this.props.children;
 
+    const err = this.state.error;
+    const detail = [err.message, err.stack].filter(Boolean).join("\n\n");
+
     return (
       <div className="app-error-boundary" role="alert">
         <h2>{this.props.fallbackTitle ?? "Something went wrong"}</h2>
@@ -33,7 +36,18 @@ export class AppErrorBoundary extends Component<Props, State> {
           ArcSonare hit an unexpected error on this screen. You can retry or keep
           using the rest of the app.
         </p>
-        <pre>{this.state.error.message}</pre>
+        <pre
+          style={{
+            maxHeight: 240,
+            overflow: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: 11,
+            textAlign: "left",
+          }}
+        >
+          {detail}
+        </pre>
         <button
           type="button"
           className="btn-pill"

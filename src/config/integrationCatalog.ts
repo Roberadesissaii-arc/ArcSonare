@@ -351,6 +351,39 @@ export const CREDENTIAL_INTEGRATIONS: Partial<
 
 export const MCP_INTEGRATIONS = new Set<IntegrationId>(["higgsfield"]);
 
+export const INTEGRATION_CAPABILITIES: Partial<Record<IntegrationId, string[]>> = {
+  gmail: ["Read and search emails", "Send emails with attachments", "Manage labels and folders"],
+  googleCalendar: ["List upcoming events", "Create and update events", "Manage multiple calendars"],
+  googleDrive: ["List and download files", "Upload files to Drive", "Share files and folders"],
+  bitbucket: ["List and manage repositories", "Create and review pull requests", "Trigger pipelines"],
+  discord: ["Send messages to any channel", "List servers and channels", "Automate server actions"],
+  github: ["List repositories you can access", "List and create issues", "Read pull requests"],
+  homeAssistant: ["Read entity states and attributes", "Call services (lights, climate, switches)", "Trigger automations and scripts"],
+  x: ["Search recent posts", "Read public timelines", "Post with user tokens when configured"],
+  mysql: ["Run SQL queries", "Read and write rows", "List tables and schemas"],
+  notion: ["Read and create pages", "Query Notion databases", "Search across workspace"],
+  postgresql: ["Run SQL queries", "Read and insert rows", "List tables and schemas"],
+  redis: ["Get and set keys", "List and scan keys", "Manage TTL and expiry"],
+  slack: ["Post, edit, and delete bot messages", "List channels and read threads", "Search messages and mentions"],
+  telegram: ["Send text messages via Bot API", "Deliver alerts and transactional updates"],
+  whatsapp: ["Send template and session messages", "Customer care within the 24-hour window"],
+  smtp: ["Send emails from your own domain", "Attach files to outgoing emails", "CC and BCC support"],
+  spotify: ["Search and play any track or playlist", "Pause, skip, volume, shuffle", "Your playlists and liked songs"],
+  tmdb: ["Search movies and TV shows", "Discover popular and top-rated titles", "Find where to stream"],
+  openweather: ["Current conditions by city or coordinates", "5-day / 3-hour forecast"],
+  zillow: ["Search homes for sale or rent", "Property details and Zestimate values"],
+  ssh: ["Run commands on remote servers", "Read and write remote files", "Manage services and processes"],
+  twilio: ["Send SMS to any phone number", "Send WhatsApp messages", "Make phone calls with text-to-speech"],
+  unsplash: ["Search photos by keyword", "Fetch random curated photos"],
+  youtube: ["Search and play videos", "List playlists and subscriptions", "Get video details and statistics"],
+  higgsfield: ["Generate videos from text prompts", "Animate still images into video", "Generate images"],
+  elevenlabs: ["Generate speech from text", "Choose from your ElevenLabs voice library"],
+};
+
+export function capabilitiesFor(id: IntegrationId): string[] {
+  return INTEGRATION_CAPABILITIES[id] ?? [];
+}
+
 export function credentialSpecFor(
   id: IntegrationId,
 ): IntegrationCredentialSpec | undefined {

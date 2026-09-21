@@ -5,7 +5,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getPrefs } from "../stores/settingsStore";
 import { modelById } from "../config/modelRegistry";
-import type { ChatMessage } from "./OllamaService";
+import type { ChatMessage } from "./chatTypes";
 import { assistantSystemContext } from "./assistantTools";
 
 export async function deepseekChat(

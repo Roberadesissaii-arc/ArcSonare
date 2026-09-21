@@ -114,12 +114,59 @@ function tryNavigate(n: string, utterance: string): IntentContract | null {
 }
 
 function tryCalendar(n: string, utterance: string): IntentContract | null {
+  // `cal[ae]nd[ae]r` tolerates the common "calander"/"calender" misspellings —
+  // without it those fell through to model tool-selection, which picked
+  // tasks.create and silently made a task instead of a calendar event.
+  const namedMonthDay =
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(?:st|nd|rd|th)?\b/i.test(
+      n,
+    ) ||
+    /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(n) ||
+    /\b20\d{2}-\d{2}-\d{2}\b/.test(n);
   const aboutCalendar =
-    /\b(calendar|schedule|agenda|meetings?|events?)\b/.test(n) ||
-    /\bgoogle\s+calendar\b/.test(n) ||
-    /\bwhat\s+do\s+i\s+have\s+(today|tomorrow|this\s+week)\b/.test(n) ||
+    /\b(cal[ae]nd[ae]r|schedule|agenda|meetings?|events?|appointments?|appt)\b/.test(n) ||
+    /\bwhat\s+do\s+i\s+have\s+(today|tomorrow|this\s+week|on\s+)\b/.test(n) ||
+    (/\bwhat\s+do\s+i\s+have\b/.test(n) && namedMonthDay) ||
+    (/\bdo\s+i\s+have\b/.test(n) && (namedMonthDay || /\banything\b/.test(n))) ||
     /\bdo\s+i\s+have\s+anything\b/.test(n);
   if (!aboutCalendar) return null;
+
+  // Adding an event — must never be answered by creating a task.
+  if (
+    /\b(add|put|save|create|schedule|book|set\s+up)\b/.test(n) &&
+    /\b(cal[ae]nd[ae]r|schedule|agenda)\b/.test(n)
+  ) {
+    return base(utterance, {
+      mode: "create",
+      domain: "calendar",
+      object: "event",
+      presentation: "brief-answer",
+      sideEffect: "external-write",
+      explicitOpen: false,
+      explicitSend: false,
+      explicitDelete: false,
+      explicitConfirmation: false,
+      confidence: 0.95,
+    });
+  }
+  // "I have an appointment today at 1:30" + an add verb elsewhere.
+  if (
+    /\b(appointments?|appt|meetings?)\b/.test(n) &&
+    /\b(add|put|save|schedule|book)\b/.test(n)
+  ) {
+    return base(utterance, {
+      mode: "create",
+      domain: "calendar",
+      object: "event",
+      presentation: "brief-answer",
+      sideEffect: "external-write",
+      explicitOpen: false,
+      explicitSend: false,
+      explicitDelete: false,
+      explicitConfirmation: false,
+      confidence: 0.9,
+    });
+  }
 
   // Connection status — never open Calendar for these.
   if (
@@ -215,20 +262,42 @@ function tryCalendar(n: string, utterance: string): IntentContract | null {
     });
   }
 
-  // Tomorrow / this week / today / general calendar read
+  // Absolute date without the word "calendar": "what do I have on August 8th"
+  const absoluteDate =
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}(?:st|nd|rd|th)?\b/i.test(
+      n,
+    ) ||
+    /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(n) ||
+    /\b20\d{2}-\d{2}-\d{2}\b/.test(n);
+  const scheduleAsk =
+    /\b(what\s+do\s+i\s+have|do\s+i\s+have|anything|what(?:'s|\s+is)\s+on|scheduled|plans?)\b/.test(
+      n,
+    );
+
+  // Tomorrow / this week / today / August 8 / general calendar read
   if (
     looksLikeRead(n) ||
-    /\b(on\s+my\s+calendar|my\s+calendar|my\s+schedule|my\s+agenda|do\s+i\s+have)\b/.test(n)
+    /\b(on\s+my\s+calendar|my\s+calendar|my\s+schedule|my\s+agenda|do\s+i\s+have)\b/.test(n) ||
+    (/\bcalendar\b/.test(n) && absoluteDate) ||
+    (scheduleAsk && absoluteDate)
   ) {
-    let relative = "today";
-    if (/\btomorrow\b/.test(n)) relative = "tomorrow";
+    let relative = "upcoming";
+    if (absoluteDate) {
+      relative = "absolute_day";
+    } else if (/\btomorrow\b/.test(n)) relative = "tomorrow";
     else if (/\bthis\s+week\b/.test(n)) relative = "this_week";
-    else if (/\bafter\s+\d/.test(n) || /\bafter\s+(?:noon|4|four)\b/.test(n)) relative = "today_after";
+    else if (
+      /\btoday\b/.test(n) ||
+      /\bafter\s+\d/.test(n) ||
+      /\bafter\s+(?:noon|4|four)\b/.test(n)
+    ) {
+      relative = "today";
+    }
 
     return base(utterance, {
       mode: /\bsummarize\b/.test(n) ? "summarize" : "read",
       domain: "calendar",
-      requestedData: [relative === "today" ? "today" : relative],
+      requestedData: [relative],
       timeRange: { relativeExpression: relative },
       presentation: "list",
       sideEffect: "read-only",
@@ -493,6 +562,25 @@ function tryDrive(n: string, utterance: string): IntentContract | null {
   // Avoid false positives like “driver”
   if (/\bdriver\b/.test(n) && !/\bgoogle\s+drive\b/.test(n)) return null;
 
+  // Connection status — never open Drive for these.
+  if (
+    /\b(connected|connection|linked|link(?:ed)?|signed\s+in|logged\s+in|set\s+up)\b/.test(n)
+  ) {
+    return base(utterance, {
+      mode: "read",
+      domain: "drive",
+      object: "connection",
+      requestedData: ["connection"],
+      presentation: "brief-answer",
+      sideEffect: "none",
+      explicitOpen: false,
+      explicitSend: false,
+      explicitDelete: false,
+      explicitConfirmation: false,
+      confidence: 0.97,
+    });
+  }
+
   if (hasExplicitOpen(n) && /\b(drive|google\s+drive)\b/.test(n)) {
     return base(utterance, {
       mode: "open",
@@ -613,7 +701,10 @@ export function isOrchestratedDomain(contract: IntentContract): boolean {
     return true;
   }
   if (contract.domain === "arcsonare" && contract.mode === "navigate") return true;
-  if (contract.domain === "tasks" && contract.mode === "read") return true;
+  // Task reads deliberately do NOT go to the orchestrator: its tasks.list
+  // branch only navigated to the page and replied "Here are your tasks in
+  // ArcSonare" without listing anything. The capability engine has a real
+  // tasks.list executor that reads the actual tasks, so let it handle these.
   return false;
 }
 

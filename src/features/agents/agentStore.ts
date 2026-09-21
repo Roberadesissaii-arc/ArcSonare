@@ -4,7 +4,11 @@
  */
 import { useSyncExternalStore } from "react";
 import { deriveAgentStatus } from "./agentHealth";
-import { defaultAvatarIdForAgent, type AgentAvatarId } from "./agentAvatars";
+import {
+  agentAvatarSrc,
+  defaultAvatarIdForAgent,
+  type AgentAvatarId,
+} from "./agentAvatars";
 import {
   listAgentsFromDb,
   softDeleteAgentInDb,
@@ -120,14 +124,19 @@ export type AgentStatus =
 
 /** Legacy display string for older UI; prefer deriveAgentStatus + statusLabel. */
 export function agentStatus(agent: AgentConfig): AgentStatus {
-  const s = deriveAgentStatus(agent);
-  if (s === "not-configured") return "Not configured";
-  if (s === "paused" || s === "inactive") return "Paused";
-  if (s === "waiting-approval") return "Waiting for approval";
-  if (s === "error") return "Error";
-  if (s === "offline") return "Offline";
-  if (s === "working") return "Running";
-  return "Ready";
+  if (!agent) return "Not configured";
+  try {
+    const s = deriveAgentStatus(agent);
+    if (s === "not-configured") return "Not configured";
+    if (s === "paused" || s === "inactive") return "Paused";
+    if (s === "waiting-approval") return "Waiting for approval";
+    if (s === "error") return "Error";
+    if (s === "offline") return "Offline";
+    if (s === "working") return "Running";
+    return "Ready";
+  } catch {
+    return "Error";
+  }
 }
 
 export function defaultPermissions(): Record<PermissionArea, PermissionLevel> {
@@ -197,22 +206,73 @@ const LEGACY_KEY = "arcsonare.agents.v1";
 const PREFS_KEY = "arcsonare.agents.prefs.v1";
 const APPROVALS_KEY = "arcsonare.agentApprovals.v1";
 
+function asObject<T extends Record<string, unknown>>(value: unknown): Partial<T> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Partial<T>)
+    : {};
+}
+
 function normalizeAgent(raw: Partial<AgentConfig> & { id: string }): AgentConfig {
   const base = blankAgent();
+  const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : base.id;
+  const instructions = {
+    ...base.instructions,
+    ...asObject<AgentConfig["instructions"]>(raw.instructions),
+  };
+  const voice = {
+    ...base.voice,
+    ...asObject<AgentConfig["voice"]>(raw.voice),
+  };
+  const memory = {
+    ...base.memory,
+    ...asObject<AgentConfig["memory"]>(raw.memory),
+  };
+  const permissions = {
+    ...base.permissions,
+    ...asObject<AgentConfig["permissions"]>(raw.permissions),
+  };
+  const avatarRaw = typeof raw.avatarId === "string" ? raw.avatarId : null;
+  const avatarId: AgentAvatarId | null = agentAvatarSrc(avatarRaw)
+    ? (avatarRaw as AgentAvatarId)
+    : defaultAvatarIdForAgent(id);
+
   return {
     ...base,
     ...raw,
-    id: raw.id,
-    avatarId: raw.avatarId ?? defaultAvatarIdForAgent(raw.id),
-    isPrime: raw.isPrime ?? raw.id === "project-manager",
-    instructions: { ...base.instructions, ...(raw.instructions ?? {}) },
-    voice: { ...base.voice, ...(raw.voice ?? {}) },
-    memory: { ...base.memory, ...(raw.memory ?? {}) },
-    permissions: { ...base.permissions, ...(raw.permissions ?? {}) },
+    id,
+    name: typeof raw.name === "string" ? raw.name : base.name,
+    role: typeof raw.role === "string" ? raw.role : base.role,
+    description:
+      typeof raw.description === "string" ? raw.description : base.description,
+    initials: typeof raw.initials === "string" ? raw.initials : base.initials,
+    avatarId,
+    isPrime: Boolean(raw.isPrime ?? id === "project-manager"),
+    instructions,
+    voice,
+    memory,
+    permissions,
     runtimeType: raw.runtimeType ?? (raw.localOnly ? "local" : "manual"),
-    updatedAt: raw.updatedAt ?? raw.createdAt ?? Date.now(),
+    enabled: Boolean(raw.enabled),
+    demo: false,
+    createdAt:
+      typeof raw.createdAt === "number" && Number.isFinite(raw.createdAt)
+        ? raw.createdAt
+        : base.createdAt,
+    updatedAt:
+      typeof raw.updatedAt === "number" && Number.isFinite(raw.updatedAt)
+        ? raw.updatedAt
+        : typeof raw.createdAt === "number" && Number.isFinite(raw.createdAt)
+          ? raw.createdAt
+          : Date.now(),
+    lastActiveAt:
+      typeof raw.lastActiveAt === "number" && Number.isFinite(raw.lastActiveAt)
+        ? raw.lastActiveAt
+        : null,
     activity: Array.isArray(raw.activity) ? raw.activity : [],
-    metrics: raw.metrics ?? emptyMetrics(),
+    metrics:
+      raw.metrics && typeof raw.metrics === "object"
+        ? { ...emptyMetrics(), ...raw.metrics }
+        : emptyMetrics(),
   };
 }
 
@@ -251,6 +311,7 @@ function seedAgents(): AgentConfig[] {
       ],
     });
 
+  // 18 specialists → 3 departments × 6 (matches Connect section density).
   return [
     seed(
       "project-manager",
@@ -259,22 +320,6 @@ function seedAgents(): AgentConfig[] {
       "Keeps tasks, owners and deadlines aligned.",
       "PM",
       "#9565FF",
-    ),
-    seed(
-      "research-analyst",
-      "Research Analyst",
-      "Research",
-      "Scans sources and summarizes what changed.",
-      "RA",
-      "#5995F2",
-    ),
-    seed(
-      "content-creator",
-      "Content Creator",
-      "Writing",
-      "Drafts documents, decks and messages.",
-      "CC",
-      "#43BCD3",
     ),
     seed(
       "executive-assistant",
@@ -301,20 +346,28 @@ function seedAgents(): AgentConfig[] {
       "#7B6BE6",
     ),
     seed(
-      "file-organizer",
-      "File Organizer",
-      "Files",
-      "Keeps folders tidy and findable.",
-      "FO",
-      "#41C6A5",
+      "content-creator",
+      "Content Creator",
+      "Writing",
+      "Drafts documents, decks and messages.",
+      "CC",
+      "#43BCD3",
     ),
     seed(
-      "screen-analyst",
-      "Screen Analyst",
-      "Screen",
-      "Explains what is currently on screen.",
-      "SA",
-      "#557CEB",
+      "schedule-coordinator",
+      "Schedule Coordinator",
+      "Scheduling",
+      "Balances calendars, conflicts, and time blocks across the team.",
+      "SC",
+      "#6B8CFF",
+    ),
+    seed(
+      "research-analyst",
+      "Research Analyst",
+      "Research",
+      "Scans sources and summarizes what changed.",
+      "RA",
+      "#5995F2",
     ),
     seed(
       "data-analyst",
@@ -325,6 +378,46 @@ function seedAgents(): AgentConfig[] {
       "#43CBB9",
     ),
     seed(
+      "screen-analyst",
+      "Screen Analyst",
+      "Screen",
+      "Explains what is currently on screen.",
+      "SA",
+      "#557CEB",
+    ),
+    seed(
+      "knowledge-librarian",
+      "Knowledge Librarian",
+      "Knowledge",
+      "Indexes notes, docs, and decisions so answers stay grounded.",
+      "KL",
+      "#5BB8D4",
+    ),
+    seed(
+      "security-auditor",
+      "Security Auditor",
+      "Security",
+      "Reviews access, risks, and policy gaps before they become incidents.",
+      "SX",
+      "#E06B8A",
+    ),
+    seed(
+      "briefing-writer",
+      "Briefing Writer",
+      "Briefings",
+      "Turns raw context into clear daily and executive briefings.",
+      "BW",
+      "#9B7BFF",
+    ),
+    seed(
+      "file-organizer",
+      "File Organizer",
+      "Files",
+      "Keeps folders tidy and findable.",
+      "FO",
+      "#41C6A5",
+    ),
+    seed(
       "workflow-automator",
       "Workflow Automator",
       "Automation",
@@ -332,11 +425,44 @@ function seedAgents(): AgentConfig[] {
       "WA",
       "#A16ADD",
     ),
+    seed(
+      "code-reviewer",
+      "Code Reviewer",
+      "Engineering",
+      "Reviews diffs for correctness, risk, and maintainability.",
+      "CR",
+      "#4F9BFF",
+    ),
+    seed(
+      "customer-support",
+      "Support Specialist",
+      "Support",
+      "Drafts replies and escalates customer issues with full context.",
+      "CS",
+      "#3DC9A0",
+    ),
+    seed(
+      "sales-assistant",
+      "Sales Assistant",
+      "Sales",
+      "Prepares outreach, follow-ups, and deal context for the pipeline.",
+      "SL",
+      "#F0A35E",
+    ),
+    seed(
+      "qa-tester",
+      "QA Tester",
+      "Quality",
+      "Checks releases against expected behavior and flags regressions.",
+      "QA",
+      "#62C3E0",
+    ),
   ];
 }
 
 const MIGRATED_FLAG = "arcsonare.agents.sqliteMigrated.v1";
-const ABSTRACT_TEAM_FLAG = "arcsonare.agents.abstractTeam.v1";
+/** Bump when seed roster grows so missing agents are inserted once. */
+const ABSTRACT_TEAM_FLAG = "arcsonare.agents.abstractTeam.v2";
 
 function loadFromLocalStorage(): AgentConfig[] {
   try {
@@ -392,7 +518,8 @@ function loadApprovals(): AgentApproval[] {
   return [];
 }
 
-let agents: AgentConfig[] = [];
+/** In-memory roster — seed immediately so Agent page never mounts empty. */
+let agents: AgentConfig[] = seedAgents();
 let prefs: AgentPrefs = loadPrefs();
 let approvals: AgentApproval[] = loadApprovals();
 const listeners = new Set<() => void>();
@@ -465,27 +592,34 @@ export async function hydrateAgentsFromDb(): Promise<void> {
       window.localStorage.removeItem(LEGACY_KEY);
     }
 
-    if (window.localStorage.getItem(ABSTRACT_TEAM_FLAG) !== "1") {
+    // Always merge any missing seed specialists (18-agent roster).
+    {
       const existingIds = new Set(fromDb.map((agent) => agent.id));
       const missing = seedAgents().filter((agent) => !existingIds.has(agent.id));
-      let seededAll = true;
-      for (const agent of missing) {
-        try {
-          await upsertAgentToDb(agent);
-        } catch (err) {
-          seededAll = false;
-          console.error("[ArcSonare] abstract agent seed failed:", err);
-        }
-      }
-      if (seededAll) {
-        window.localStorage.setItem(ABSTRACT_TEAM_FLAG, "1");
-      }
       if (missing.length > 0) {
+        for (const agent of missing) {
+          try {
+            await upsertAgentToDb(agent);
+          } catch (err) {
+            console.error("[ArcSonare] abstract agent seed failed:", err);
+          }
+        }
         fromDb = await listAgentsFromDb(normalizeAgent);
       }
+      window.localStorage.setItem(ABSTRACT_TEAM_FLAG, "1");
     }
 
-    agents = fromDb.map((a) => ({ ...a, demo: false }));
+    // Never wipe the in-memory roster with an empty DB snapshot (e.g. upsert
+    // failed, guest DB not ready, or list returned []). Prefer seeds/local.
+    if (fromDb.length === 0) {
+      const local = loadFromLocalStorage();
+      agents = (local.length > 0 ? local : seedAgents()).map((a) => ({
+        ...a,
+        demo: false,
+      }));
+    } else {
+      agents = fromDb.map((a) => ({ ...a, demo: false }));
+    }
     emitAgents();
   } catch (err) {
     console.error("[ArcSonare] hydrate agents failed:", err);

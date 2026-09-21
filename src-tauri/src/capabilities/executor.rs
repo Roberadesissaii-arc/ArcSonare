@@ -3,12 +3,21 @@
 //! confirmation gates run here — the webview cannot bypass them.
 
 use serde_json::json;
-use tauri::{AppHandle, State};
+// `Manager` brings `AppHandle::state`, which the download capabilities need to
+// reach the one `DownloadStore` — progress has to be pollable from the same
+// store the transfer is writing to, or "is it done yet?" has nothing to read.
+use tauri::{AppHandle, Manager, State};
 
 use super::audit::{new_audit_id, AuditStore, CapabilityAuditRecord};
 use super::confirmation::ConfirmationStore;
+#[cfg(windows)]
+use super::desktop_items;
+use super::hardware;
 use super::types::{invalid_args, ResultBuilder, ToolResult, ToolResultStatus};
-use super::{applications, clipboard, filesystem, screenshots, system, web, windows};
+use super::{
+    applications, clipboard, file_edit, filesystem, input, screenshots, system, web, windows,
+};
+use crate::watch::adapters as watch_adapters;
 
 /// Risk levels enforced natively regardless of frontend behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,6 +44,9 @@ pub fn risk_for(capability_id: &str) -> Option<Risk> {
         | "filesystem.get_directory_summary"
         | "filesystem.get_disk_space"
         | "filesystem.find"
+        | "filesystem.read_for_edit"
+        | "desktop.find_item"
+        | "desktop.list_items"
         | "applications.resolve"
         | "applications.list"
         | "applications.refresh_index"
@@ -42,13 +54,38 @@ pub fn risk_for(capability_id: &str) -> Option<Risk> {
         | "windows.get_active"
         | "screen.capture"
         | "screen.list_capture_targets"
-        | "clipboard.read_text" => Risk::ReadOnly,
+        | "web.fetch_page"
+        | "clipboard.read_text"
+        // Watched-application reads. Read-only in the strict sense: they report
+        // what an application is already doing and change nothing about it.
+        | "spotify.get_playback"
+        | "applications.get_window_context"
+        | "vscode.get_context"
+        | "vscode.get_diagnostics"
+        | "vscode.list_tasks"
+        | "vscode.bridge_status"
+        | "discord_desktop.get_current_location"
+        | "discord_desktop.get_visible_controls"
+        | "discord_desktop.get_visible_messages"
+        | "browser.get_page_context"
+        // Reading a page's structure and inspecting a file already on disk.
+        // Neither reaches the browser, changes anything, or runs anything.
+        | "browser.find_link"
+        | "browser.get_downloads"
+        | "browser.wait_for_download"
+        | "installer.inspect"
+        | "installer.list_installed"
+        | "installer.verify" => Risk::ReadOnly,
         "filesystem.create_directory"
         | "filesystem.create_file"
         | "filesystem.copy"
         | "filesystem.reveal_in_explorer"
         | "filesystem.open_item"
         | "applications.open"
+        | "applications.open_with"
+        | "system.set_volume"
+        | "system.set_brightness"
+        | "screen.record"
         | "applications.focus"
         | "windows.focus"
         | "windows.minimize"
@@ -57,13 +94,45 @@ pub fn risk_for(capability_id: &str) -> Option<Risk> {
         | "windows.move_resize"
         | "web.open_url"
         | "web.search"
-        | "clipboard.write_text" => Risk::Reversible,
-        "filesystem.read_text_file"
+        | "web.activate_listed_item"
+        | "input.click_at"
+        | "input.type_text"
+        | "input.press_keys"
+        | "input.scroll"
+        | "clipboard.write_text"
+        // Transport commands and focus. Reversible by definition — the opposite
+        // command exists and the user can see the result immediately.
+        | "spotify.play"
+        | "spotify.pause"
+        | "spotify.next"
+        | "spotify.previous"
+        | "applications.focus_watched"
+        // Running a task the workspace already declares is what the user asked
+        // for; the gate that matters is that the name must exist, and that is
+        // enforced by the extension rather than by a confirmation prompt.
+        | "vscode.run_task"
+        | "vscode.start_debug"
+        | "vscode.stop_task"
+        | "browser.navigate"
+        // A download writes one new file into Downloads and runs nothing.
+        // Installing is a separate capability at a separate risk level, which
+        // is what lets the question sit at the elevation boundary instead of
+        // in front of the download.
+        | "browser.download" => Risk::Reversible,
+        // Editing a file the user pointed at is the request, not a hazard to
+        // gate: the confirmation belongs on destroying content, not on changing
+        // it in the way that was asked for.
+        "filesystem.modify_file"
+        | "filesystem.read_text_file"
         | "filesystem.write_text_file"
         | "filesystem.rename"
         | "filesystem.move"
         | "applications.close"
-        | "windows.close" => Risk::Sensitive,
+        | "windows.close"
+        // Preparing is safe; sending reaches another person and cannot be
+        // taken back, which is what `Sensitive` means here.
+        | "discord_desktop.prepare_message"
+        | "discord_desktop.send_message" => Risk::Sensitive,
         "filesystem.delete" => Risk::Destructive,
         _ => return None,
     })
@@ -82,11 +151,15 @@ fn destructive_gate(
     capability_id: &str,
     args: &serde_json::Value,
     confirmation_token: Option<&str>,
+    run_id: Option<&str>,
 ) -> Result<(), ToolResult> {
     match confirmation_token {
         Some(token) => store
-            .consume(token, capability_id, args)
-            .map_err(|e| ResultBuilder::new(capability_id).denied(e, "confirmation-invalid")),
+            .consume_for_run(token, capability_id, args, run_id)
+            .map(|_| ())
+            .map_err(|e| {
+                ResultBuilder::new(capability_id).denied(e.message(), "confirmation-invalid")
+            }),
         None => {
             // Build the confirmation payload (delete is the only destructive op).
             let rb = ResultBuilder::new(capability_id);
@@ -151,6 +224,7 @@ fn dispatch(
     capability_id: &str,
     args: serde_json::Value,
     confirmed: bool,
+    confirmations: &ConfirmationStore,
 ) -> ToolResult {
     match capability_id {
         "system.get_local_datetime" => match parse(capability_id, &args) {
@@ -198,12 +272,29 @@ fn dispatch(
         },
         "filesystem.create_file" | "filesystem.write_text_file" => {
             match parse(capability_id, &args) {
-                Ok(a) => filesystem::create_or_write_file(capability_id, a, confirmed),
+                Ok(a) => {
+                    filesystem::create_or_write_file(capability_id, a, confirmed, confirmations)
+                }
                 Err(r) => r,
             }
         }
         "filesystem.read_text_file" => match parse(capability_id, &args) {
             Ok(a) => filesystem::read_text_file(a),
+            Err(r) => r,
+        },
+        "filesystem.read_for_edit" => match parse(capability_id, &args) {
+            Ok(a) => file_edit::read_for_edit(a),
+            Err(r) => r,
+        },
+        #[cfg(windows)]
+        "desktop.find_item" => match parse(capability_id, &args) {
+            Ok(a) => desktop_items::find_item(a),
+            Err(r) => r,
+        },
+        #[cfg(windows)]
+        "desktop.list_items" => desktop_items::list_items(),
+        "filesystem.modify_file" => match parse(capability_id, &args) {
+            Ok(a) => file_edit::modify_file(a),
             Err(r) => r,
         },
         "filesystem.rename" => match parse(capability_id, &args) {
@@ -237,6 +328,22 @@ fn dispatch(
         },
         "applications.open" => match parse(capability_id, &args) {
             Ok(a) => applications::open_application(app, a),
+            Err(r) => r,
+        },
+        "system.set_volume" => match parse(capability_id, &args) {
+            Ok(a) => hardware::set_volume(a),
+            Err(r) => r,
+        },
+        "system.set_brightness" => match parse(capability_id, &args) {
+            Ok(a) => hardware::set_brightness(a),
+            Err(r) => r,
+        },
+        "screen.record" => match parse(capability_id, &args) {
+            Ok(a) => hardware::screen_record(a),
+            Err(r) => r,
+        },
+        "applications.open_with" => match parse(capability_id, &args) {
+            Ok(a) => applications::open_with(app, a),
             Err(r) => r,
         },
         "applications.list" => match parse(capability_id, &args) {
@@ -295,6 +402,23 @@ fn dispatch(
             Err(r) => r,
         },
 
+        "input.click_at" => match parse(capability_id, &args) {
+            Ok(a) => input::click_at(app, a),
+            Err(r) => r,
+        },
+        "input.type_text" => match parse(capability_id, &args) {
+            Ok(a) => input::type_text(app, a),
+            Err(e) => e,
+        },
+        "input.press_keys" => match parse(capability_id, &args) {
+            Ok(a) => input::press_keys(app, a),
+            Err(e) => e,
+        },
+        "input.scroll" => match parse(capability_id, &args) {
+            Ok(a) => input::scroll(app, a),
+            Err(e) => e,
+        },
+
         "clipboard.read_text" => match parse(capability_id, &args) {
             Ok(a) => clipboard::read_text(a),
             Err(r) => r,
@@ -310,6 +434,151 @@ fn dispatch(
         },
         "web.search" => match parse(capability_id, &args) {
             Ok(a) => web::search(a),
+            Err(r) => r,
+        },
+        "web.fetch_page" => match parse(capability_id, &args) {
+            Ok(a) => web::fetch_page(a),
+            Err(r) => r,
+        },
+        "web.activate_listed_item" => match parse(capability_id, &args) {
+            Ok(a) => web::activate_listed_item(a),
+            Err(r) => r,
+        },
+
+        // ---- watched applications -----------------------------------------
+        "spotify.get_playback" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::get_playback(a),
+            Err(r) => r,
+        },
+        "spotify.play" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::media_command(
+                "spotify.play",
+                crate::watch::media::MediaCommand::Play,
+                a,
+            ),
+            Err(r) => r,
+        },
+        "spotify.pause" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::media_command(
+                "spotify.pause",
+                crate::watch::media::MediaCommand::Pause,
+                a,
+            ),
+            Err(r) => r,
+        },
+        "spotify.next" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::media_command(
+                "spotify.next",
+                crate::watch::media::MediaCommand::Next,
+                a,
+            ),
+            Err(r) => r,
+        },
+        "spotify.previous" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::media_command(
+                "spotify.previous",
+                crate::watch::media::MediaCommand::Previous,
+                a,
+            ),
+            Err(r) => r,
+        },
+        "applications.focus_watched" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::focus_instance(a),
+            Err(r) => r,
+        },
+        "applications.get_window_context" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::get_instance_context(app, a),
+            Err(r) => r,
+        },
+        "vscode.get_context" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::vscode_get_context(a),
+            Err(r) => r,
+        },
+        "vscode.get_diagnostics" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::vscode_get_diagnostics(a),
+            Err(r) => r,
+        },
+        "vscode.list_tasks" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::vscode_list_tasks(a),
+            Err(r) => r,
+        },
+        "vscode.run_task" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::vscode_run_task(a),
+            Err(r) => r,
+        },
+        "vscode.start_debug" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::vscode_start_debug(a),
+            Err(r) => r,
+        },
+        "vscode.stop_task" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::vscode_stop_task(a),
+            Err(r) => r,
+        },
+        "vscode.bridge_status" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::vscode_bridge_status(a),
+            Err(r) => r,
+        },
+        "discord_desktop.get_current_location" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::discord_get_location(app, a),
+            Err(r) => r,
+        },
+        "discord_desktop.get_visible_controls" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::discord_get_controls(a),
+            Err(r) => r,
+        },
+        "discord_desktop.get_visible_messages" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::discord_get_messages(app, a),
+            Err(r) => r,
+        },
+        "discord_desktop.prepare_message" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::discord_prepare_message(a),
+            Err(r) => r,
+        },
+        "discord_desktop.send_message" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::discord_send_message(a),
+            Err(r) => r,
+        },
+        "browser.get_page_context" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::browser_get_context(app, a),
+            Err(r) => r,
+        },
+        "browser.navigate" => match parse(capability_id, &args) {
+            Ok(a) => watch_adapters::browser_navigate(a),
+            Err(r) => r,
+        },
+
+        // The download-to-installer workflow. Routed through the same
+        // dispatcher as everything else so the risk gate, the audit record and
+        // the confirmation policy apply to it identically — a capability that
+        // reached the frontend by its own route would be a capability outside
+        // the permission system.
+        "browser.find_link" => match parse(capability_id, &args) {
+            Ok(a) => crate::browser::commands::find_link(a),
+            Err(r) => r,
+        },
+        "browser.download" => match parse(capability_id, &args) {
+            Ok(a) => {
+                crate::browser::commands::start_download(&app.state::<crate::browser::DownloadStore>(), a)
+            }
+            Err(r) => r,
+        },
+        "browser.wait_for_download" => match parse(capability_id, &args) {
+            Ok(a) => crate::browser::commands::download_progress(
+                &app.state::<crate::browser::DownloadStore>(),
+                a,
+            ),
+            Err(r) => r,
+        },
+        "browser.get_downloads" => {
+            crate::browser::commands::list_downloads(&app.state::<crate::browser::DownloadStore>())
+        }
+        "installer.inspect" => match parse(capability_id, &args) {
+            Ok(a) => crate::browser::commands::inspect_installer(a),
+            Err(r) => r,
+        },
+        "installer.list_installed" => crate::browser::commands::list_installed(),
+        "installer.verify" => match parse(capability_id, &args) {
+            Ok(a) => crate::browser::commands::verify_install(a),
             Err(r) => r,
         },
 
@@ -361,14 +630,41 @@ pub fn capability_execute(
             &capability_id,
             &args,
             confirmation_token.as_deref(),
+            run_id.as_deref(),
         ) {
             Ok(()) => confirmed = true,
             Err(result) => return result,
         }
     } else if let Some(token) = confirmation_token.as_deref() {
         // Non-destructive confirmations (e.g. overwrite) reuse the same store.
-        if confirmations.consume(token, &capability_id, &args).is_ok() {
-            confirmed = true;
+        // A grant issued for another run is refused outright rather than
+        // ignored: silently continuing unconfirmed would ask the user again,
+        // which is the loop this whole area exists to prevent.
+        match confirmations.consume_for_run(token, &capability_id, &args, run_id.as_deref()) {
+            Ok(_) => confirmed = true,
+            Err(super::confirmation::GrantError::WrongRun) => {
+                return ResultBuilder::new(&capability_id).denied(
+                    super::confirmation::GrantError::WrongRun.message(),
+                    "wrong-run",
+                );
+            }
+            // A token that does not match is *said*, not swallowed.
+            //
+            // Swallowing it left `confirmed` false, which sent the call back
+            // out as another `needs-confirmation` — identical to the one the
+            // user had just approved. The user saw the same question again with
+            // no explanation, answered it again, and got it a third time. An
+            // approval that cannot be matched is a bug to surface, not a reason
+            // to re-ask silently.
+            Err(e @ super::confirmation::GrantError::ActionChanged)
+            | Err(e @ super::confirmation::GrantError::Expired) => {
+                return ResultBuilder::new(&capability_id)
+                    .denied(e.message(), "confirmation-invalid");
+            }
+            // `Unknown` stays permissive: the frontend sends the sentinel
+            // "user-approved" for capabilities it confirmed itself, which was
+            // never issued here and has no fingerprint to check.
+            Err(super::confirmation::GrantError::Unknown) => {}
         }
     }
     // Overwrite-style confirmations arrive as an if_exists escalation from the
@@ -385,7 +681,7 @@ pub fn capability_execute(
         );
     }
 
-    let result = dispatch(&app, &capability_id, args, confirmed);
+    let result = dispatch(&app, &capability_id, args, confirmed, &confirmations);
 
     // Audit every execution (operational summary only).
     audit.record(

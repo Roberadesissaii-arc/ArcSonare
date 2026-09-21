@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 use super::system::{process_running, window_opaque_id};
 use super::types::{ResultBuilder, ToolResult, VerificationEvidence};
@@ -129,7 +129,7 @@ pub fn normalize_application_query(query: &str) -> String {
     words.join(" ")
 }
 
-fn index_cache_path(app: &AppHandle) -> Option<PathBuf> {
+fn index_cache_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     let dir = app.path().app_data_dir().ok()?.join("capabilities");
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join("app_index.json"))
@@ -446,7 +446,7 @@ fn build_index() -> Vec<IndexedApplication> {
     out
 }
 
-pub fn get_index(app: &AppHandle, force_refresh: bool) -> Vec<IndexedApplication> {
+pub fn get_index<R: Runtime>(app: &AppHandle<R>, force_refresh: bool) -> Vec<IndexedApplication> {
     let state = app.state::<ApplicationIndexState>();
     {
         let cache = state.cache.lock().unwrap();
@@ -674,6 +674,153 @@ pub struct OpenArgs {
     pub target_id: Option<String>,
     #[serde(default)]
     pub preference: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OpenWithArgs {
+    /// File or folder to hand to the application.
+    pub path: String,
+    /// What to open it with: "vs code", "terminal", "notepad", ...
+    pub application: String,
+}
+
+/// Windows terminals, best first. Resolved by hand rather than through the app
+/// index because "terminal" is a role, not a product name — the index answers
+/// with whatever happens to be called Terminal, which is often nothing.
+fn terminal_candidates() -> Vec<(&'static str, Vec<String>)> {
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let sys = std::env::var("SystemRoot").unwrap_or_else(|_| "C:/Windows".into());
+    vec![
+        (
+            "Windows Terminal",
+            vec![format!("{local}/Microsoft/WindowsApps/wt.exe")],
+        ),
+        (
+            "PowerShell",
+            vec![format!(
+                "{sys}/System32/WindowsPowerShell/v1.0/powershell.exe"
+            )],
+        ),
+        ("Command Prompt", vec![format!("{sys}/System32/cmd.exe")]),
+    ]
+}
+
+fn wants_terminal(query: &str) -> bool {
+    let q = query.to_lowercase();
+    [
+        "terminal",
+        "command prompt",
+        "cmd",
+        "powershell",
+        "shell",
+        "console",
+    ]
+    .iter()
+    .any(|k| q.contains(k))
+}
+
+/// Open `path` in a terminal rooted at the right directory.
+fn launch_terminal(path: &Path) -> Result<String, String> {
+    // A file means "a terminal where that file lives" — cd'ing into a file
+    // fails, and that was the whole point of asking.
+    let dir = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()
+            .map(|p| p.to_path_buf())
+            .ok_or_else(|| format!("\"{}\" has no parent folder.", path.display()))?
+    };
+
+    for (name, paths) in terminal_candidates() {
+        for exe in paths {
+            let exe_path = Path::new(&exe);
+            if !exe_path.is_file() {
+                continue;
+            }
+            let mut cmd = std::process::Command::new(exe_path);
+            if name == "Windows Terminal" {
+                // wt resolves its own start directory; -d is the documented flag.
+                cmd.arg("-d").arg(&dir);
+            } else {
+                cmd.current_dir(&dir);
+            }
+            if cmd.spawn().is_ok() {
+                return Ok(format!("Opened {name} at {}", dir.display()));
+            }
+        }
+    }
+    Err("No terminal application could be started.".into())
+}
+
+/// Open a file or folder with a named application.
+pub fn open_with(app: &AppHandle, args: OpenWithArgs) -> ToolResult {
+    let rb = ResultBuilder::new("applications.open_with");
+    let path = Path::new(&args.path);
+    if !path.exists() {
+        return rb.not_found(format!("\"{}\" does not exist.", args.path));
+    }
+
+    if wants_terminal(&args.application) {
+        return match launch_terminal(path) {
+            Ok(message) => rb.success(
+                message,
+                json!({
+                    "path": args.path,
+                    "application": "terminal",
+                    "target_kind": if path.is_dir() { "folder" } else { "file" },
+                }),
+                VerificationEvidence::verified_with("process-spawned", json!({})),
+            ),
+            Err(e) => rb.error("launch-failed", e, true),
+        };
+    }
+
+    // Everything else goes through the real installed-app index, so "vs code"
+    // resolves to the executable actually on this machine.
+    let (entries, candidates) = candidates_with_refresh(app, &args.application, "native-first");
+    let Some(top) = candidates.first() else {
+        return rb.not_found(format!(
+            "I couldn't find an app called \"{}\" to open it with.",
+            args.application
+        ));
+    };
+    let Some(entry) = entries.iter().find(|e| e.id == top.id) else {
+        return rb.not_found(format!("\"{}\" is not installed.", args.application));
+    };
+
+    // Handing a path to a web target or a protocol URI is meaningless.
+    let Some(exe) = entry
+        .executable_path
+        .as_ref()
+        .filter(|p| Path::new(p).is_file())
+    else {
+        return rb.error(
+            "not-supported",
+            format!(
+                "{} can't be given a file to open — it has no executable on this computer.",
+                entry.display_name
+            ),
+            false,
+        );
+    };
+
+    match std::process::Command::new(exe).arg(path).spawn() {
+        Ok(_) => rb.success(
+            format!("Opened {} with {}.", args.path, entry.display_name),
+            json!({
+                "path": args.path,
+                "application": entry.display_name,
+                "target_id": entry.id,
+                "target_kind": if path.is_dir() { "folder" } else { "file" },
+            }),
+            VerificationEvidence::verified_with("process-spawned", json!({})),
+        ),
+        Err(e) => rb.error(
+            "launch-failed",
+            format!("{} refused to open it: {e}", entry.display_name),
+            true,
+        ),
+    }
 }
 
 fn find_window_for(process_name: Option<&str>, display_name: &str) -> Option<(u32, String)> {
@@ -954,6 +1101,11 @@ pub struct ListArgs {
     pub filter: Option<String>,
     #[serde(default)]
     pub limit: Option<usize>,
+    /// Restrict to applications running right now. The index already knows
+    /// this, but the flag was never exposed — so the assistant could not answer
+    /// "what do I have open?" and had to guess.
+    #[serde(default)]
+    pub running_only: Option<bool>,
 }
 
 pub fn list_applications(app: &AppHandle, args: ListArgs) -> ToolResult {
@@ -961,9 +1113,19 @@ pub fn list_applications(app: &AppHandle, args: ListArgs) -> ToolResult {
     let entries = get_index(app, false);
     let filter = args.filter.as_deref().map(normalize_name);
     let limit = args.limit.unwrap_or(50).clamp(1, 200);
+    let running_only = args.running_only.unwrap_or(false);
+    // IndexedApplication has no `running` field — it is derived at query time
+    // from the live process list, the same way `resolve` does it.
+    let running_now = running_app_names();
+    let is_running = |e: &IndexedApplication| {
+        e.normalized_names
+            .iter()
+            .any(|n| running_now.contains_key(n.as_str()))
+    };
     let items: Vec<serde_json::Value> = entries
         .iter()
         .filter(|e| e.installed)
+        .filter(|e| !running_only || is_running(e))
         .filter(|e| {
             filter
                 .as_ref()
@@ -977,16 +1139,34 @@ pub fn list_applications(app: &AppHandle, args: ListArgs) -> ToolResult {
                 "name": e.display_name,
                 "target_type": e.target_type,
                 "source": e.source,
+                // Exposed so the assistant can answer "what's open?" and decide
+                // whether a request means open, focus, or close.
+                "running": is_running(e),
             })
         })
         .collect();
     let count = items.len();
+    let running_count = entries
+        .iter()
+        .filter(|e| e.installed && is_running(e))
+        .count();
     rb.success(
-        format!(
-            "{count} installed application{} indexed.",
-            if count == 1 { "" } else { "s" }
-        ),
-        json!({ "applications": items, "count": count }),
+        if running_only {
+            format!(
+                "{count} application{} running right now.",
+                if count == 1 { "" } else { "s" }
+            )
+        } else {
+            format!(
+                "{count} installed application{} indexed, {running_count} running.",
+                if count == 1 { "" } else { "s" }
+            )
+        },
+        json!({
+            "applications": items,
+            "count": count,
+            "running_count": running_count,
+        }),
         VerificationEvidence::verified("state-readback"),
     )
 }

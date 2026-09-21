@@ -14,11 +14,52 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_autostart::ManagerExt;
 
 pub const SETTINGS_CHANGED_EVENT: &str = "sonare:settings-changed";
 pub const DEFAULT_SHORTCUT: &str = "Ctrl+Shift+Space";
+// Bump when a new one-time shortcut-default migration is introduced.
+const SHORTCUT_DEFAULTS_VERSION: u64 = 12;
+
+const DEFAULT_ACTION_SHORTCUTS: &[(&str, &str)] = &[
+    ("cancel-voice", "Ctrl+Alt+KeyQ"),
+    ("select-voice-sonare", "Ctrl+Alt+Digit1"),
+    ("select-voice-vela", "Ctrl+Alt+Digit2"),
+    ("select-voice-orion", "Ctrl+Alt+Digit3"),
+    ("select-voice-lyra", "Ctrl+Alt+Digit4"),
+    ("select-voice-nova", "Ctrl+Alt+Digit5"),
+    ("select-voice-jane", "Ctrl+Alt+Digit6"),
+    ("open-app", "Ctrl+Alt+KeyA"),
+    ("hide-app", "Ctrl+Alt+KeyH"),
+    ("command-palette", "Ctrl+Alt+KeyP"),
+    ("create-task", "Ctrl+Alt+KeyT"),
+    ("dashboard-chat", "Ctrl+Alt+KeyC"),
+    ("dashboard-next-view", "Ctrl+Alt+KeyN"),
+    ("dashboard-previous-view", "Ctrl+Alt+KeyB"),
+    ("open-tasks", "Ctrl+Alt+KeyL"),
+    ("open-agent", "Ctrl+Alt+KeyG"),
+    ("open-connect", "Ctrl+Alt+KeyI"),
+    ("open-settings", "Ctrl+Alt+KeyS"),
+    ("mute", "Ctrl+Alt+Shift+KeyM"),
+    ("stop-speaking", "Ctrl+Alt+KeyX"),
+];
+
+fn default_prefs() -> serde_json::Value {
+    let shortcuts = DEFAULT_ACTION_SHORTCUTS
+        .iter()
+        .map(|(action, shortcut)| {
+            (
+                (*action).to_string(),
+                serde_json::Value::String((*shortcut).to_string()),
+            )
+        })
+        .collect::<serde_json::Map<String, serde_json::Value>>();
+    serde_json::json!({
+        "schemaVersion": SHORTCUT_DEFAULTS_VERSION,
+        "shortcuts": shortcuts,
+    })
+}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(rename_all = "camelCase", default)]
@@ -51,7 +92,7 @@ impl Default for Settings {
             notifications_enabled: true,
             completion_notifications: true,
             error_notifications: true,
-            prefs: serde_json::Value::Object(Default::default()),
+            prefs: default_prefs(),
         }
     }
 }
@@ -72,7 +113,33 @@ impl Settings {
             self.global_shortcut = DEFAULT_SHORTCUT.into();
         }
         if !self.prefs.is_object() {
-            self.prefs = serde_json::Value::Object(Default::default());
+            self.prefs = default_prefs();
+        }
+        let schema_version = self
+            .prefs
+            .get("schemaVersion")
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
+        if schema_version < SHORTCUT_DEFAULTS_VERSION {
+            let prefs = self.prefs.as_object_mut().expect("prefs was normalized above");
+            let shortcuts = prefs
+                .entry("shortcuts")
+                .or_insert_with(|| serde_json::Value::Object(Default::default()));
+            if !shortcuts.is_object() {
+                *shortcuts = serde_json::Value::Object(Default::default());
+            }
+            let shortcuts = shortcuts
+                .as_object_mut()
+                .expect("shortcuts was normalized above");
+            for (action, shortcut) in DEFAULT_ACTION_SHORTCUTS {
+                shortcuts
+                    .entry((*action).to_string())
+                    .or_insert_with(|| serde_json::Value::String((*shortcut).to_string()));
+            }
+            prefs.insert(
+                "schemaVersion".into(),
+                serde_json::Value::from(SHORTCUT_DEFAULTS_VERSION),
+            );
         }
         self
     }
@@ -135,7 +202,7 @@ pub fn initialize(app: &AppHandle) {
 }
 
 /// Idempotent disk load. Safe to call from commands before `setup` finishes.
-pub fn ensure_loaded(app: &AppHandle) {
+pub fn ensure_loaded<R: Runtime>(app: &AppHandle<R>) {
     let state = app.state::<SettingsState>();
     if state.loaded.load(Ordering::Acquire) {
         return;
@@ -149,7 +216,7 @@ pub fn ensure_loaded(app: &AppHandle) {
     state.loaded.store(true, Ordering::Release);
 }
 
-fn settings_path(app: &AppHandle) -> Option<PathBuf> {
+fn settings_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     match app.path().app_config_dir() {
         Ok(dir) => Some(dir.join("settings.json")),
         Err(e) => {
@@ -160,7 +227,7 @@ fn settings_path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 /// Loads settings from disk (used once, during `ensure_loaded` / `initialize`).
-fn load(app: &AppHandle) -> Settings {
+fn load<R: Runtime>(app: &AppHandle<R>) -> Settings {
     let Some(path) = settings_path(app) else {
         return Settings::default();
     };
@@ -196,7 +263,7 @@ fn save(app: &AppHandle, settings: &Settings) {
     }
 }
 
-pub fn current(app: &AppHandle) -> Settings {
+pub fn current<R: Runtime>(app: &AppHandle<R>) -> Settings {
     ensure_loaded(app);
     app.state::<SettingsState>().inner.lock().unwrap().clone()
 }

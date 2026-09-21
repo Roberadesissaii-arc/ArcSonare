@@ -301,6 +301,36 @@ impl ResultBuilder {
             }),
         )
     }
+
+    /// An error that carries structured context alongside the sentence.
+    ///
+    /// Exists so a typed display refusal keeps its code, the display it names
+    /// and the geometry that changed all the way to the frontend. Flattening
+    /// those into `message` is what made every refusal look alike.
+    pub fn error_with(
+        self,
+        code: &str,
+        message: impl Into<String>,
+        recoverable: bool,
+        user_action: Option<String>,
+        data: Option<serde_json::Value>,
+    ) -> ToolResult {
+        let message = message.into();
+        self.finish(
+            ToolResultStatus::Error,
+            message.clone(),
+            data,
+            VerificationEvidence::not_verifiable(),
+            None,
+            Some(ToolError {
+                code: code.into(),
+                message,
+                recoverable,
+                user_action,
+                technical_details: None,
+            }),
+        )
+    }
 }
 
 /// Args every executor receives after deserialization already validated.

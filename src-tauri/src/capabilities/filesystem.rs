@@ -843,12 +843,23 @@ pub struct WriteFileArgs {
     pub if_exists: Option<String>,
 }
 
-const SAFE_TEXT_EXTENSIONS: &[&str] = &["txt", "md", "json", "csv", "log"];
+/// Text formats the assistant may write.
+///
+/// Source and config files are included so the assistant can actually author
+/// code on request. These are all inert on disk — writing one never executes
+/// anything. Running a script is a separate, confirmation-gated capability.
+const SAFE_TEXT_EXTENSIONS: &[&str] = &[
+    // Notes and data
+    "txt", "md", "json", "csv", "log", "yaml", "yml", "toml", "ini", "xml", // Source
+    "py", "js", "ts", "jsx", "tsx", "rs", "go", "java", "c", "h", "cpp", "cs", "rb", "php", "sh",
+    "sql", "html", "css", "scss",
+];
 
 pub fn create_or_write_file(
     capability_id: &str,
     args: WriteFileArgs,
     confirmed: bool,
+    confirmations: &super::confirmation::ConfirmationStore,
 ) -> ToolResult {
     let rb = ResultBuilder::new(capability_id);
     if let Err(e) = validate_item_name(&args.name) {
@@ -900,14 +911,52 @@ pub fn create_or_write_file(
                 target = numbered_variant(&parent, &stem);
                 target.set_extension(&ext);
             }
+            // An explicit overwrite is an instruction, not a question. The
+            // caller either carries an approval for this exact write, or said
+            // so plainly enough that the frontend marked it explicit — asking
+            // again is asking someone to repeat themselves.
             Some("overwrite") if confirmed => {}
             _ => {
+                // The token is the whole fix for the loop this used to cause:
+                // previously the confirmation carried no token, so approving it
+                // produced a call that looked exactly like the unapproved one
+                // and came straight back here. It is issued against the args
+                // *as they will be re-sent* — with `if_exists: "overwrite"` —
+                // so the approved action and the executed action are the same
+                // action, and the fingerprint check can prove it.
+                let approved_args = json!({
+                    "parent_path": args.parent_path,
+                    "name": args.name,
+                    "content": args.content,
+                    "if_exists": "overwrite",
+                });
+                let (token, expires_at) = confirmations.issue(capability_id, &approved_args);
                 return rb.needs_confirmation(
                     format!("\"{}\" already exists.", target.display()),
                     json!({
                         "reason": "already-exists",
                         "path": target.to_string_lossy(),
                         "options": ["overwrite", "append", "numbered-copy"],
+                        "confirmation": {
+                            "token": token,
+                            "capabilityId": capability_id,
+                            "title": format!(
+                                "\"{}\" already exists.",
+                                target.file_name().map(|n| n.to_string_lossy().into_owned())
+                                    .unwrap_or_else(|| target.display().to_string())
+                            ),
+                            "description": "Replacing it keeps the name and discards the current contents. To change it instead, ask me to modify it.",
+                            "riskLevel": "sensitive",
+                            "affectedItems": [{
+                                "name": target.file_name().map(|n| n.to_string_lossy().into_owned())
+                                    .unwrap_or_default(),
+                                "path": target.to_string_lossy(),
+                                "itemType": "file",
+                            }],
+                            "reversible": false,
+                            "consequence": "The existing contents are replaced.",
+                            "expiresAt": expires_at,
+                        },
                     }),
                 );
             }
@@ -1478,5 +1527,90 @@ pub fn open_item(args: PathArgs) -> ToolResult {
             format!("Windows could not open it: {e}"),
             true,
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Native execution tests: these touch the real filesystem, because the
+    //! point is to prove "create a folder on my desktop" actually works rather
+    //! than that the request merely reached the right function.
+    use super::*;
+    use crate::capabilities::types::ToolResultStatus;
+
+    /// Unique name per run so a failed test can never collide with a later one.
+    fn temp_name(tag: &str) -> String {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0);
+        format!("arcsonare_test_{tag}_{nanos}")
+    }
+
+    #[test]
+    fn resolves_the_real_desktop_folder() {
+        let path = known_folder_path("desktop").expect("desktop should resolve");
+        assert!(
+            path.exists(),
+            "resolved desktop path does not exist: {path:?}"
+        );
+    }
+
+    #[test]
+    fn creates_a_folder_on_the_desktop_and_lists_it() {
+        let desktop = known_folder_path("desktop").expect("desktop should resolve");
+        let name = temp_name("folder");
+
+        let result = create_directory(CreateDirectoryArgs {
+            parent_path: desktop.to_string_lossy().to_string(),
+            name: name.clone(),
+            recursive: Some(false),
+            if_exists: None,
+        });
+        assert_eq!(
+            result.status,
+            ToolResultStatus::Success,
+            "create_directory failed: {}",
+            result.summary
+        );
+
+        let created = desktop.join(&name);
+        assert!(
+            created.is_dir(),
+            "folder was reported created but is not on disk"
+        );
+
+        // It must also be visible to the listing capability the assistant uses.
+        let listing = list_known_folder(ListKnownFolderArgs {
+            folder: "desktop".into(),
+            include_hidden: false,
+            limit: None,
+            cursor: None,
+        });
+        assert_eq!(listing.status, ToolResultStatus::Success);
+        let json = serde_json::to_string(&listing.data).unwrap_or_default();
+        assert!(
+            json.contains(&name),
+            "newly created folder is missing from the desktop listing"
+        );
+
+        let _ = std::fs::remove_dir_all(&created);
+        assert!(!created.exists(), "cleanup failed");
+    }
+
+    #[test]
+    fn rejects_path_traversal_in_folder_names() {
+        let desktop = known_folder_path("desktop").expect("desktop should resolve");
+        let result = create_directory(CreateDirectoryArgs {
+            parent_path: desktop.to_string_lossy().to_string(),
+            name: "../escaped".into(),
+            recursive: Some(false),
+            if_exists: None,
+        });
+        assert_ne!(
+            result.status,
+            ToolResultStatus::Success,
+            "path traversal must be rejected"
+        );
     }
 }

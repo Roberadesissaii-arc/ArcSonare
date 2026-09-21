@@ -374,7 +374,7 @@ export function AccountSettingsPage() {
             <Dropdown
               options={modelOptions}
               value={assistantModel?.id ?? ""}
-              onChange={() => navigateSettings("models")}
+              onChange={() => navigateSettings("voice")}
               ariaLabel="Default model"
             />
           </SettingRow>
@@ -406,7 +406,7 @@ export function AccountSettingsPage() {
             <button
               type="button"
               className="settings-card-link"
-              onClick={() => navigateSettings("models")}
+              onClick={() => navigateSettings("voice")}
             >
               Open Models →
             </button>

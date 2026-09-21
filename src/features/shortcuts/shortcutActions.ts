@@ -23,6 +23,42 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
     description: "Stops listening and hides the overlay.",
   },
   {
+    id: "select-voice-sonare",
+    label: "Select voice: Sonare",
+    description: "Selects the calm, clear default Sonare voice.",
+    frontendOnly: true,
+  },
+  {
+    id: "select-voice-vela",
+    label: "Select voice: Vela",
+    description: "Selects the warm Vela voice.",
+    frontendOnly: true,
+  },
+  {
+    id: "select-voice-orion",
+    label: "Select voice: Orion",
+    description: "Selects the professional Orion voice.",
+    frontendOnly: true,
+  },
+  {
+    id: "select-voice-lyra",
+    label: "Select voice: Lyra",
+    description: "Selects the energetic Lyra voice.",
+    frontendOnly: true,
+  },
+  {
+    id: "select-voice-nova",
+    label: "Select voice: Nova",
+    description: "Selects the expressive Nova voice.",
+    frontendOnly: true,
+  },
+  {
+    id: "select-voice-jane",
+    label: "Select voice: Jane",
+    description: "Selects the conversational Jane voice.",
+    frontendOnly: true,
+  },
+  {
     id: "open-app",
     label: "Open ArcSonare",
     description: "Shows and focuses the Command Center window.",
@@ -42,6 +78,24 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
     id: "create-task",
     label: "Create task",
     description: "Opens ArcSonare with the new-task dialog.",
+    frontendOnly: true,
+  },
+  {
+    id: "dashboard-chat",
+    label: "Dashboard: Open Chat",
+    description: "Opens the Dashboard directly on Chat from anywhere.",
+    frontendOnly: true,
+  },
+  {
+    id: "dashboard-next-view",
+    label: "Dashboard: Next view",
+    description: "Moves forward through the dashboard views and stops at Chat.",
+    frontendOnly: true,
+  },
+  {
+    id: "dashboard-previous-view",
+    label: "Dashboard: Previous view",
+    description: "Moves backward through the dashboard views and stops at Overview.",
     frontendOnly: true,
   },
   {

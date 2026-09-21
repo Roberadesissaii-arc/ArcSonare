@@ -231,6 +231,117 @@ pub async fn scan_data_storage(app: AppHandle) -> Result<StorageScanResult, Stri
     })
 }
 
+/// QA helper: write extracted browser images under Desktop\screenshot.
+/// Filename is sanitized; path is forced under the user Desktop\screenshot folder.
+#[tauri::command]
+pub fn save_desktop_test_image(filename: String, bytes: Vec<u8>) -> Result<String, String> {
+    write_desktop_screenshot_bytes(&filename, &bytes)
+}
+
+/// Download an image URL via native HTTP (no browser CORS) and save under Desktop\screenshot.
+/// This is the same path chat uses — not a separate offline script.
+#[tauri::command]
+pub fn save_desktop_image_from_url(url: String, filename: String) -> Result<String, String> {
+    let url = url.trim();
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("Only http(s) image URLs are allowed.".into());
+    }
+    if url.len() > 2048 {
+        return Err("URL too long.".into());
+    }
+    // Block private/local targets (reuse web capability host policy).
+    if crate::capabilities::web::is_blocked_host_public(url) {
+        return Err("That address is blocked for safety.".into());
+    }
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+             (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 ArcSonare/1.0",
+        )
+        .timeout(std::time::Duration::from_secs(20))
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+        .map_err(|e| format!("Could not prepare download: {e}"))?;
+    let res = client
+        .get(url)
+        .header(
+            "Accept",
+            "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        )
+        .send()
+        .map_err(|e| format!("Download failed: {e}"))?;
+    if !res.status().is_success() {
+        return Err(format!("Download HTTP {}", res.status()));
+    }
+    let content_type = res
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let bytes = res
+        .bytes()
+        .map_err(|e| format!("Could not read image body: {e}"))?;
+    if bytes.len() < 200 {
+        return Err("Image too small.".into());
+    }
+    if bytes.len() > 15_000_000 {
+        return Err("Image too large.".into());
+    }
+    // Prefer extension from content-type when filename has no real one.
+    let mut name = filename;
+    if !name.contains('.') {
+        let ext = if content_type.contains("png") {
+            "png"
+        } else if content_type.contains("webp") {
+            "webp"
+        } else if content_type.contains("gif") {
+            "gif"
+        } else {
+            "jpg"
+        };
+        name = format!("{name}.{ext}");
+    }
+    write_desktop_screenshot_bytes(&name, &bytes)
+}
+
+fn write_desktop_screenshot_bytes(filename: &str, bytes: &[u8]) -> Result<String, String> {
+    if bytes.is_empty() {
+        return Err("Empty image.".into());
+    }
+    if bytes.len() > 15_000_000 {
+        return Err("Image too large.".into());
+    }
+    let safe: String = filename
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let safe = safe.trim_matches('.').to_string();
+    if safe.is_empty() || safe.contains("..") {
+        return Err("Invalid filename.".into());
+    }
+    let desktop = dirs::desktop_dir().ok_or_else(|| "Desktop folder not found.".to_string())?;
+    let dir = desktop.join("screenshot");
+    fs::create_dir_all(&dir).map_err(|e| format!("Could not create screenshot folder: {e}"))?;
+    let path = dir.join(&safe);
+    // Stay under Desktop\screenshot
+    let canon_dir = fs::canonicalize(&dir).unwrap_or(dir.clone());
+    if let Some(parent) = path.parent() {
+        let canon_parent = fs::canonicalize(parent).unwrap_or_else(|_| parent.to_path_buf());
+        if !canon_parent.starts_with(&canon_dir) {
+            return Err("Refusing to write outside Desktop\\screenshot.".into());
+        }
+    }
+    fs::write(&path, bytes).map_err(|e| format!("Could not write image: {e}"))?;
+    Ok(path.display().to_string())
+}
+
 #[tauri::command]
 pub fn open_data_folder(app: AppHandle) -> Result<(), String> {
     let (dir, _) = resolve_dirs(&app)?;
@@ -264,8 +375,11 @@ pub fn open_data_subfolder(app: AppHandle, folder: String) -> Result<(), String>
         return Err("Refusing to open a folder outside ArcSonare data roots.".into());
     }
 
+    // Open the plain path, not the canonicalized one. On Windows canonicalize()
+    // returns an extended-length \?\C:\... path, which Explorer refuses with
+    // "Location is not available". Canonical forms are for the check above only.
     std::process::Command::new("explorer")
-        .arg(&canon_target)
+        .arg(&target)
         .spawn()
         .map_err(|e| format!("could not open Explorer: {e}"))?;
     Ok(())

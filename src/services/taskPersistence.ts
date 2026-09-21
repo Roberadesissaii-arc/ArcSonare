@@ -77,15 +77,56 @@ export function taskToPayload(task: ArcSonareTask): Record<string, unknown> {
 }
 
 export async function listTasksFromDb(): Promise<ArcSonareTask[]> {
-  const rows = await invoke<LocalTaskRow[]>("tasks_list_local");
-  return rows.map(rowToTask);
+  const rows = await invoke<LocalTaskRow[] | null>("tasks_list_local");
+  const list = Array.isArray(rows) ? rows : [];
+  return list
+    .filter((r) => r && typeof r.id === "string")
+    .map((r) => {
+      try {
+        return rowToTask(r);
+      } catch (err) {
+        console.error("[ArcSonare] bad task row", r?.id, err);
+        return normalizeTaskFromUnknown({
+          id: r.id,
+          title: r.title || r.id,
+        });
+      }
+    });
 }
 
 export async function upsertTaskToDb(task: ArcSonareTask): Promise<ArcSonareTask> {
-  const row = await invoke<LocalTaskRow>("tasks_upsert_local", {
+  const row = await invoke<LocalTaskRow | null>("tasks_upsert_local", {
     task: taskToPayload(task),
   });
-  return rowToTask(row);
+  // Some hosts return void/null after a successful write — keep the input task.
+  if (!row || typeof row !== "object" || !("id" in row)) {
+    return task;
+  }
+  try {
+    return rowToTask(row);
+  } catch (err) {
+    console.error("[ArcSonare] task upsert row parse failed:", err);
+    return task;
+  }
+}
+
+/**
+ * Read one task straight back out of SQLite.
+ *
+ * The point is that it does not consult any in-memory cache. `readPersistedTasks()`
+ * returns the module's own array, so using it to confirm a write proved only
+ * that the write had touched the array — which is how a task that never reached
+ * the database came to be announced as created.
+ */
+export async function getTaskFromDb(taskId: string): Promise<ArcSonareTask | null> {
+  const row = await invoke<LocalTaskRow | null>("tasks_get_local", { taskId });
+  if (!row || typeof row !== "object" || !("id" in row)) return null;
+  try {
+    return rowToTask(row);
+  } catch (err) {
+    console.error("[ArcSonare] task read-back parse failed:", err);
+    return null;
+  }
 }
 
 export async function softDeleteTaskInDb(taskId: string): Promise<void> {

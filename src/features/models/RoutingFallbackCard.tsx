@@ -89,7 +89,7 @@ export function RoutingFallbackCard({
         </li>
         <li>
           <strong>Local first</strong>
-          <span>Offline fallback should usually be an Ollama model</span>
+          <span>Offline fallback is optional; chat uses DeepSeek when online</span>
         </li>
         <li>
           <strong>Honesty</strong>

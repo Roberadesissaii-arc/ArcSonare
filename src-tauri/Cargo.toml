@@ -1,8 +1,11 @@
 [package]
 name = "arcsonare"
-version = "0.2.14"
+version = "0.2.54"
 description = "ArcSonare — Sonare Desktop overlay"
 edition = "2021"
+# `src/bin/eval_selection.rs` made the crate ambiguous, and `tauri dev` runs a
+# bare `cargo run`. Without this the app refuses to start at all.
+default-run = "arcsonare"
 
 [lib]
 name = "arcsonare_lib"
@@ -31,6 +34,8 @@ uuid = { version = "1", features = ["v4", "serde"] }
 sha2 = "0.10"
 hex = "0.4"
 base64 = "0.22"
+# Cropping a capture down to the region the user drew around.
+image = { version = "0.25", default-features = false, features = ["png"] }
 # Safe default-browser / file opening (never raw shell with spoken input).
 open = "5"
 percent-encoding = "2"
@@ -53,6 +58,41 @@ rfd = "0.15"
 # Local account password hashing (Argon2id, salted, never stored in plaintext).
 argon2 = "0.5"
 rand_core = { version = "0.6", features = ["getrandom"] }
+regex = "1.10"
+zip = { version = "2.1", default-features = false, features = ["deflate"] }
+# Global System Media Transport Controls — the semantic media session Windows
+# already maintains for Spotify and every other player. Reading it is how
+# "what's playing?" gets a real track instead of a parsed window title, and
+# `TryPlayAsync`/`TrySkipNextAsync` are real transport commands rather than
+# synthesised keystrokes aimed at whatever happens to be focused.
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.58"
+features = [
+  "Foundation",
+  "Foundation_Collections",
+  "Media",
+  "Media_Control",
+  "Storage_Streams",
+  # UI Automation: the only supported way to read the structure of an
+  # application that is not ours. Used for the Discord adapter's channel and
+  # control discovery — never to capture the screen.
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_UI_Accessibility",
+  # Declared because `meeting/zoom_scan.rs` and the screen-context service use
+  # them directly. They were reaching these through feature unification — some
+  # other crate in the graph happened to turn them on — which builds until the
+  # dependency that did it moves, and then fails with an error that points at
+  # our code rather than at the missing feature.
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+]
+
+# Tauri's mock runtime, so the physical tests can call the real `#[tauri::command]`
+# functions instead of re-implementing what they do. Resolver 2 keeps this
+# feature out of the normal (non-test) build, so the shipped binary is unchanged.
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
 
 [profile.release]
 panic = "abort"

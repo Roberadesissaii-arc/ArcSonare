@@ -47,7 +47,6 @@ export function DeleteAllDataDialog({
           "google",
           "xai",
           "deepseek",
-          "ollama",
         ]) {
           await invoke("delete_provider_key", { provider }).catch(() => undefined);
         }

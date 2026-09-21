@@ -3,7 +3,7 @@
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use serde_json::Value;
-use tauri::State;
+use tauri::{AppHandle, Emitter, Runtime, State};
 use uuid::Uuid;
 
 use super::manager::DatabaseManager;
@@ -237,6 +237,45 @@ fn upsert_task_in_tx(
     .map_err(|e| format!("read task after upsert: {e}"))
 }
 
+/// Told to every webview when the task table changes.
+///
+/// Voice runs in the `sonare-overlay` window and the Tasks page runs in `main`.
+/// Those are separate JavaScript heaps, so a task created by voice updated an
+/// array the Dashboard could never see. A Rust-owned event is the only thing
+/// both windows genuinely share.
+pub const TASKS_CHANGED_EVENT: &str = "arcsonare://tasks-changed";
+
+/// Read one task straight from the database.
+///
+/// Exists so a caller can verify a write actually landed. The frontend's own
+/// `readPersistedTasks()` returns its in-memory cache, so using it as a
+/// read-after-write check proved only that the cache had been written to — which
+/// is how a task that was never saved came to be announced as created.
+#[tauri::command]
+pub fn tasks_get_local(
+    state: State<'_, DatabaseManager>,
+    task_id: String,
+) -> Result<Option<LocalTaskRow>, String> {
+    let task_id = task_id.trim().to_string();
+    if task_id.is_empty() {
+        return Err("task_id is required".into());
+    }
+    state.with_conn_mut(|conn| {
+        let mut stmt = conn
+            .prepare(&format!(
+                "{TASK_SELECT} WHERE id = ?1 AND deleted_at IS NULL"
+            ))
+            .map_err(|e| format!("prepare task get: {e}"))?;
+        let mut rows = stmt
+            .query_map(params![task_id], row_from_query)
+            .map_err(|e| format!("query task: {e}"))?;
+        match rows.next() {
+            Some(row) => Ok(Some(row.map_err(|e| format!("map task: {e}"))?)),
+            None => Ok(None),
+        }
+    })
+}
+
 #[tauri::command]
 pub fn tasks_list_local(state: State<'_, DatabaseManager>) -> Result<Vec<LocalTaskRow>, String> {
     state.with_conn_mut(|conn| {
@@ -255,13 +294,14 @@ pub fn tasks_list_local(state: State<'_, DatabaseManager>) -> Result<Vec<LocalTa
 }
 
 #[tauri::command]
-pub fn tasks_upsert_local(
+pub fn tasks_upsert_local<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, DatabaseManager>,
     task: Value,
 ) -> Result<LocalTaskRow, String> {
     let user_id = state.sync_user_id()?;
     let device_id = ensure_device_id()?;
-    state.with_conn_mut(|conn| {
+    let row = state.with_conn_mut(|conn| {
         let tx = conn
             .transaction()
             .map_err(|e| format!("begin task upsert tx: {e}"))?;
@@ -269,11 +309,16 @@ pub fn tasks_upsert_local(
         tx.commit()
             .map_err(|e| format!("commit task upsert tx: {e}"))?;
         Ok(row)
-    })
+    })?;
+    // After the commit, never before: a window told a task exists must be able
+    // to read it.
+    let _ = app.emit(TASKS_CHANGED_EVENT, &row.id);
+    Ok(row)
 }
 
 #[tauri::command]
-pub fn tasks_soft_delete_local(
+pub fn tasks_soft_delete_local<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, DatabaseManager>,
     task_id: String,
 ) -> Result<(), String> {
@@ -318,5 +363,7 @@ pub fn tasks_soft_delete_local(
         tx.commit()
             .map_err(|e| format!("commit task delete tx: {e}"))?;
         Ok(())
-    })
+    })?;
+    let _ = app.emit(TASKS_CHANGED_EVENT, &task_id);
+    Ok(())
 }

@@ -2,7 +2,7 @@ import type { MarbleTint } from "../../components/voice/SonareMarbleOrb";
 
 /**
  * ArcSonare voice characters (personalities).
- * Each character maps to a distinct Pocket TTS voice for live preview + overlay speech.
+ * Each character maps to a distinct provider voice for live preview + overlay speech.
  */
 export interface VoiceCharacter {
   id: string;
@@ -11,7 +11,7 @@ export interface VoiceCharacter {
   description: string;
   marbleTint: MarbleTint;
   sampleGreeting: string;
-  /** Pocket TTS voice id used for preview and overlay replies. */
+  /** OpenAI Realtime voice id used for preview and overlay replies. */
   preferredProviderVoiceId: string;
 }
 
@@ -24,7 +24,7 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     marbleTint: "violet",
     sampleGreeting:
       "Hello, I’m Sonare — your calm ArcSonare assistant. Ready when you are.",
-    preferredProviderVoiceId: "vera",
+    preferredProviderVoiceId: "marin",
   },
   {
     id: "vela",
@@ -34,7 +34,7 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     marbleTint: "warm",
     sampleGreeting:
       "Hi there — I’m Vela. Soft, friendly, and here for the long haul.",
-    preferredProviderVoiceId: "anna",
+    preferredProviderVoiceId: "coral",
   },
   {
     id: "orion",
@@ -44,7 +44,7 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     marbleTint: "blue",
     sampleGreeting:
       "Good day. I’m Orion. Concise briefings and clear next steps.",
-    preferredProviderVoiceId: "michael",
+    preferredProviderVoiceId: "cedar",
   },
   {
     id: "lyra",
@@ -54,7 +54,7 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     marbleTint: "teal",
     sampleGreeting:
       "Hey! I’m Lyra — bright, quick, and ready with a sharp answer.",
-    preferredProviderVoiceId: "eve",
+    preferredProviderVoiceId: "shimmer",
   },
   {
     id: "nova",
@@ -64,17 +64,17 @@ export const VOICE_CHARACTERS: VoiceCharacter[] = [
     marbleTint: "rose",
     sampleGreeting:
       "Hi — Nova here. Lively, expressive, and happy to chat.",
-    preferredProviderVoiceId: "mary",
+    preferredProviderVoiceId: "verse",
   },
   {
     id: "jane",
     displayName: "Jane",
     personality: "Conversational",
-    description: "Natural Pocket TTS conversation voice.",
+    description: "Natural conversation voice.",
     marbleTint: "pearl",
     sampleGreeting:
       "Hi — I’m Jane. Clear conversational speech for everyday talk.",
-    preferredProviderVoiceId: "jane",
+    preferredProviderVoiceId: "alloy",
   },
 ];
 

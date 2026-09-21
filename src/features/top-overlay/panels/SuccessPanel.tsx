@@ -12,6 +12,7 @@ export function SuccessPanel({ data, onDone }: SuccessPanelProps) {
   const icon = data.applicationId
     ? getIconById(data.applicationId)?.iconPath
     : undefined;
+  const isTranscript = data.summary === "Tap status to expand";
 
   return (
     <div className="overlay-panel success-panel">
@@ -23,15 +24,17 @@ export function SuccessPanel({ data, onDone }: SuccessPanelProps) {
             <CheckIcon size={18} />
           </span>
         )}
-        <span className="panel-heading">{data.title}</span>
+        <span className="panel-heading">{isTranscript ? "Transcript" : data.title}</span>
       </div>
-      <p className="panel-body">{data.summary}</p>
+      <p className={`panel-body${isTranscript ? " panel-body-transcript" : ""}`}>
+        {isTranscript ? data.title : data.summary || data.title}
+      </p>
       {data.destination ? (
         <p className="panel-note">Sent to: {data.destination}</p>
       ) : null}
       <div className="panel-actions">
         <button type="button" className="btn-ghost" onClick={onDone}>
-          Dismiss
+          Close
         </button>
         {data.openUrl && data.openLabel ? (
           <button

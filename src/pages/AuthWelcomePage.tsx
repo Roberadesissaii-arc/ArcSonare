@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArcSonareLogo } from "../components/brand/ArcSonareLogo";
 import { ArrowRightIcon } from "../components/Icons";
 import { OrbitalCommandMap } from "../components/dashboard/OrbitalCommandMap";
 import {
   createLocalAccount,
   signInWithUsername,
+  tryDevUnlock,
   unlockWithPassword,
 } from "../auth/authService";
 import { completeOnboarding } from "../auth/completeOnboarding";
@@ -25,6 +26,20 @@ export function AuthWelcomePage({ onComplete }: { onComplete?: () => void }) {
   const [message, setMessage] = useState<string | null>(null);
   const [profile] = useState(loadAccountProfile);
   const [knownAccount] = useState(loadLocalAccount);
+
+  // Development only. `tryDevUnlock` resolves false in a release build because
+  // the command it calls does not exist there, so this costs one failed invoke
+  // and the user types their password as usual.
+  useEffect(() => {
+    if (!locked) return;
+    let cancelled = false;
+    void tryDevUnlock().then((unlocked) => {
+      if (unlocked && !cancelled) onComplete?.();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [locked, onComplete]);
 
   async function submitCreate(event: FormEvent) {
     event.preventDefault();
@@ -82,7 +97,7 @@ export function AuthWelcomePage({ onComplete }: { onComplete?: () => void }) {
       className={`auth-welcome ${lockStyle ? "auth-welcome-locked" : "auth-welcome-setup"}`}
     >
       <div className="auth-orbital" aria-hidden="true">
-        <OrbitalCommandMap />
+        <OrbitalCommandMap examples />
       </div>
 
       <div className={`auth-panel${lockStyle ? " auth-panel-locked" : ""}`}>

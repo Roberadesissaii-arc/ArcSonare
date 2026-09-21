@@ -212,6 +212,60 @@ fn capture_inner(
 
 /// Returns a capture (or its annotated variant) as a PNG data URL for
 /// rendering inside the app — the CSP allows `img-src data:`.
+/// A capture cropped to one region, for "what is this?" about something the
+/// user drew around.
+///
+/// The crop is what makes the question answerable: handing over the whole
+/// screen and describing the region in words leaves the model to find it, which
+/// is the guessing this feature exists to remove. A margin is kept so the
+/// surroundings still give context.
+/// `id` is the frame id of a registered capture. The image's position on the
+/// desktop is read from that frame rather than passed in: an origin supplied by
+/// the caller is an origin that was inferred somewhere, and inferring it is what
+/// put crops — and the clicks that followed them — on the wrong monitor.
+#[tauri::command]
+pub fn get_capture_region_data_url(
+    app: AppHandle,
+    id: String,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> Result<String, String> {
+    use tauri::Manager;
+
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err("Invalid capture id.".into());
+    }
+    if width <= 0 || height <= 0 {
+        return Err("The drawn region has no area.".into());
+    }
+    let frame = app
+        .state::<crate::display::runtime::VisualRuntime>()
+        .frames()
+        .get(&id)
+        .ok_or("That screenshot is no longer on record — take a new one.")?;
+    let (origin_x, origin_y) = (frame.display_bounds.x, frame.display_bounds.y);
+
+    let path = storage::image_path(&app, &id, false)?;
+    let img = image::open(&path).map_err(|e| format!("Capture not readable: {e}"))?;
+    let (iw, ih) = (img.width() as i32, img.height() as i32);
+
+    let margin = 24;
+    let lx = (x - origin_x - margin).clamp(0, iw.saturating_sub(1));
+    let ly = (y - origin_y - margin).clamp(0, ih.saturating_sub(1));
+    let lw = (width + margin * 2).min(iw - lx).max(1);
+    let lh = (height + margin * 2).min(ih - ly).max(1);
+
+    let cropped = img.crop_imm(lx as u32, ly as u32, lw as u32, lh as u32);
+    let mut buf = std::io::Cursor::new(Vec::new());
+    cropped
+        .write_to(&mut buf, image::ImageFormat::Png)
+        .map_err(|e| format!("Could not encode the region: {e}"))?;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(buf.into_inner());
+    Ok(format!("data:image/png;base64,{encoded}"))
+}
+
 #[tauri::command]
 pub fn get_capture_data_url(app: AppHandle, id: String, annotated: bool) -> Result<String, String> {
     if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {

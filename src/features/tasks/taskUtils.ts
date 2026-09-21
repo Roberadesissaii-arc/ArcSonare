@@ -153,6 +153,9 @@ export function relativeTime(isoOrMs: string | number): string {
   const ms = typeof isoOrMs === "number" ? isoOrMs : Date.parse(isoOrMs);
   if (!Number.isFinite(ms)) return "";
   const diff = Date.now() - ms;
+  // A future timestamp gave a negative diff, which passed `sec < 60` and was
+  // reported as "just now" — a confident but wrong claim about when it happened.
+  if (diff < 0) return "just now";
   const sec = Math.floor(diff / 1000);
   if (sec < 60) return "just now";
   const min = Math.floor(sec / 60);

@@ -37,9 +37,15 @@ export function allGoogleScopes(): string[] {
   return [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.compose",
+    // Drafting is gmail.compose; actually sending needs gmail.send.
+    "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/drive.readonly",
+    // Docs authoring: documents writes the content, drive.file lets us create
+    // the file itself without asking for access to the user's whole Drive.
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/drive.file",
     "openid",
     "email",
   ];
@@ -61,4 +67,11 @@ export type GoogleOAuthStatus = {
   connected: boolean;
   email?: string | null;
   scopes: string[];
+  accountCount: number;
+};
+
+export type GoogleAccountSummary = {
+  accountId: string;
+  email?: string | null;
+  active: boolean;
 };

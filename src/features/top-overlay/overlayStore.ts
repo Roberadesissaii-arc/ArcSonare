@@ -95,6 +95,30 @@ export function setStatusText(status: string) {
   patchOverlay({ status });
 }
 
+export function clearOverlayError() {
+  if (!state.error) return;
+  patchOverlay({ error: undefined });
+}
+
+/** Expand/collapse the transcript / result dropdown under the capsule. */
+export function toggleOverlayTranscriptPanel() {
+  const next = !state.expanded;
+  // Prefer showing the latest assistant reply or user transcript.
+  const title =
+    state.result?.title ||
+    state.transcript ||
+    state.status ||
+    "Transcript";
+  patchOverlay({
+    expanded: next,
+    result: next
+      ? state.result ?? { title, summary: "" }
+      : state.result,
+    // Don't keep an error panel if the user just wants the transcript.
+    error: next ? undefined : state.error,
+  });
+}
+
 export function setApplicationContext(
   applicationId: string | undefined,
   applicationIcon: string | undefined,

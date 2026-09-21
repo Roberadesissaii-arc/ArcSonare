@@ -665,11 +665,13 @@
 .modal {
   width: min(480px, calc(100vw - 80px));
   padding: 20px;
-  border-radius: 18px;
-  background: var(--sonare-panel-gradient);
-  border: var(--sonare-panel-border);
+  border-radius: 20px;
+  /* Same surface as .card on the Dashboard — a dialog must not look like it
+     came from a different application. Keep in step with cards.css. */
+  background: rgba(19, 25, 28, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: var(--sonare-panel-shadow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
 }
 
 .modal-head {
@@ -683,6 +685,15 @@
   font-size: 16px;
   font-weight: 500;
   color: var(--sonare-text-primary);
+}
+
+/* Prose inside a dialog. Distinct from .modal-label, which is an uppercase
+   micro-label and turned full sentences into shouting when misapplied. */
+.modal-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sonare-text-secondary);
 }
 
 .modal-label {

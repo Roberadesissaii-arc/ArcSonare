@@ -74,6 +74,13 @@ import twilio from "../assets/icons/integrations/twilio.svg";
 import unsplash from "../assets/icons/integrations/unsplash.svg";
 import higgsfield from "../assets/icons/integrations/higgsfield.svg";
 import elevenlabs from "../assets/icons/integrations/elevenlabs.svg";
+/** Desktop / browser apps used by dashboard “Opened apps” (from repo ICO pack). */
+import chrome from "../assets/icons/integrations/chrome.png";
+import firefox from "../assets/icons/integrations/firefox.png";
+import edge from "../assets/icons/integrations/edge.png";
+import brave from "../assets/icons/integrations/brave.png";
+import vscode from "../assets/icons/integrations/vscode.png";
+import googleClassroom from "../assets/icons/integrations/google-classroom.png";
 
 export type UiIconName =
   | "general"
@@ -170,6 +177,29 @@ export type IntegrationId =
   | "higgsfield"
   | "elevenlabs";
 
+/**
+ * Ids whose source asset is a bare brand mark with no built-in colored
+ * container — unlike the icon-pack PNGs (and higgsfield/openweather's SVGs),
+ * which already ship as a filled, rounded-square app icon. Anywhere an
+ * integration icon renders, these get a CSS-drawn container (`.is-framed`)
+ * so they read as the same kind of icon instead of floating with no
+ * background next to ones that already have one.
+ */
+export const FRAMED_INTEGRATION_IDS = new Set<IntegrationId>([
+  "bitbucket",
+  "homeAssistant",
+  "x",
+  "mysql",
+  "postgresql",
+  "redis",
+  "tmdb",
+  "zillow",
+  "ssh",
+  "twilio",
+  "unsplash",
+  "elevenlabs",
+]);
+
 export const integrationIcons: Record<IntegrationId, string> = {
   gmail,
   outlook,
@@ -213,4 +243,25 @@ export const integrationIcons: Record<IntegrationId, string> = {
   unsplash,
   higgsfield,
   elevenlabs,
+};
+
+/**
+ * Desktop / browser icons (ICO pack) for Opened apps detection.
+ * Not all of these are Connect integrations, but they share the same asset folder.
+ */
+export type DesktopAppIconId =
+  | "chrome"
+  | "firefox"
+  | "edge"
+  | "brave"
+  | "vscode"
+  | "googleClassroom";
+
+export const desktopAppIcons: Record<DesktopAppIconId, string> = {
+  chrome,
+  firefox,
+  edge,
+  brave,
+  vscode,
+  googleClassroom,
 };

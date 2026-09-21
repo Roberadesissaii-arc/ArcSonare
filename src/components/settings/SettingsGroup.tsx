@@ -7,12 +7,26 @@ interface SettingsGroupProps {
   children: ReactNode;
   footer?: ReactNode;
   icon?: ReactNode;
+  className?: string;
 }
 
 /** @deprecated Prefer SettingsCard — kept as a thin alias for existing pages. */
-export function SettingsGroup({ title, description, children, footer, icon }: SettingsGroupProps) {
+export function SettingsGroup({
+  title,
+  description,
+  children,
+  footer,
+  icon,
+  className,
+}: SettingsGroupProps) {
   return (
-    <SettingsCard title={title} description={description} footer={footer} icon={icon}>
+    <SettingsCard
+      title={title}
+      description={description}
+      footer={footer}
+      icon={icon}
+      className={className}
+    >
       {children}
     </SettingsCard>
   );

@@ -3,8 +3,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
   CloseIcon,
-  CpuIcon,
-  FolderIcon,
   LayersIcon,
   PaperclipIcon,
   SearchIcon,
@@ -14,19 +12,19 @@ import {
   StopIcon,
   ZapIcon,
 } from "../Icons";
+import { invoke } from "@tauri-apps/api/core";
 import { SonareSparkle } from "../brand/SonareSparkle";
 import { addActivity } from "../../stores/appStore";
 import {
   clearCenterWork,
-  completeCenterWork,
   setCenterView,
-  startCenterWork,
 } from "../../stores/centerStageStore";
 import {
   appendAssistantMessageChunk,
   pushPendingAssistantMessage,
   pushUserMessage,
   resolveAssistantMessage,
+  setAssistantMessageStatus,
 } from "../../stores/chatStore";
 import { askAssistant } from "../../services/AssistantService";
 import { getPrefs } from "../../stores/settingsStore";
@@ -35,6 +33,7 @@ import {
   startSpeechListening,
   stopSpeechListening,
 } from "../../services/SpeechRecognitionService";
+import { WatchComposerControl } from "../watch/WatchComposerControl";
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const WAVEFORM_BARS = 20;
@@ -51,7 +50,7 @@ const MODES: ComposerMode[] = [
   {
     id: "smart",
     name: "Smart mode",
-    description: "Uses your default model from Settings → Models",
+    description: "Uses DeepSeek for chat (Settings → Voice & AI keys)",
     icon: SparkleIcon,
   },
   {
@@ -75,12 +74,6 @@ const MODES: ComposerMode[] = [
     icon: SearchIcon,
     comingLater: true,
   },
-  {
-    id: "local",
-    name: "Local mode",
-    description: "Always uses Ollama on this computer",
-    icon: CpuIcon,
-  },
 ];
 
 function formatRecordingTime(totalSeconds: number) {
@@ -89,18 +82,49 @@ function formatRecordingTime(totalSeconds: number) {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-/** Ask the selected default model (or force Ollama in Local mode) and show the exchange as a chat bubble. */
-async function runAssistant(text: string, forceLocal: boolean) {
+/** Ask DeepSeek (chat) and show the exchange as a chat bubble. */
+async function runAssistant(
+  text: string,
+  /** The user's own words — routing must ignore any mode instructions above. */
+  intentText?: string,
+) {
   const assistantId = pushPendingAssistantMessage();
   setCenterView("chat");
   setVoiceStatus("thinking");
 
+  // Snapshot the count first: a turn that runs no tool records no provenance,
+  // and attaching the previous answer's trace to it would make the diagnostics
+  // lie about the very thing they exist to prove.
+  const { getResponseProvenance } = await import(
+    "../../features/capabilities/executionTrace"
+  );
+  const provenanceBefore = getResponseProvenance().length;
+
   try {
     const reply = await askAssistant(text, {
-      forceLocal,
+      intentText,
+      onStatus: (status, capabilityId) =>
+        setAssistantMessageStatus(assistantId, status, capabilityId),
       onChunk: (delta) => appendAssistantMessageChunk(assistantId, delta),
     });
-    resolveAssistantMessage(assistantId, reply.text);
+    const provenance = getResponseProvenance();
+    resolveAssistantMessage(assistantId, reply.text, {
+      // Credited only when the watched context actually contributed. An
+      // application that merely happened to be watched is not a source.
+      watchedSources: reply.watchedSources,
+      diagnostics:
+        provenance.length > provenanceBefore
+          ? provenance[provenance.length - 1]
+          : undefined,
+      // `source` is developer provenance and is not rendered; `resultSource` is
+      // what the footer shows.
+      source: { label: reply.sourceLabel, tool: reply.localTool },
+      resultSource: reply.source,
+      actions: reply.actions,
+      results: reply.results,
+      captureId: reply.captureId,
+      images: reply.images,
+    });
     addActivity(`ArcSonare: ${reply.text.slice(0, 120)}`, "agent");
   } catch (err) {
     const message =
@@ -114,9 +138,8 @@ async function runAssistant(text: string, forceLocal: boolean) {
 }
 
 /**
- * Bottom command composer. Smart mode uses your default model from
- * Settings → Models (same as the voice overlay). Local mode forces Ollama.
- * Typed replies stay silent — Pocket TTS only speaks on the voice overlay.
+ * Bottom command composer. Smart mode uses DeepSeek for chat (Settings → Voice
+ * & AI keys). Typed replies stay silent — speech only happens on the voice overlay.
  */
 export function CommandComposer() {
   const [value, setValue] = useState("");
@@ -126,7 +149,6 @@ export function CommandComposer() {
   const [busy, setBusy] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [reasoningActive, setReasoningActive] = useState(false);
-  const [canvasActive, setCanvasActive] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -238,13 +260,38 @@ export function CommandComposer() {
     });
   };
 
-  const toggleCanvas = () => setCanvasActive((v) => !v);
 
-  const activeModeNote = () => {
-    if (searchActive) return "Search mode requested";
-    if (reasoningActive) return "Reasoning mode requested";
-    if (canvasActive) return "Canvas mode requested";
+  // "watch" is deliberately absent. It was never a composer *mode* — it came
+  // from whether any application happened to be watched, which put a Watch chip
+  // on messages the user never marked. Which application contributed to a turn
+  // is reported on the message itself, from what the answer actually used.
+  const activeMode = (): "search" | "reasoning" | undefined => {
+    if (searchActive) return "search";
+    if (reasoningActive) return "reasoning";
     return undefined;
+  };
+
+  /**
+   * Each toggle changes what actually happens, not just the bubble label.
+   * Search opens a real web search (web.search can open a query but cannot
+   * read results back, so the model is told not to claim it browsed).
+   * Watch steers the model toward apps the user activated in Running apps.
+   */
+  /**
+   * Mode hints for the model. Keep them SHORT and never put long policy essays
+   * in the user message — when the user asks “why?”, models explain those
+   * instructions instead of the real outcome (Watch-mode prompt leak).
+   */
+  const applyMode = (
+    text: string,
+    activeToggle: ReturnType<typeof activeMode>,
+  ): string => {
+    switch (activeToggle) {
+      case "reasoning":
+        return `Think step by step briefly, then conclude.\n\n${text}`;
+      default:
+        return text;
+    }
   };
 
   /** Drives the waveform bars from real mic input (separate stream from speech recognition). */
@@ -331,48 +378,59 @@ export function CommandComposer() {
     if ((!text && !attachedFile) || busy) return;
     if (isRecording) stopRecording();
 
-    const contextNote = activeModeNote();
-    const attachmentNote = attachedFile ? `\n\n[Attached image: ${attachedFile.name}]` : "";
-    const outgoingText = `${text}${attachmentNote}`;
+    const activeToggle = activeMode();
+    // The attachment is metadata on the bubble, not text glued onto the
+    // message — the model still gets the filename so it can refer to it.
+    const attachmentContext = attachedFile
+      ? `\n\n(The user attached an image named "${attachedFile.name}".)`
+      : "";
+    const outgoingText = `${applyMode(text, activeToggle)}${attachmentContext}`;
+    const attachmentMeta = attachedFile
+      ? { name: attachedFile.name, dataUrl: attachedPreview ?? undefined }
+      : undefined;
 
     addActivity(`You: "${text || attachedFile?.name}"`, "command");
     setValue("");
     removeAttachment();
     setSearchActive(false);
     setReasoningActive(false);
-    setCanvasActive(false);
+    // The Watch control is deliberately not reset here. It is a scope the user
+    // set for the conversation, not a per-message mode: clearing it on send
+    // would mean re-selecting the application before every follow-up.
     setBusy(true);
-
-    const lower = text.toLowerCase();
 
     const finish = () => setBusy(false);
 
-    if (lower.startsWith("create a task") || lower.startsWith("create task")) {
-      startCenterWork({
-        kind: "create-task",
-        title: "Creating task",
-        status: "Preparing task form",
-        step: text.replace(/^create (a )?task[:\s]*/i, "") || "New task",
-        progress: 50,
-        contextNote: "Task will be saved locally.",
-        resultReady: false,
+    // Search mode opens a real web search alongside the answer. web.search can
+    // launch a query but cannot read results, so the model is told as much and
+    // must not claim it browsed anything.
+    if (activeToggle === "search" && text) {
+      void invoke("overlay_web_search", { query: text }).catch((err: unknown) => {
+        console.error("[ArcSonare] composer web search failed:", err);
       });
-      window.setTimeout(() => {
-        completeCenterWork({
-          status: "Open Tasks to finish creating this item.",
-          step: "Task draft prepared locally.",
-        });
-        finish();
-      }, 700);
-      return;
     }
 
-    // Everything else — including “hello” — uses the selected default model.
-    const bubbleText = contextNote
-      ? `${text || attachedFile?.name || ""}\n\n(${contextNote})`
-      : text || attachedFile?.name || "";
-    pushUserMessage(bubbleText);
-    void runAssistant(outgoingText, mode.id === "local").finally(finish);
+    // No watched-source badge on the outgoing message. It used to be stamped
+    // from the active scope at send time, which was a guess made before the
+    // prompt existed: "what's the weather?" carried a "Discord context" badge
+    // while the relevance gate had correctly excluded Discord entirely. The
+    // reply carries the badge instead, credited from what the prompt actually
+    // contained.
+    pushUserMessage(text || attachedFile?.name || "", {
+      attachment: attachmentMeta,
+      mode: activeToggle,
+    });
+
+    // A pasted URL still reaches `web.fetch_page` through the engine's
+    // deterministic routing. That never needed a composer toggle, which is why
+    // Browser mode was removed rather than replaced: its branch reduced to the
+    // user's own text.
+    const modelText =
+      activeToggle === "search"
+        ? `${outgoingText}\n\n(A web search for this was opened in the user's browser. You cannot read those results — answer from your own knowledge and do not claim to have browsed.)`
+        : outgoingText;
+
+    void runAssistant(modelText, text).finally(finish);
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -506,6 +564,7 @@ export function CommandComposer() {
             onClick={toggleSearch}
             disabled={busy || isRecording}
             aria-pressed={searchActive}
+            title="Open a web search for your message (does not read the page)"
           >
             <SearchIcon size={14} />
             <span className="toggle-pill-label">Search</span>
@@ -526,16 +585,13 @@ export function CommandComposer() {
 
           <span className="composer-divider" aria-hidden="true" />
 
-          <button
-            type="button"
-            className={`toggle-pill toggle-pill-canvas${canvasActive ? " active" : ""}`}
-            onClick={toggleCanvas}
-            disabled={busy || isRecording}
-            aria-pressed={canvasActive}
-          >
-            <FolderIcon size={14} />
-            <span className="toggle-pill-label">Canvas</span>
-          </button>
+          {/* Browser mode used to sit here. Traced by behaviour rather than by
+              icon, it did nothing: its branch reduced to the user's own text,
+              and `web.fetch_page` already routes deterministically on a pasted
+              URL without any toggle. Search was kept because it has a real
+              effect of its own — it opens a search in the user's browser
+              without a model round-trip. Watch takes the freed slot. */}
+          <WatchComposerControl disabled={busy || isRecording} />
         </div>
         <div className="composer-right">
           <div className="composer-mode" ref={modeRef}>

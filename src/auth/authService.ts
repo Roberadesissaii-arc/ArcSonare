@@ -10,6 +10,7 @@ import {
   saveLocalAccount,
   type LocalAccount,
 } from "./localAccount";
+import { setProfileDisplayName } from "../stores/appStore";
 
 /** Single-flight bootstrap — AuthWelcome must not re-enter "initializing". */
 let authBootstrap: Promise<void> | null = null;
@@ -36,6 +37,11 @@ async function openUserDatabase(userId: string): Promise<void> {
   // the user DB is actually open so tasks/agents load for the signed-in account.
   void import("../stores/taskStore").then((m) => m.hydrateTasksFromDb());
   void import("../features/agents/agentStore").then((m) => m.hydrateAgentsFromDb());
+  // Watched applications live in the per-user database too, so the rendered
+  // list belongs to whoever just signed in — not to whoever was here before.
+  void import("../features/watch/watchStore").then((m) =>
+    m.resetWatchStateForAccountChange(),
+  );
 }
 
 export async function initializeAuth(): Promise<void> {
@@ -70,6 +76,9 @@ async function completeSignIn(userId: string, displayName: string): Promise<void
   await openUserDatabase(userId);
   unlockOverlay();
   markSessionActive();
+  // Publish the name straight away. Without this the dashboard greeting stayed
+  // empty until the next launch, when hydration reads it back off the account.
+  setProfileDisplayName(displayName);
   setAuthState("signed-in", {
     user: { id: userId, email: null, displayName },
     lastValidatedAt: new Date().toISOString(),
@@ -122,6 +131,35 @@ export async function unlockWithPassword(password: string): Promise<void> {
   await completeSignIn(account.userId, account.displayName);
 }
 
+/**
+ * Sign in using the local development password, in debug builds only.
+ *
+ * Every restart during development stopped at the lock screen, which meant the
+ * automated restart regression could not get past step 8 without someone typing
+ * a password. This is not a bypass: the password is verified against the same
+ * Argon2 hash as `unlockWithPassword`, it simply comes from a local gitignored
+ * file or `ARCSONARE_DEV_PASSWORD` instead of a keystroke.
+ *
+ * In a release build the `dev_unlock` command does not exist — the Rust module
+ * is behind `#[cfg(debug_assertions)]` — so `invoke` rejects and this returns
+ * false. There is no flag that could be flipped to change that.
+ */
+export async function tryDevUnlock(): Promise<boolean> {
+  const account = loadLocalAccount();
+  if (!account) return false;
+  try {
+    const result = await invoke<{ available: boolean; unlocked: boolean }>("dev_unlock", {
+      hash: account.passwordHash,
+    });
+    if (!result?.unlocked) return false;
+    await completeSignIn(account.userId, account.displayName);
+    return true;
+  } catch {
+    // Release build, or no local credential configured. Both mean "type it".
+    return false;
+  }
+}
+
 /** Signs back in after an explicit logout — requires username + password. */
 export async function signInWithUsername(
   username: string,
@@ -162,6 +200,14 @@ export async function signOut(options?: {
     await invoke("database_remove_current_user_files").catch(() => undefined);
   }
   await invoke("database_open_guest").catch(() => undefined);
+  // Drop the previous account's watched applications from every window, and
+  // invalidate anything still waiting on one of their instances.
+  await import("../features/watch/watchStore")
+    .then((m) => m.resetWatchStateForAccountChange())
+    .catch(() => undefined);
+  await import("../features/watch/watchPendingActions")
+    .then((m) => m.__resetWatchActions())
+    .catch(() => undefined);
   lockOverlay();
   nextSignedOutState(loadLocalAccount());
 }

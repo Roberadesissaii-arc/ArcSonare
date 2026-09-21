@@ -4,6 +4,9 @@ src-tauri/target
 src-tauri/gen/schemas
 *.local
 .env
+# Local development unlock password. Never committed; read only by the
+# debug-only `dev_unlock` module, which does not exist in release builds.
+.dev-password
 .env.local
 .env.*.local
 *.secret
@@ -21,3 +24,23 @@ app-icon.png
 # Large local-only reference material — not part of the app
 Arceclaw/
 background/
+
+# Dev-only overlay test trigger (transient)
+public/overlay-test-trigger.json
+overlay-test-log.jsonl
+
+# Screenshots written by scripts/verify-pointer.ps1
+pointer-proof-*.png
+
+# Debug-only diagnostics from physical annotation runs. Never committed.
+test-output/
+node_modules/
+.next/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.log
+test-results/
+playwright-report/

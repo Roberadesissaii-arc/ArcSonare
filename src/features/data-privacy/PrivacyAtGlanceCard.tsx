@@ -112,7 +112,7 @@ function buildStatements(
       : {
           title: "Cloud processing is off",
           description:
-            "Cloud providers are blocked. Local models like Ollama still work.",
+            "Cloud providers are blocked until you turn cloud processing on.",
           tone: "ok",
         },
     dp.allowCloud && !dp.askBeforeCloud

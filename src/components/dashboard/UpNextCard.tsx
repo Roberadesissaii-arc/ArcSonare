@@ -83,6 +83,7 @@ export function UpNextCard() {
       <div className="card-head">
         <span className="card-label">Up Next</span>
       </div>
+      <p className="card-lede">What’s coming up next on your schedule.</p>
       {events.length === 0 ? (
         <EmptyState
           icon={<ClockIcon size={23} />}
@@ -94,6 +95,7 @@ export function UpNextCard() {
         <ul className="upnext-list">
           {events.map((task) => {
             const place = placeForTask(task);
+            const due = dueDisplay(task);
             return (
               <li key={task.id}>
                 <button
@@ -102,7 +104,12 @@ export function UpNextCard() {
                   onClick={() => navigate("tasks")}
                   aria-label={`Open task: ${task.title}`}
                 >
-                  <span className="upnext-time">{dueLabel(task)}</span>
+                  <span className="upnext-time" title={task.due?.trim() || due.primary}>
+                    <span className="upnext-time-primary">{due.primary}</span>
+                    {due.secondary ? (
+                      <span className="upnext-time-secondary">{due.secondary}</span>
+                    ) : null}
+                  </span>
                   <span className="upnext-meta">
                     <span className="upnext-title">{task.title}</span>
                     <span className="upnext-place">
@@ -129,9 +136,52 @@ export function UpNextCard() {
   );
 }
 
-function dueLabel(task: Task): string {
-  if (task.due?.trim()) return task.due.trim();
-  if (task.dueBucket === "today") return "Today";
-  if (task.dueBucket === "upcoming") return "Soon";
-  return "Open";
+type DueDisplay = { primary: string; secondary?: string };
+
+function calendarDayOffset(date: Date): number {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((target.getTime() - start.getTime()) / 86_400_000);
+}
+
+function dueDisplay(task: Task): DueDisplay {
+  const raw = task.due?.trim();
+  if (!raw) {
+    if (task.dueBucket === "today") return { primary: "Today" };
+    if (task.dueBucket === "upcoming") return { primary: "Soon" };
+    return { primary: "Open" };
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const offset = calendarDayOffset(parsed);
+    const primary =
+      offset === 0
+        ? "Today"
+        : offset === 1
+          ? "Tomorrow"
+          : offset > 1 && offset < 7
+            ? parsed.toLocaleDateString([], { weekday: "short" })
+            : parsed.toLocaleDateString([], { month: "short", day: "numeric" });
+    const hasExplicitTime = /T\d{1,2}:\d{2}|\d{1,2}:\d{2}/.test(raw);
+    return {
+      primary,
+      secondary: hasExplicitTime
+        ? parsed.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : undefined,
+    };
+  }
+
+  const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    return { primary: parts[0], secondary: parts.slice(1).join(", ") };
+  }
+  const commonLabel = ["today", "tomorrow", "soon", "open"].find(
+    (label) => label === raw.toLowerCase(),
+  );
+  if (commonLabel) {
+    return { primary: commonLabel[0].toUpperCase() + commonLabel.slice(1) };
+  }
+  return { primary: raw };
 }

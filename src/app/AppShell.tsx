@@ -13,7 +13,9 @@ import { hydrateAgentsFromDb } from "../features/agents/agentStore";
 import { syncConnectionBrokerFromIntegrations } from "../services/integrationStatusService";
 import { bindShortcutActions } from "../features/shortcuts/bindShortcutActions";
 import { patchPrefs, usePrefs, useSettingsHydrated } from "../stores/settingsStore";
-import { hydrateTasksFromDb } from "../stores/taskStore";
+import { resolveBackgroundSrc } from "../config/backgroundLibrary";
+import { hydrateTasksFromDb, listenForTaskChanges } from "../stores/taskStore";
+import { setConversationScope } from "../features/conversation/conversationContext";
 import { ACCENT_SWATCHES } from "../components/settings/ColorPicker";
 import { CustomTitleBar } from "./CustomTitleBar";
 import { AppHeader } from "./AppHeader";
@@ -27,6 +29,7 @@ import { ConnectPage } from "../pages/ConnectPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { AuthWelcomePage } from "../pages/AuthWelcomePage";
 import { AppErrorBoundary } from "./AppErrorBoundary";
+import { DisplayMappingPrompt } from "../features/display-mapping/DisplayMappingPrompt";
 import { LocationPermissionModal } from "../features/location/LocationPermissionModal";
 
 /** The main Command Center window. */
@@ -41,9 +44,20 @@ export function AppShell() {
   const [hidden, setHidden] = useState(document.hidden);
   const [locationPromptOpen, setLocationPromptOpen] = useState(false);
 
+  // A bundled key with no model selected still answered "nothing connected".
+  // Runs after settings hydrate so it never races the saved selection.
+  useEffect(() => {
+    if (!settingsHydrated) return;
+    void import("../features/models/autoSelectDefault").then((m) =>
+      m.autoSelectDefaultModel(),
+    );
+  }, [settingsHydrated]);
+
   useEffect(() => {
     hydrateProfileDisplayName();
     void hydrateTasksFromDb();
+    // Another window (the voice overlay) may create tasks; hear about them.
+    void listenForTaskChanges();
     void hydrateAgentsFromDb();
     // Auth must run even when onboarding is already done — otherwise the
     // session stays "initializing" and the voice overlay never unlocks.
@@ -82,6 +96,30 @@ export function AppShell() {
       console.error("[ArcSonare] failed to persist overlay unlock:", err);
     });
   }, [settingsHydrated, auth.state, prefs.general.overlayUnlocked]);
+
+  // Point the conversation ledger at the signed-in account.
+  //
+  // Changing account replaces the ledger rather than filtering it, so an entity
+  // recorded for one user can never be resolved by another — "open it" after a
+  // switch finds nothing and asks, instead of opening the previous user's file.
+  useEffect(() => {
+    setConversationScope("main-chat", auth.user?.id ?? "anonymous");
+  }, [auth.user?.id]);
+
+  // First signed-in launch: greet out loud, once. Uses a pre-generated clip
+  // so the welcome does not depend on a provider being connected yet.
+  useEffect(() => {
+    if (!settingsHydrated) return;
+    if (auth.state !== "signed-in" && auth.state !== "offline-authenticated") return;
+    if (prefs.general.welcomePlayed) return;
+    patchPrefs("general", { welcomePlayed: true });
+    const timer = window.setTimeout(() => {
+      void import("../services/builtinVoice").then(({ playBuiltinVoice }) =>
+        playBuiltinVoice("welcome"),
+      );
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [settingsHydrated, auth.state, prefs.general.welcomePlayed]);
 
   // After a signed-in session is ready, ask once for location.
   useEffect(() => {
@@ -163,10 +201,13 @@ export function AppShell() {
 
   const openCreateTask = () => setCreateTaskOpen(true);
 
-  const customBackground = prefs.appearance.customBackgroundPath;
-  const shellStyle = customBackground
+  const customBackgroundSrc = resolveBackgroundSrc(
+    prefs.appearance.customBackgroundPath,
+    convertFileSrc,
+  );
+  const shellStyle = customBackgroundSrc
     ? ({
-        "--sonare-custom-bg-image": `url("${convertFileSrc(customBackground)}")`,
+        "--sonare-custom-bg-image": `url("${customBackgroundSrc}")`,
       } as React.CSSProperties)
     : undefined;
 
@@ -193,7 +234,7 @@ export function AppShell() {
   if (!signedIn) {
     return (
       <div
-        className={`app-shell auth-app-shell${hidden ? " app-paused" : ""}${customBackground ? " has-custom-background" : ""}`}
+        className={`app-shell auth-app-shell${hidden ? " app-paused" : ""}${customBackgroundSrc ? " has-custom-background" : ""}`}
         style={shellStyle}
       >
         <CustomTitleBar />
@@ -207,7 +248,7 @@ export function AppShell() {
   return (
     <AppErrorBoundary fallbackTitle="ArcSonare failed to open">
       <div
-        className={`app-shell${hidden ? " app-paused" : ""}${customBackground ? " has-custom-background" : ""}`}
+        className={`app-shell${hidden ? " app-paused" : ""}${customBackgroundSrc ? " has-custom-background" : ""}`}
         style={shellStyle}
       >
         <CustomTitleBar />
@@ -231,6 +272,9 @@ export function AppShell() {
           open={locationPromptOpen}
           onClose={() => setLocationPromptOpen(false)}
         />
+        {/* Non-blocking: it appears over the shell, and everything native keeps
+            working whether or not the user acts on it. */}
+        <DisplayMappingPrompt />
       </div>
     </AppErrorBoundary>
   );

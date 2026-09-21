@@ -84,6 +84,14 @@ export interface ToolResult<T = unknown> {
 export interface CapabilityConfirmation {
   /** Native token when the backend issued one (destructive ops). */
   token?: string;
+  /**
+   * The Rust-owned pending action this question belongs to.
+   *
+   * Carried on the confirmation so the overlay can answer a question the main
+   * window raised, and vice versa: both windows resolve one action id through
+   * Rust rather than each looking in its own heap for a run it never saw.
+   */
+  actionId?: string;
   runId: string;
   capabilityId: string;
   title: string;
@@ -114,7 +122,15 @@ export interface CapabilityDefinition {
     | "web"
     | "arcsonare"
     | "tasks"
-    | "location";
+    | "location"
+    /**
+     * Watched applications. A separate category because these capabilities are
+     * only offered when the user is watching the application they act on —
+     * `system.*` and `applications.*` are always available, and conflating them
+     * would put Spotify transport controls in front of a model that has no
+     * Spotify to control.
+     */
+    | "watched-app";
   aliases: string[];
   intentExamples: string[];
   negativeExamples?: string[];
@@ -135,6 +151,16 @@ export interface CapabilityDefinition {
   /** "native" → Rust capability_execute; "frontend" → local TS executor. */
   executor: "native" | "frontend";
   verifier?: string;
+  /**
+   * Catalog id of the application this capability acts on.
+   *
+   * Present only on watched-application capabilities. The retrieval gate uses
+   * it to withhold the capability unless that application is actually being
+   * watched and actually running — so the model is never offered a Spotify
+   * transport control with Spotify closed, and never has to explain away a tool
+   * it was just shown.
+   */
+  watchedApplicationId?: string;
 }
 
 export interface CapabilityStep {

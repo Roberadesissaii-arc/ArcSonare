@@ -23,10 +23,19 @@ pub const ACTION_EVENT: &str = "sonare:shortcut-action";
 pub const KNOWN_ACTIONS: &[&str] = &[
     VOICE_ACTION,
     "cancel-voice",
+    "select-voice-sonare",
+    "select-voice-vela",
+    "select-voice-orion",
+    "select-voice-lyra",
+    "select-voice-nova",
+    "select-voice-jane",
     "open-app",
     "hide-app",
     "command-palette",
     "create-task",
+    "dashboard-chat",
+    "dashboard-next-view",
+    "dashboard-previous-view",
     "open-tasks",
     "open-agent",
     "open-connect",
@@ -63,6 +72,15 @@ fn dispatch(app: &AppHandle, action: &str) {
         "open-app" => crate::panels::show_main(app),
         "hide-app" => crate::panels::hide_main_window(app),
         "open-settings" => crate::panels::show_settings(app),
+        // Draw mode must NOT show the main window: the whole point is to mark
+        // something on whatever is already on screen.
+        "draw-region" =>
+        {
+            #[cfg(windows)]
+            if let Err(e) = crate::native_overlay::arm_draw() {
+                log::warn!("could not arm draw mode: {e}");
+            }
+        }
         _ => forward(app, action),
     }
 }
@@ -101,6 +119,12 @@ pub fn init() -> TauriPlugin<Wry> {
             }
         })
         .build()
+}
+
+/// Register one action against one accelerator. Used for bindings that are not
+/// user-configurable, such as the draw-region hotkey.
+pub fn register_action(app: &AppHandle, action: &str, value: &str) -> Result<(), String> {
+    register_binding(app, action, value)
 }
 
 fn register_binding(app: &AppHandle, action: &str, value: &str) -> Result<(), String> {

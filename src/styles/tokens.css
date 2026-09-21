@@ -27,6 +27,9 @@
   --sonare-text-disabled: #464d4a;
 
   --sonare-violet: #9168ff;
+  /** Text/icon colour on a violet-filled surface. Never use --sonare-violet-light
+      here: light purple on violet is unreadable. */
+  --sonare-on-accent: #f7f1ff;
   --sonare-violet-light: #c29bff;
   --sonare-violet-dark: #5b3ab8;
   --sonare-violet-soft: rgba(145, 104, 255, 0.16);
@@ -101,6 +104,26 @@
     rgba(8, 14, 18, 0.24) 37%,
     rgba(5, 9, 12, 1) 74%
   );
+
+  /*
+   * Dashboard side-rail rows.
+   *
+   * Both rails read these, so Focus/Up Next, Meeting Intelligence/Urgent and
+   * Applications/Running Apps are the same height because they are literally
+   * the same grid row, not because two numbers were kept in step by hand.
+   *
+   * The `-min` floors stop a short window from crushing a card into a strip;
+   * the fractions divide whatever is left over.
+   */
+  --dashboard-side-width: 326px;
+  --dashboard-column-gap: 22px;
+  --dashboard-row-gap: 12px;
+  --dashboard-row-top-min: 148px;
+  --dashboard-row-top: 1.05fr;
+  --dashboard-row-middle-min: 200px;
+  --dashboard-row-middle: 1.25fr;
+  --dashboard-row-bottom-min: 156px;
+  --dashboard-row-bottom: 1fr;
 }
 
 :root[data-theme="light"] {

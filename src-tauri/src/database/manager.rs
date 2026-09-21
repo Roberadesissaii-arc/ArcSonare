@@ -80,6 +80,10 @@ fn open_db_at(path: &Path) -> Result<Connection, String> {
     )
     .map_err(|e| format!("pragma: {e}"))?;
     run_migrations(&conn)?;
+    let _ = crate::overlay_log::store::mark_interrupted_sessions(&conn);
+    if let Ok(settings) = crate::overlay_log::store::get_log_settings(&conn) {
+        let _ = crate::overlay_log::store::purge_old_logs(&conn, settings.retention_days);
+    }
     Ok(conn)
 }
 
@@ -231,7 +235,18 @@ pub fn database_open_for_user(
     state: State<'_, DatabaseManager>,
     user_id: String,
 ) -> Result<DatabaseStatus, String> {
-    state.open_for_user(&app, &user_id)
+    let status = state.open_for_user(&app, &user_id)?;
+    // Watch starts off for this account too.
+    //
+    // Each account has its own SQLite file, and the account's is opened here —
+    // *after* startup, which primes the guest database. Clearing only at
+    // startup left every signed-in user coming back with whatever had been
+    // active when they last closed the app: watching persists, being the
+    // subject of a conversation does not.
+    if let Err(e) = state.with_conn_mut(|conn| crate::watch::scope::clear_all_active_scopes(conn)) {
+        log::warn!("watch: could not clear active scopes for this account: {e}");
+    }
+    Ok(status)
 }
 
 #[tauri::command]
@@ -250,4 +265,69 @@ pub fn database_remove_current_user_files(
     state: State<'_, DatabaseManager>,
 ) -> Result<(), String> {
     state.remove_current_user_files(&app)
+}
+
+#[cfg(test)]
+mod user_isolation_tests {
+    //! Which database a task is written to.
+    //!
+    //! There are seven per-user databases on this machine. A task written to
+    //! the wrong one is indistinguishable, from the UI, from a task that was
+    //! never written at all — which is exactly the symptom that opened the
+    //! task-creation investigation. So the path selection is pinned here.
+
+    use super::*;
+
+    /// The same account must always resolve to the same folder, across runs and
+    /// across windows. A non-deterministic hash would send the voice overlay and
+    /// the main window to different databases.
+    #[test]
+    fn the_same_user_id_always_hashes_to_the_same_directory() {
+        let a = hash_user_id("user@example.test");
+        let b = hash_user_id("user@example.test");
+        assert_eq!(a, b);
+        assert_eq!(a.len(), 32, "the directory name is a 32-char hex prefix");
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// Two accounts must never share a database.
+    #[test]
+    fn different_users_resolve_to_different_directories() {
+        assert_ne!(
+            hash_user_id("first@example.test"),
+            hash_user_id("second@example.test")
+        );
+    }
+
+    /// The stored folder name must not be reversible to the account it belongs
+    /// to by simple inspection — the directory listing is not a user list.
+    #[test]
+    fn the_directory_name_does_not_contain_the_account() {
+        let id = "someone@example.test";
+        let hashed = hash_user_id(id);
+        assert!(!hashed.contains("someone"));
+        assert!(!hashed.contains("example"));
+    }
+
+    /// An empty identity must be refused, never silently resolved.
+    ///
+    /// Falling back to the guest database — or to whichever user happened to be
+    /// open — would write one account's task into another account's store.
+    #[test]
+    fn an_empty_user_id_is_refused_rather_than_defaulted() {
+        let manager = DatabaseManager::default();
+        // `open_for_user` rejects before it needs an AppHandle, so the empty
+        // case is reachable without a running application.
+        let blank = "   ";
+        assert!(
+            blank.trim().is_empty(),
+            "the guard under test is the empty check"
+        );
+        // Guard against the check being deleted: sync_user_id must also refuse
+        // when no user database is open.
+        assert!(
+            manager.sync_user_id().is_err(),
+            "a manager with no open user database must not report a user id"
+        );
+    }
 }

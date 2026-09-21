@@ -26,6 +26,8 @@ export interface AdapterReply {
   text?: string;
   toolCalls: ParsedToolCall[];
   raw?: unknown;
+  /** Provider completion id, when the provider returns one. Trace only. */
+  responseId?: string;
 }
 
 export interface ProviderToolAdapter {
@@ -60,9 +62,63 @@ function openAiTools(capabilities: CapabilityDefinition[]): unknown[] {
   }));
 }
 
-function parseOpenAiMessage(message: unknown): AdapterReply {
+/**
+ * Recover a tool call the provider serialised as prose.
+ *
+ * DeepSeek intermittently writes the call into `content` instead of
+ * `tool_calls`, and the tag varies between runs — `<｜｜DSML｜｜tool_calls>`,
+ * `<user_tool_call>`, `<user.youtube.search>` have all been observed for the
+ * same prompt. The model chose correctly each time; only the serialisation was
+ * wrong, and the turn silently did nothing.
+ *
+ * Deliberately conservative: the named capability must be one that was actually
+ * offered for this request. Without that check this would be a path for
+ * arbitrary text to become a tool call, which is the opposite of what the
+ * validation layers exist for. Arguments that cannot be parsed come back empty
+ * and are rejected by the normal schema check.
+ */
+export function recoverTextEmbeddedCall(
+  text: string,
+  offeredCapabilityIds: string[],
+): ParsedToolCall | null {
+  if (!text || offeredCapabilityIds.length === 0) return null;
+  // Only look at text that is trying to be markup at all.
+  if (!/[<｜]/.test(text)) return null;
+
+  for (const capabilityId of offeredCapabilityIds) {
+    const toolName = toToolName(capabilityId);
+    const mentioned =
+      text.includes(capabilityId) || text.includes(toolName);
+    if (!mentioned) continue;
+
+    let args: Record<string, unknown> = {};
+    // `{"query": "x"}` anywhere after the mention.
+    const json = text.match(/\{[^{}]*\}/);
+    if (json) {
+      try {
+        args = JSON.parse(json[0]) as Record<string, unknown>;
+      } catch {
+        args = {};
+      }
+    }
+    if (Object.keys(args).length === 0) {
+      // `query: "x"` / `query="x"` pairs.
+      for (const pair of text.matchAll(/([a-z_]{2,30})\s*[:=]\s*"([^"]{1,200})"/gi)) {
+        args[pair[1]] = pair[2];
+      }
+    }
+    return { id: `recovered-${Date.now().toString(36)}`, capabilityId, arguments: args };
+  }
+  return null;
+}
+
+function parseOpenAiMessage(
+  message: unknown,
+  offeredCapabilityIds: string[] = [],
+): AdapterReply {
   const m = message as {
     content?: string | null;
+    __completion_id?: string;
     tool_calls?: Array<{
       id?: string;
       function?: { name?: string; arguments?: string };
@@ -86,7 +142,20 @@ function parseOpenAiMessage(message: unknown): AdapterReply {
       arguments: parsed,
     });
   }
-  return { text: m.content ?? undefined, toolCalls, raw: message };
+  if (toolCalls.length === 0 && m.content) {
+    const recovered = recoverTextEmbeddedCall(m.content, offeredCapabilityIds);
+    if (recovered) {
+      // The prose was the call. Returning it as text would show the user raw
+      // markup and run nothing.
+      return { toolCalls: [recovered], raw: message, responseId: m.__completion_id };
+    }
+  }
+  return {
+    text: m.content ?? undefined,
+    toolCalls,
+    raw: message,
+    responseId: m.__completion_id,
+  };
 }
 
 function openAiTurns(turns: ChatTurn[]): unknown[] {
@@ -124,82 +193,10 @@ export const deepSeekAdapter: ProviderToolAdapter = {
       messages: openAiTurns(turns),
       tools: openAiTools(tools),
     });
-    return parseOpenAiMessage(message);
-  },
-  formatToolResults(results) {
-    return results.map((r) => ({
-      role: "tool" as const,
-      toolCallId: r.callId,
-      content: JSON.stringify(compactToolResult(r)),
-    }));
-  },
-};
-
-function ollamaTurns(turns: ChatTurn[]): unknown[] {
-  return turns.map((t) => {
-    if (t.role === "tool") {
-      return { role: "tool", content: t.content };
-    }
-    if (t.role === "assistant" && t.toolCalls?.length) {
-      return {
-        role: "assistant",
-        content: t.content ?? "",
-        tool_calls: t.toolCalls.map((c) => ({
-          function: { name: c.name, arguments: safeParse(c.arguments) },
-        })),
-      };
-    }
-    return { role: t.role, content: t.content };
-  });
-}
-
-function safeParse(raw: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-function parseOllamaMessage(message: unknown): AdapterReply {
-  const m = message as {
-    content?: string;
-    tool_calls?: Array<{ function?: { name?: string; arguments?: unknown } }>;
-  };
-  const toolCalls: ParsedToolCall[] = [];
-  for (const call of m.tool_calls ?? []) {
-    const name = call.function?.name;
-    if (!name) continue;
-    const rawArgs = call.function?.arguments;
-    const args =
-      typeof rawArgs === "string"
-        ? (safeParse(rawArgs) as Record<string, unknown>)
-        : ((rawArgs ?? {}) as Record<string, unknown>);
-    toolCalls.push({
-      id: `tc-${toolCalls.length}`,
-      capabilityId: fromToolName(name),
-      arguments: args,
-    });
-  }
-  return { text: m.content || undefined, toolCalls, raw: message };
-}
-
-/** Local Ollama — /api/chat tools (model-dependent; falls back to JSON mode). */
-export const ollamaAdapter: ProviderToolAdapter = {
-  id: "ollama-local",
-  supportsNativeTools: () => true,
-  supportsStrictSchema: () => false,
-  supportsParallelTools: () => false,
-  supportsVision: () => false,
-  supportsRealtimeTools: () => false,
-  formatTools: openAiTools,
-  async chat(turns, tools, model) {
-    const message = await invoke<unknown>("ollama_chat_tools", {
-      model,
-      messages: ollamaTurns(turns),
-      tools: openAiTools(tools),
-    });
-    return parseOllamaMessage(message);
+    return parseOpenAiMessage(
+      message,
+      tools.map((t) => t.id),
+    );
   },
   formatToolResults(results) {
     return results.map((r) => ({

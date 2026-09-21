@@ -125,6 +125,8 @@ export interface Prefs {
     overlayUnlocked: boolean;
     /** Whether we've shown the first-run location permission prompt. */
     locationPrompted: boolean;
+    /** Welcome clip plays once, on the first signed-in launch. */
+    welcomePlayed: boolean;
     /** Cached OS/app location permission decision. */
     locationPermission: "unknown" | "granted" | "denied";
   };
@@ -320,8 +322,31 @@ function defaultRetention(): Prefs["dataPrivacy"]["retention"] {
   };
 }
 
+export const DEFAULT_ACTION_SHORTCUTS: Record<string, string> = {
+  "cancel-voice": "Ctrl+Alt+KeyQ",
+  "select-voice-sonare": "Ctrl+Alt+Digit1",
+  "select-voice-vela": "Ctrl+Alt+Digit2",
+  "select-voice-orion": "Ctrl+Alt+Digit3",
+  "select-voice-lyra": "Ctrl+Alt+Digit4",
+  "select-voice-nova": "Ctrl+Alt+Digit5",
+  "select-voice-jane": "Ctrl+Alt+Digit6",
+  "open-app": "Ctrl+Alt+KeyA",
+  "hide-app": "Ctrl+Alt+KeyH",
+  "command-palette": "Ctrl+Alt+KeyP",
+  "create-task": "Ctrl+Alt+KeyT",
+  "dashboard-chat": "Ctrl+Alt+KeyC",
+  "dashboard-next-view": "Ctrl+Alt+KeyN",
+  "dashboard-previous-view": "Ctrl+Alt+KeyB",
+  "open-tasks": "Ctrl+Alt+KeyL",
+  "open-agent": "Ctrl+Alt+KeyG",
+  "open-connect": "Ctrl+Alt+KeyI",
+  "open-settings": "Ctrl+Alt+KeyS",
+  mute: "Ctrl+Alt+Shift+KeyM",
+  "stop-speaking": "Ctrl+Alt+KeyX",
+};
+
 export const DEFAULT_PREFS: Prefs = {
-  schemaVersion: 10,
+  schemaVersion: 12,
   general: {
     startMinimized: false,
     keepRunningOnClose: true,
@@ -343,6 +368,7 @@ export const DEFAULT_PREFS: Prefs = {
     onboardingDone: false,
     overlayUnlocked: false,
     locationPrompted: false,
+    welcomePlayed: false,
     locationPermission: "unknown",
   },
   voice: {
@@ -373,7 +399,8 @@ export const DEFAULT_PREFS: Prefs = {
     interruptionSensitivity: 50,
     minSpeechMs: 300,
     cancelAccidental: true,
-    followUpWindow: "30s",
+    // One-shot overlay: answer then dismiss. Re-listen only via shortcut.
+    followUpWindow: "off",
     sttEngine: "local",
     whisperModel: "base",
   },
@@ -391,15 +418,17 @@ export const DEFAULT_PREFS: Prefs = {
   },
   models: {
     roles: {
-      assistant: "ollama-local",
-      fast: null,
-      reasoning: null,
-      research: null,
+      // Product defaults: DeepSeek for dashboard chat/tools; OpenAI Realtime
+      // for the voice overlay. Keys are stored separately (Voice & AI keys).
+      assistant: "deepseek-v4-flash",
+      fast: "deepseek-v4-flash",
+      reasoning: "deepseek-v4-pro",
+      research: "deepseek-v4-pro",
       screen: null,
       image: null,
-      transcription: null,
-      speech: null,
-      background: null,
+      transcription: "whisper-transcribe",
+      speech: "gpt-realtime",
+      background: "deepseek-v4-flash",
     },
     ollamaModel: "",
     ollamaCloudModel: "",
@@ -411,7 +440,10 @@ export const DEFAULT_PREFS: Prefs = {
     fallbackWhenUnavailable: true,
     costPreference: "balanced",
     fallbackModelId: null,
-    offlineFallbackModelId: "ollama-local",
+    // No automatic local fallback: llama3.2-class models pick tools badly and
+    // the silent downgrade is indistinguishable from the real model failing.
+    // Pick a local model explicitly in Settings → Models to use one.
+    offlineFallbackModelId: null,
     browser: {
       filter: "all",
       sort: "recommended",
@@ -432,7 +464,8 @@ export const DEFAULT_PREFS: Prefs = {
     disableGlow: false,
     overlayOffset: 16,
     overlayScale: 100,
-    customBackgroundPath: "",
+    /** Signature Blue Spiral ships as the install default; Appearance can change it. */
+    customBackgroundPath: "builtin:signature-blue-spiral",
   },
   sounds: {
     enabled: true,
@@ -474,7 +507,10 @@ export const DEFAULT_PREFS: Prefs = {
     storeTranscripts: true,
     storeRawAudio: false,
     storeCaptures: true,
-    allowCloud: false,
+    // On by default: the selected assistant is a cloud model, and with this
+    // off every request is refused ("needs cloud processing"). Users who want
+    // local-only can turn it off in Settings → Data & Privacy.
+    allowCloud: true,
     askBeforeCloud: true,
     diagnostics: false,
     crashReports: false,
@@ -483,7 +519,7 @@ export const DEFAULT_PREFS: Prefs = {
   integrations: {
     googleOAuthClientId: "",
   },
-  shortcuts: {},
+  shortcuts: { ...DEFAULT_ACTION_SHORTCUTS },
 };
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -516,6 +552,14 @@ function mergeNode<T>(defaults: T, saved: unknown): T {
   if (Array.isArray(defaults)) {
     return (Array.isArray(saved) ? saved : defaults) as T;
   }
+  // A null default carries no type information: `typeof null` is "object", so
+  // the check below compared a saved string against "object", failed, and threw
+  // the saved value away. That silently discarded every model-role assignment
+  // once the assistant default became null — the setting saved fine and was
+  // erased on the next load. Nullable settings keep whatever was stored.
+  if (defaults === null) {
+    return (saved === undefined ? null : saved) as T;
+  }
   if (typeof saved === typeof defaults && saved !== null) {
     return saved as T;
   }
@@ -531,6 +575,18 @@ export function normalizePrefs(raw: unknown): Prefs {
       if (typeof value === "string" && value) shortcuts[action] = value;
     }
     merged.shortcuts = shortcuts;
+  }
+
+  // v12 gives every action a ready-to-use Stream Deck hotkey.
+  // Only migrate once so a shortcut the user later removes stays removed.
+  const rawSchemaVersion =
+    isPlainObject(raw) && typeof raw.schemaVersion === "number"
+      ? raw.schemaVersion
+      : 0;
+  if (rawSchemaVersion < 12) {
+    for (const [action, shortcut] of Object.entries(DEFAULT_ACTION_SHORTCUTS)) {
+      if (!merged.shortcuts[action]) merged.shortcuts[action] = shortcut;
+    }
   }
 
   // Legacy: many Gemini cards → one Google Gemini + googleModel picker.
@@ -560,6 +616,33 @@ export function normalizePrefs(raw: unknown): Prefs {
   merged.models.browser.recentlyUsed = merged.models.browser.recentlyUsed.map(
     (id) => (legacyGemini[id] ? "google-gemini" : id),
   );
+
+  // Product defaults: never keep GPT Realtime / OpenAI as the chat assistant.
+  const assistantId = merged.models.roles.assistant;
+  if (
+    !assistantId ||
+    assistantId === "gpt-realtime" ||
+    assistantId === "gpt-5" ||
+    assistantId === "whisper-transcribe" ||
+    assistantId === "ollama-local" ||
+    assistantId === "ollama-cloud"
+  ) {
+    merged.models.roles.assistant = "deepseek-v4-flash";
+  }
+  if (!merged.models.roles.speech) {
+    merged.models.roles.speech = "gpt-realtime";
+  }
+
+  // Default wallpaper: legacy ids and empty paths → Signature Blue Spiral.
+  const bg = merged.appearance.customBackgroundPath?.trim() ?? "";
+  if (
+    !bg ||
+    bg === "builtin:blue-spiral" ||
+    bg === "blue-spiral" ||
+    bg === "builtin:"
+  ) {
+    merged.appearance.customBackgroundPath = "builtin:signature-blue-spiral";
+  }
 
   merged.schemaVersion = DEFAULT_PREFS.schemaVersion;
   return merged;

@@ -3,17 +3,13 @@
  *
  * Logos come from the local model asset library (copied + sanitized into
  * src/assets/models/). Capability data is entered here by hand from public
- * provider documentation — never inferred from a logo. `availability` is
- * honest: every cloud model is "requires-key" until a credential is stored,
- * and Ollama is "requires-local" until a local runtime is detected (no
- * detection exists yet, so it stays unconfigured).
+ * provider documentation — never inferred from a logo.
  */
 import anthropicLogo from "../assets/models/anthropic.svg";
 import claudeLogo from "../assets/models/claude.svg";
 import deepseekLogo from "../assets/models/deepseek.svg";
 import geminiLogo from "../assets/models/gemini.svg";
 import grokLogo from "../assets/models/grok.svg";
-import ollamaLogo from "../assets/models/ollama.svg";
 import openaiLogo from "../assets/models/openai.svg";
 
 export type ProviderId =
@@ -21,8 +17,7 @@ export type ProviderId =
   | "openai"
   | "google"
   | "xai"
-  | "deepseek"
-  | "ollama";
+  | "deepseek";
 
 export interface ProviderInfo {
   id: ProviderId;
@@ -54,7 +49,7 @@ export const PROVIDERS: ProviderInfo[] = [
     logo: geminiLogo,
     configuration: "api-key",
     description:
-      "Gemini text models via the Gemini API (Google AI Studio key). Text chat only — no image, video, or robotics models.",
+      "Gemini models via the Gemini API (Google AI Studio key). Text chat plus vision for screenshots (describe screen / click targets).",
   },
   {
     id: "xai",
@@ -69,14 +64,6 @@ export const PROVIDERS: ProviderInfo[] = [
     logo: deepseekLogo,
     configuration: "api-key",
     description: "DeepSeek V4 models via the OpenAI-compatible API.",
-  },
-  {
-    id: "ollama",
-    name: "Ollama",
-    logo: ollamaLogo,
-    /** Local runtime + optional Cloud API key (configured in the provider panel). */
-    configuration: "local-runtime",
-    description: "Local models on this computer, or Ollama Cloud with an API key.",
   },
 ];
 
@@ -156,7 +143,8 @@ export const MODELS: ModelInfo[] = [
     modelName: "gpt-5",
     displayName: "GPT-5",
     logo: openaiLogo,
-    description: "OpenAI's flagship general model.",
+    description:
+      "Flagship general model for chat, code, and agents. Use this for everyday assistant work under your OpenAI key.",
     capabilities: ["Text", "Vision", "Tools", "Reasoning"],
     contextType: "long",
     supportsText: true,
@@ -173,14 +161,17 @@ export const MODELS: ModelInfo[] = [
     modelName: "gpt-realtime",
     displayName: "GPT Realtime",
     logo: openaiLogo,
-    description: "Speech-to-speech conversation model.",
-    capabilities: ["Audio in", "Audio out", "Tools", "Realtime"],
+    description:
+      "Real-time speech conversations — low-latency voice in and out. Uses your OpenAI key for the voice overlay. Not the dashboard chat default (chat/tools use DeepSeek).",
+    capabilities: ["Audio in", "Audio out", "Realtime"],
     contextType: "realtime",
-    supportsText: true,
+    // Chat text/tools path does not use Realtime — keep these false so it cannot
+    // become the everyday assistant and trigger provider-unavailable tool errors.
+    supportsText: false,
     supportsImage: false,
     supportsAudioInput: true,
     supportsAudioOutput: true,
-    supportsTools: true,
+    supportsTools: false,
     supportsReasoning: false,
     locality: "cloud",
   },
@@ -190,7 +181,8 @@ export const MODELS: ModelInfo[] = [
     modelName: "gpt-4o-transcribe",
     displayName: "GPT-4o Transcribe",
     logo: openaiLogo,
-    description: "Speech recognition for voice input.",
+    description:
+      "Speech-to-text for voice input and dictation. Specialty model under the same OpenAI key — not a separate product.",
     capabilities: ["Audio in", "Transcription"],
     contextType: "standard",
     supportsText: false,
@@ -209,10 +201,12 @@ export const MODELS: ModelInfo[] = [
     logo: geminiLogo,
     description:
       "Gemini text chat via the Gemini API. Pick the exact model in Configure Google.",
-    capabilities: ["Text", "Tools", "Reasoning"],
+    capabilities: ["Text", "Vision", "Tools", "Reasoning"],
     contextType: "long",
     supportsText: true,
-    supportsImage: false,
+    // Gemini reads images — it is what powers screen understanding and
+    // vision clicking in this app, so marking it image-incapable was wrong.
+    supportsImage: true,
     supportsAudioInput: false,
     supportsAudioOutput: false,
     supportsTools: true,
@@ -222,10 +216,11 @@ export const MODELS: ModelInfo[] = [
   {
     id: "grok-4",
     provider: "xai",
-    modelName: "grok-4",
-    displayName: "Grok 4",
+    modelName: "grok-4.5",
+    displayName: "Grok 4.5",
     logo: grokLogo,
-    description: "xAI's reasoning model with live knowledge.",
+    description:
+      "xAI flagship for code and everything else: agentic tool calling, minimal hallucinations, configurable reasoning. Use for chat and code under your xAI key.",
     capabilities: ["Text", "Vision", "Tools", "Reasoning"],
     contextType: "long",
     supportsText: true,
@@ -261,41 +256,6 @@ export const MODELS: ModelInfo[] = [
     logo: deepseekLogo,
     description: "Stronger DeepSeek model for deeper reasoning.",
     capabilities: ["Text", "Tools", "Reasoning"],
-    contextType: "long",
-    supportsText: true,
-    supportsImage: false,
-    supportsAudioInput: false,
-    supportsAudioOutput: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    locality: "cloud",
-  },
-  {
-    id: "ollama-local",
-    provider: "ollama",
-    modelName: "(installed models)",
-    displayName: "Ollama (local)",
-    logo: ollamaLogo,
-    description: "Runs models you have installed locally via ollama serve. Private by design.",
-    capabilities: ["Text", "Local", "Tools"],
-    contextType: "standard",
-    supportsText: true,
-    supportsImage: false,
-    supportsAudioInput: false,
-    supportsAudioOutput: false,
-    supportsTools: true,
-    supportsReasoning: false,
-    locality: "local",
-  },
-  {
-    id: "ollama-cloud",
-    provider: "ollama",
-    modelName: "(cloud models)",
-    displayName: "Ollama Cloud",
-    logo: ollamaLogo,
-    description:
-      "Runs larger models on ollama.com with your API key. Same Ollama API, hosted remotely.",
-    capabilities: ["Text", "Cloud", "Tools"],
     contextType: "long",
     supportsText: true,
     supportsImage: false,

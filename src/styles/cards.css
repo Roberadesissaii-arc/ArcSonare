@@ -42,6 +42,18 @@
   color: var(--sonare-text-muted);
 }
 
+/* Short blurb under every dashboard rail card header — single line only. */
+.card-lede {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--sonare-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 .card-title {
   font-size: 16.5px;
   font-weight: 500;
@@ -102,6 +114,23 @@
   border-color: rgba(145, 104, 255, 0.16);
 }
 
+.focus-card .card-head,
+.focus-card .card-lede,
+.focus-card .card-title,
+.focus-card .card-text {
+  flex-shrink: 0;
+}
+
+.focus-card .card-lede {
+  display: block;
+  min-height: 17px;
+  margin-bottom: 8px;
+  overflow: visible;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--sonare-text-secondary);
+}
+
 .focus-card .card-title {
   font-size: 18px;
   font-weight: 500;
@@ -115,16 +144,18 @@
 }
 
 .focus-card .focus-progress {
-  margin-top: 14px;
-  flex: 1;
-  min-height: 0;
+  margin-top: auto;
+  padding-top: 12px;
+  flex: 0 0 auto;
+  min-height: auto;
 }
 
 .focus-card .card-actions,
 .focus-card .focus-actions {
-  margin-top: auto;
+  margin-top: 10px;
   margin-bottom: 0;
-  padding-top: 14px;
+  padding-top: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -180,7 +211,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 18px;
+  height: 8px;
 }
 
 .focus-track::before {
@@ -254,18 +285,23 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 6px;
+  min-width: 0;
 }
 
 .focus-progress-text {
+  flex: 0 0 auto;
   font-size: 12px;
   color: var(--sonare-text-secondary);
 }
 
 .focus-next {
+  min-width: 0;
   font-size: 11.5px;
   color: var(--sonare-text-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------------------------- voice action card -------------------------- */
@@ -275,13 +311,16 @@
   flex-direction: column;
   height: 100%;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .voice-action-identity {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 12px;
   margin: 2px 0 4px;
+  min-width: 0;
+  flex: 0 0 auto;
 }
 
 .voice-action-voice-meta {
@@ -295,23 +334,38 @@
 .voice-action-voice-name {
   font-size: 11px;
   color: var(--sonare-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .voice-action-prompt {
   margin: 0 0 3px;
-  font-size: 17px;
+  font-size: clamp(14px, 1.35vw, 17px);
   font-weight: 570;
   line-height: 1.2;
   letter-spacing: -0.02em;
   color: var(--sonare-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .voice-action-wave {
   display: flex;
   justify-content: center;
-  margin: 6px 0 2px;
-  flex: 1;
+  margin: 4px 0 2px;
+  flex: 0 1 auto;
   align-items: center;
+  min-height: 28px;
+  max-height: 42px;
+  overflow: hidden;
+}
+
+.voice-action-wave .slw,
+.voice-action-wave svg {
+  max-width: 100%;
+  height: auto;
 }
 
 .voice-action-card .slw {
@@ -330,17 +384,145 @@
   background: rgba(255, 255, 255, 0.94);
 }
 
+/* Character marbles under the wave — pick voice here too */
+.voice-action-characters {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 6px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.voice-action-char {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 2px 4px;
+  border-radius: 11px;
+  /* Marble + name only — no card around each character, selected included.
+     Six boxes in a row competed with the marbles they were meant to present. */
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.voice-action-char:hover .voice-action-char-name {
+  color: var(--sonare-text-primary);
+}
+
+/* Selection reads from the name, since there is no container to fill. */
+.voice-action-char.is-selected {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.voice-action-char.is-selected .voice-action-char-name {
+  color: var(--sonare-text-primary);
+}
+
+.voice-action-char.is-previewing {
+  border-color: transparent;
+}
+
+.voice-action-char-name {
+  max-width: 100%;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--sonare-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-action-char.is-selected .voice-action-char-name {
+  color: var(--sonare-text-primary);
+}
+
 .voice-action-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: auto;
+  padding-top: 6px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .voice-action-hint {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--sonare-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Compact Voice Action on shorter windows / laptops */
+@media (max-height: 860px) {
+  .voice-action-identity {
+    gap: 10px;
+    margin: 0 0 2px;
+  }
+
+  .voice-action-prompt {
+    font-size: 14.5px;
+  }
+
+  .voice-action-wave {
+    margin: 2px 0 0;
+    max-height: 34px;
+  }
+
+  .voice-action-characters {
+    margin-top: 5px;
+    gap: 3px;
+  }
+
+  .voice-action-char {
+    padding: 4px 1px 3px;
+    gap: 2px;
+  }
+
+  .voice-action-char-name {
+    font-size: 9px;
+  }
+
+  .voice-action-foot {
+    padding-top: 4px;
+  }
+}
+
+@media (max-height: 760px) {
+  .voice-action-card .card-lede {
+    margin-bottom: 6px;
+  }
+
+  .voice-action-char-name {
+    display: none; /* marbles only when height is tight */
+  }
+
+  .voice-action-char {
+    padding: 5px 2px;
+  }
+}
+
+@media (max-width: 1360px) {
+  .voice-action-characters {
+    gap: 2px;
+  }
+
+  .voice-action-char-name {
+    font-size: 8.5px;
+  }
 }
 
 /* ------------------------------- tools card ------------------------------ */
@@ -348,20 +530,381 @@
 .tools-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto;
   box-sizing: border-box;
-  padding: 19px 20px;
+  padding: 14px 14px 12px;
+  min-height: 0;
+  min-width: 0;
 }
 
-.tools-card .card-head {
-  margin-bottom: 14px;
+/* Stretched Applications / Running apps card — no inner scrollbar. */
+.tools-card-stretch {
+  height: 100%;
+  overflow: hidden;
+  gap: 0;
 }
 
+.tools-card-stretch .tools-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  justify-content: flex-start;
+}
+
+.tools-card-stretch .tools-list-row {
+  flex: 0 0 auto;
+}
+
+.tools-section {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.tools-section-opened {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+
+.tools-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-width: 0;
+}
+
+.tools-section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--sonare-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tools-section-link:hover {
+  color: var(--sonare-text-primary);
+}
+
+.tools-section-count {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #b5a0ff;
+  letter-spacing: 0.02em;
+}
+
+.tools-opened-empty {
+  margin: 0;
+  padding: 8px 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sonare-text-muted);
+}
+
+/* Vertical list rows — icon + title + short paragraph */
+.tools-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tools-list-opened {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0;
+  /* Quiet scroll — cue arrow tells the user more is below */
+  scrollbar-width: none;
+}
+
+.tools-list-opened::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.opened-apps-list-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 2px;
+}
+
+.opened-apps-list-wrap .tools-list-opened {
+  flex: 0 0 auto;
+}
+
+/* Exactly two full rows — never a clipped third. Sliding window via JS. */
+.opened-apps-paged .tools-list-opened-snap {
+  overflow: hidden;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+
+.opened-apps-page-btn {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(210, 220, 230, 0.7);
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.opened-apps-page-btn:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.opened-apps-page-spacer {
+  flex: 0 0 auto;
+  height: 18px;
+}
+
+.tools-list-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 8px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.025);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+@media (max-height: 860px) {
+  .tools-list-row {
+    padding: 6px 7px;
+    gap: 8px;
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .tools-list-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .tools-list-title {
+    font-size: 12px;
+  }
+
+  .tools-list-desc {
+    font-size: 10.5px;
+  }
+
+  .tools-card {
+    padding: 12px 12px 10px;
+  }
+
+  .tools-section-head {
+    margin-bottom: 6px;
+  }
+
+  .card-lede {
+    margin-bottom: 8px;
+  }
+}
+
+@media (max-height: 760px) {
+  .tools-list {
+    gap: 3px;
+  }
+
+  .tools-list-row {
+    padding: 5px 6px;
+  }
+}
+
+.tools-list-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.tools-list-row-open.is-active {
+  background: rgba(126, 90, 220, 0.1);
+  border-color: rgba(158, 117, 250, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(145, 104, 255, 0.08);
+}
+
+.tools-list-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tools-list-icon > img {
+  border-radius: 10px;
+}
+
+/* Full-bleed brand icons (ICO pack) — no distorting scale */
+.tools-list-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 10px;
+  transform: none;
+}
+
+.tools-list-icon.is-framed {
+  background: var(--integration-icon-bg, rgba(255, 255, 255, 0.055));
+}
+
+.tools-list-icon.is-framed img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 0;
+}
+
+.tools-list-icon-app {
+  overflow: visible;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.tools-list-icon-app img {
+  border-radius: 10px;
+  /* Full icon art from ICO pack — cover fills the rounded square cleanly */
+  object-fit: cover;
+}
+
+.tools-list-check {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #9b74ff, #6d4ad4);
+  border: 1.5px solid rgba(18, 22, 28, 0.92);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+/* Applications: connected vs not-connected badge on the icon corner */
+.tools-list-status {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1.5px solid rgba(14, 18, 24, 0.92);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.tools-list-status.is-connected {
+  color: #dff7e8;
+  background: linear-gradient(145deg, #4fce88, #2f9f62);
+}
+
+.tools-list-status.is-disconnected {
+  color: #ffe8c2;
+  background: linear-gradient(145deg, #e0a04a, #b8762e);
+}
+
+.tools-list-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tools-list-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sonare-text-primary);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tools-list-desc {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--sonare-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-tile-fallback {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--sonare-text-primary);
+}
+
+@media (max-height: 760px) {
+  .tools-card-stretch {
+    padding: 12px 12px 10px;
+  }
+
+  .tools-section-opened {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .tools-list-row {
+    padding: 6px 7px;
+  }
+}
+
+/* Legacy strip helpers kept for any residual usage */
 .tools-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(45px, 1fr)) 38px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(32px, 38px);
   align-items: start;
   gap: 6px;
+  min-width: 0;
 }
 
 .tool-item {
@@ -377,6 +920,7 @@
 }
 
 .tool-tile {
+  position: relative;
   display: grid;
   place-items: center;
   width: 40px;
@@ -388,7 +932,7 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.075);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
-  transition: background 160ms ease, border-color 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .tool-item:hover .tool-tile {
@@ -400,8 +944,30 @@
   width: 100%;
   height: 100%;
   border-radius: 10px;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
+  transform: none;
+}
+
+.tool-tile.is-framed {
+  background: var(--integration-icon-bg, rgba(255, 255, 255, 0.055));
+  border-color: var(--integration-icon-border, rgba(255, 255, 255, 0.1));
+}
+
+.tool-tile.is-framed img {
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+  object-fit: contain;
+  transform: none;
+}
+
+.tool-tile.integration-icon-openweather img {
+  transform: none;
+}
+
+.tool-tile.integration-icon-higgsfield img {
+  transform: none;
 }
 
 .tool-name {
@@ -602,8 +1168,8 @@
 
 .upnext-row {
   display: grid;
-  grid-template-columns: 68px minmax(0, 1fr) 10px;
-  gap: 10px;
+  grid-template-columns: 76px minmax(0, 1fr) 8px;
+  column-gap: 9px;
   align-items: center;
   width: 100%;
   padding: 8px 14px;
@@ -638,11 +1204,40 @@
 .urgent-card {
   display: flex;
   flex-direction: column;
+  /* Default (legacy 3-row grid). Dashboard right-stretch overrides this. */
   grid-row: span 2;
   height: 100%;
   box-sizing: border-box;
   padding-bottom: 14px;
   overflow: hidden;
+}
+
+.dashboard-right-stretch .urgent-body {
+  overflow: visible;
+}
+
+.opened-apps-card {
+  min-height: 0;
+}
+
+/*
+ * There are no per-card list rules any more.
+ *
+ * Applications and Running apps used to carry one each — `flex: 1 1 auto` on
+ * one, `flex: 0 0 auto` on the other, plus a third rule overriding the first —
+ * and every edit to either drifted the two cards apart again. Both now render
+ * through `PagedApplicationCard` and take the shared
+ * `.opened-apps-paged .tools-list-opened-snap` rule above, which is what those
+ * three resolved to anyway. Geometry equality is structural now, not a thing to
+ * keep re-establishing.
+ */
+
+.opened-apps-card .tools-opened-empty-wrap {
+  flex: 1 1 auto;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .urgent-card-head {
@@ -668,11 +1263,11 @@
 }
 
 .urgent-body {
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .urgent-empty {
@@ -763,11 +1358,33 @@
 /* ------------------------------ up next card ----------------------------- */
 
 .upnext-time {
-  width: 68px;
-  flex-shrink: 0;
-  font-size: 11.5px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 76px;
+  min-width: 0;
+  overflow: hidden;
   color: var(--sonare-text-muted);
+  line-height: 1.15;
+}
+
+.upnext-time-primary,
+.upnext-time-secondary {
+  display: block;
+  width: 100%;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.upnext-time-primary {
+  font-size: 11.5px;
+}
+
+.upnext-time-secondary {
+  font-size: 10px;
+  color: color-mix(in srgb, var(--sonare-text-muted) 78%, transparent);
 }
 
 .upnext-meta {
@@ -830,9 +1447,9 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
 }
 
 .urgent-list-secondary {
@@ -857,11 +1474,13 @@
 }
 
 .urgent-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 7px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  column-gap: 12px;
   width: 100%;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 8px 14px;
   margin: 0;
   border: none;
   border-radius: 12px;
@@ -918,7 +1537,6 @@
 }
 
 .urgent-meta {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -936,8 +1554,13 @@
 }
 
 .urgent-due {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
   font-size: 11px;
   color: var(--sonare-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .priority-badge {
@@ -3187,6 +3810,48 @@
 }
 
 .integration-icon-redis {
+  --integration-icon-bg: linear-gradient(145deg, #fff3f2, #ffd9d5);
+  --integration-icon-border: rgba(220, 56, 45, 0.24);
+  --integration-icon-size: 24px;
+}
+
+.integration-icon-tmdb {
+  --integration-icon-bg: linear-gradient(145deg, #0e2c36, #061318);
+  --integration-icon-border: rgba(60, 190, 201, 0.28);
+  --integration-icon-size: 24px;
+}
+
+.integration-icon-zillow {
+  --integration-icon-bg: linear-gradient(145deg, #eef6ff, #cfe4ff);
+  --integration-icon-border: rgba(0, 106, 255, 0.24);
+  --integration-icon-size: 24px;
+}
+
+.integration-icon-ssh {
+  --integration-icon-bg: linear-gradient(145deg, #eef2f7, #cfd8e3);
+  --integration-icon-border: rgba(74, 144, 217, 0.28);
+  --integration-icon-size: 24px;
+}
+
+.integration-icon-twilio {
+  --integration-icon-bg: linear-gradient(145deg, #fff2f1, #ffd7d3);
+  --integration-icon-border: rgba(242, 47, 70, 0.24);
+  --integration-icon-size: 24px;
+}
+
+.integration-icon-unsplash {
+  --integration-icon-bg: linear-gradient(145deg, #f7f7f7, #e2e2e2);
+  --integration-icon-border: rgba(0, 0, 0, 0.16);
+  --integration-icon-size: 24px;
+}
+
+.integration-icon-elevenlabs {
+  --integration-icon-bg: linear-gradient(145deg, #232323, #0c0c0c);
+  --integration-icon-border: rgba(255, 255, 255, 0.14);
+  --integration-icon-size: 24px;
+}
+
+.integration-icon-redis {
   --integration-icon-bg: linear-gradient(145deg, #fff3f1, #ead0cd);
   --integration-icon-border: rgba(198, 48, 43, 0.25);
   --integration-icon-size: 24px;
@@ -3326,17 +3991,25 @@
 .integration-credential-modal {
   position: relative;
   width: min(590px, calc(100vw - 48px));
-  max-height: min(760px, calc(100vh - 56px));
+  max-height: min(840px, calc(100vh - 40px));
   overflow-y: auto;
   border-radius: 20px;
-  background:
-    radial-gradient(220px 130px at 100% 0%, rgba(128, 84, 224, 0.08), transparent 72%),
-    linear-gradient(150deg, rgba(24, 32, 39, 0.995), rgba(9, 15, 20, 0.995));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 9, 11, 0.92);
+  border: 1px solid rgba(119, 133, 144, 0.16);
+  backdrop-filter: blur(10px) saturate(112%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 30px 90px rgba(0, 0, 0, 0.52);
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 30px 90px rgba(0, 0, 0, 0.6);
   scrollbar-width: none;
+  transition: min-height 200ms ease;
+}
+
+/* Reserves the height the "Add account" form needs up front, so opening it
+   doesn't grow the container — the account list area just has breathing
+   room below it instead of the whole modal jumping in size. */
+.integration-credential-modal.has-account-manager {
+  min-height: min(660px, calc(100vh - 40px));
 }
 
 .integration-credential-modal::after {
@@ -3392,22 +4065,34 @@
 }
 
 .integration-credential-icon img {
-  width: 32px;
-  height: 32px;
+  width: 100%;
+  height: 100%;
   display: block;
+  border-radius: 11px;
   object-fit: contain;
+  /* The icon-pack PNGs carry ~10% of transparent canvas margin around the
+     glyph, so a plain 100% fill still shows a border of empty space. Scale
+     up and let the icon's overflow:hidden crop it flush with the frame. */
+  transform: scale(1.24);
 }
 
-.integration-credential-icon.integration-icon-unsplash,
-.integration-credential-icon.integration-icon-x {
-  border-color: rgba(255, 255, 255, 0.25);
-  background: linear-gradient(145deg, #f4f5f3, #d9dcda);
+.integration-credential-icon.integration-icon-openweather img {
+  transform: scale(1.09);
 }
 
-.integration-credential-icon.integration-icon-unsplash img,
-.integration-credential-icon.integration-icon-x img {
+.integration-credential-icon.integration-icon-higgsfield img {
+  transform: none;
+}
+
+.integration-credential-icon.is-framed {
+  background: var(--integration-icon-bg, rgba(255, 255, 255, 0.055));
+  border-color: var(--integration-icon-border, rgba(255, 255, 255, 0.1));
+}
+
+.integration-credential-icon.is-framed img {
   width: 27px;
   height: 27px;
+  transform: none;
 }
 
 .integration-credential-title p {
@@ -3416,6 +4101,48 @@
   color: var(--sonare-text-muted);
   font-size: 11.5px;
   line-height: 1.45;
+}
+
+.integration-credential-capabilities {
+  margin-bottom: 18px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.integration-credential-capabilities-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--sonare-text-muted);
+  margin-bottom: 10px;
+}
+
+.integration-credential-capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.integration-credential-capability {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--sonare-text-secondary);
+}
+
+.integration-credential-capability-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #a688f2;
 }
 
 .integration-credential-fields {
@@ -3500,9 +4227,9 @@
   gap: 11px;
   margin-bottom: 16px;
   padding: 12px 13px;
-  border: 1px solid rgba(145, 104, 255, 0.16);
+  border: 1px solid rgba(120, 214, 160, 0.22);
   border-radius: 13px;
-  background: rgba(145, 104, 255, 0.055);
+  background: rgba(120, 214, 160, 0.06);
 }
 
 .integration-connection-dot {
@@ -3510,8 +4237,8 @@
   height: 8px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: var(--sonare-violet);
-  box-shadow: 0 0 12px rgba(145, 104, 255, 0.5);
+  background: #7ed6a0;
+  box-shadow: 0 0 12px rgba(120, 214, 160, 0.5);
 }
 
 .integration-connection-summary > div {
@@ -3528,6 +4255,137 @@
 .integration-connection-summary small {
   color: var(--sonare-text-muted);
   font-size: 10.5px;
+}
+
+.integration-google-accounts {
+  margin-bottom: 16px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.integration-google-accounts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.integration-add-account-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #c7a7ff;
+  background: rgba(126, 82, 213, 0.11);
+  border: 1px solid rgba(151, 108, 234, 0.22);
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.integration-add-account-button:hover:not(:disabled) {
+  color: #d4b9ff;
+  border-color: rgba(171, 132, 249, 0.32);
+  background: rgba(126, 82, 213, 0.16);
+}
+
+.integration-add-account-button:disabled {
+  opacity: 0.5;
+}
+
+.integration-google-accounts-list {
+  display: grid;
+  gap: 7px;
+}
+
+.integration-google-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.integration-google-account.is-active {
+  border-color: rgba(120, 214, 160, 0.28);
+  background: rgba(120, 214, 160, 0.055);
+}
+
+.integration-google-account-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.integration-google-account-email {
+  font-size: 12px;
+  color: var(--sonare-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.integration-google-account-badge {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #7ed6a0;
+  background: rgba(120, 214, 160, 0.14);
+  border: 1px solid rgba(120, 214, 160, 0.22);
+}
+
+.integration-google-account-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.integration-google-account-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.integration-google-account-actions button:hover:not(:disabled) {
+  color: var(--sonare-text-primary);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.integration-google-account-actions button:disabled {
+  opacity: 0.5;
+}
+
+.integration-credential-add-account-hint {
+  margin: 0 0 13px;
+  color: var(--sonare-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
 .integration-coming-soon {
@@ -3570,6 +4428,10 @@
   }
 
   .integration-credential-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-credential-capabilities-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -3849,6 +4711,11 @@
 :root[data-theme="light"] .tool-item:hover .tool-tile {
   background: rgba(9, 11, 14, 0.06);
   border-color: rgba(9, 11, 14, 0.14);
+}
+
+:root[data-theme="light"] .tool-tile.is-framed {
+  background: var(--integration-icon-bg, rgba(9, 11, 14, 0.035));
+  border-color: var(--integration-icon-border, rgba(9, 11, 14, 0.09));
 }
 
 :root[data-theme="light"] .tools-view-all-btn {
@@ -4965,7 +5832,7 @@
   min-width: 0;
   min-height: 74px;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 28px;
+  grid-template-columns: 38px minmax(0, 1fr) 32px;
   grid-template-rows: 1fr;
   align-items: center;
   gap: 11px;
@@ -5020,28 +5887,34 @@
 }
 
 .connect-card .connect-icon {
-  width: 28px;
-  height: 28px;
+  width: 100%;
+  height: 100%;
   display: block;
+  border-radius: 9px;
   object-fit: contain;
+  /* The icon-pack PNGs carry ~10% of transparent canvas margin around the
+     glyph, so a plain 100% fill still shows a border of empty space. Scale
+     up and let the slot's overflow:hidden crop it flush with the frame. */
+  transform: scale(1.24);
 }
 
-.connect-card .connect-icon-slot.integration-icon-unsplash,
-.connect-card .connect-icon-slot.integration-icon-x {
-  border-color: rgba(255, 255, 255, 0.26);
-  background: linear-gradient(145deg, #f4f5f3, #d9dcda);
+.connect-card .connect-icon-slot.integration-icon-openweather .connect-icon {
+  transform: scale(1.09);
 }
 
-.connect-card .connect-icon-slot.integration-icon-unsplash .connect-icon,
-.connect-card .connect-icon-slot.integration-icon-x .connect-icon {
-  width: 24px;
-  height: 24px;
+.connect-card .connect-icon-slot.integration-icon-higgsfield .connect-icon {
+  transform: none;
 }
 
-.connect-card .connect-icon-slot.integration-icon-elevenlabs .connect-icon,
-.connect-card .connect-icon-slot.integration-icon-tmdb .connect-icon {
-  width: 25px;
-  height: 25px;
+.connect-card .connect-icon-slot.is-framed {
+  border-color: var(--integration-icon-border, var(--sonare-border));
+  background: var(--integration-icon-bg, rgba(43, 52, 56, 0.98));
+}
+
+.connect-card .connect-icon-slot.is-framed .connect-icon {
+  width: 22px;
+  height: 22px;
+  transform: none;
 }
 
 .connect-card .connect-meta {
@@ -5073,15 +5946,9 @@
   white-space: nowrap;
 }
 
-.connect-card-verified {
-  width: 12px;
-  height: 12px;
+.connect-card-connected-badge {
   flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: rgba(29, 29, 29, 0.92);
-  background: rgba(155, 157, 160, 0.8);
+  color: #7ed6a0;
 }
 
 .connect-card-popular {
@@ -5108,8 +5975,8 @@
 .connect-card-add {
   grid-column: 3;
   grid-row: 1;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -5128,9 +5995,13 @@
 }
 
 .connect-card-add.is-connected {
-  color: var(--sonare-violet-light);
-  background: rgba(145, 104, 255, 0.09);
-  box-shadow: inset 0 0 0 1px rgba(145, 104, 255, 0.15);
+  color: rgba(190, 192, 195, 0.7);
+  background: transparent;
+}
+
+.connect-card-add.is-connected:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.065);
 }
 
 @media (max-width: 900px) {
@@ -5194,4 +6065,4282 @@
   .connect-sections {
     padding: 15px;
   }
+}
+
+/* =======================================================================
+ * Connect workspace — same left / center / right shell as Dashboard,
+ * Tasks, and Agent. Icon slot sizes are NOT redefined here on purpose;
+ * cards keep the existing .connect-icon / .connect-icon-slot rules.
+ * ======================================================================= */
+
+.connect-workspace-root {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.connect-workspace-root .dashboard-col,
+.connect-workspace-root .side-column {
+  grid-template-rows: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.connect-workspace-root .dashboard-col > *,
+.connect-workspace-root .side-column > * {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/*
+ * Left rail: Views (top) · Categories/Departments (fills middle) · Pulse (bottom).
+ * Middle card absorbs leftover height so the column never looks empty/padded wrong.
+ */
+.connect-workspace-root .dashboard-left {
+  justify-content: flex-start;
+}
+
+.connect-workspace-root .dashboard-left .connect-rail-views {
+  flex: 0 0 auto;
+}
+
+.connect-workspace-root .dashboard-left .connect-rail-categories-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.connect-workspace-root .dashboard-left .connect-rail-pulse {
+  flex: 0 0 auto;
+}
+
+/* Right rail: can scroll when needed, never show scrollbar chrome. */
+.connect-workspace-root .dashboard-right {
+  overflow: hidden;
+}
+
+.connect-workspace-root .dashboard-right .connect-inspector-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.connect-workspace-root .dashboard-right .connect-inspector-panel,
+.connect-workspace-root .dashboard-right .connect-linked-list {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.connect-workspace-root .dashboard-right .connect-inspector-panel::-webkit-scrollbar,
+.connect-workspace-root .dashboard-right .connect-linked-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ---- Left rail ---- */
+
+.connect-rail-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* Equal inset on every rail card — matches Tasks/Agent side cards. */
+  padding: 14px 14px 16px;
+  box-sizing: border-box;
+}
+
+.connect-rail-views {
+  flex: 0 0 auto;
+}
+
+.connect-rail-pulse {
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.connect-rail-pulse .connect-pulse {
+  min-height: 118px;
+}
+
+.connect-rail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.connect-rail-categories-card .connect-rail-block {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.connect-rail-heading {
+  display: block;
+  color: rgba(196, 171, 241, 0.72);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.connect-rail-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.connect-rail-filter {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--sonare-text-secondary);
+  background: transparent;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.connect-rail-filter:hover {
+  color: var(--sonare-text-primary);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+.connect-rail-filter.active {
+  color: var(--sonare-text-primary);
+  background: linear-gradient(
+    135deg,
+    rgba(145, 104, 255, 0.16),
+    rgba(91, 58, 184, 0.1)
+  );
+  border-color: rgba(194, 155, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.connect-rail-filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.connect-rail-filter.active .connect-rail-filter-dot {
+  background: var(--sonare-violet-light);
+  box-shadow: 0 0 0 3px rgba(145, 104, 255, 0.18);
+}
+
+.connect-rail-filter-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.connect-rail-filter-text strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.connect-rail-filter-text small {
+  color: var(--sonare-text-muted);
+  font-size: 10.5px;
+}
+
+.connect-rail-filter.active .connect-rail-filter-text small {
+  color: rgba(214, 198, 255, 0.72);
+}
+
+.connect-rail-filter-count {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.connect-rail-filter.active .connect-rail-filter-count {
+  color: #fff;
+  background: rgba(145, 104, 255, 0.28);
+}
+
+.connect-rail-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* All categories listed; scroll quietly — no scrollbar chrome. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.connect-rail-categories::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.connect-rail-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--sonare-text-secondary);
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.connect-rail-category:hover {
+  color: var(--sonare-text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.connect-rail-category.active {
+  color: var(--sonare-text-primary);
+  border-color: rgba(194, 155, 255, 0.22);
+  background: rgba(145, 104, 255, 0.1);
+}
+
+.connect-rail-category-count {
+  color: var(--sonare-text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* “More below” cue only — not a control. Hidden when the list fully fits. */
+.connect-rail-scroll-cue {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 2px 0 0;
+  pointer-events: none;
+  color: var(--sonare-text-muted);
+}
+
+.connect-rail-expand-circle {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(
+    180deg,
+    rgba(31, 39, 42, 0.96),
+    rgba(18, 24, 27, 0.98)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 4px 10px rgba(0, 0, 0, 0.18);
+  color: rgba(214, 198, 255, 0.88);
+}
+
+.connect-pulse {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+.connect-pulse-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--sonare-text-secondary);
+  font-size: 11.5px;
+}
+
+.connect-pulse-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.connect-pulse-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--sonare-violet-dark),
+    var(--sonare-violet-light)
+  );
+}
+
+.connect-pulse-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.connect-pulse-grid > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--sonare-text-muted);
+  font-size: 10px;
+}
+
+.connect-pulse-grid b {
+  color: var(--sonare-text-primary);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+/* ---- Center directory ---- */
+
+.connect-workspace-root .dashboard-center.connect-center {
+  align-items: stretch;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.connect-workspace-root .connect-directory {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  /* Tight gap between title/paragraph and the list container. */
+  gap: 4px;
+  overflow: hidden;
+}
+
+/* Reuse Agent/Tasks header chrome; only layout extras for search live here. */
+.connect-workspace-root .connect-directory-head {
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+  /* Agent uses 14px — keep a smaller bottom so the list sits closer. */
+  padding: 0 4px 6px;
+}
+
+.connect-workspace-root .connect-directory-title {
+  min-width: 0;
+}
+
+/* Title + paragraph inherit .agent-directory-head h1/p (same as Tasks/Agent). */
+.connect-workspace-root .connect-directory-title h1 {
+  margin: 3px 0 2px;
+}
+
+.connect-workspace-root .connect-directory-title p {
+  margin: 0;
+  max-width: none;
+}
+
+.connect-workspace-root .connect-directory-search {
+  width: min(320px, 42%);
+  flex: 0 0 auto;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--sonare-border);
+  border-radius: 999px;
+  color: var(--sonare-text-muted);
+  background: linear-gradient(
+    180deg,
+    rgba(23, 29, 32, 0.94),
+    rgba(14, 19, 21, 0.97)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.connect-workspace-root .connect-directory-search:focus-within {
+  border-color: rgba(145, 104, 255, 0.4);
+  box-shadow:
+    0 0 0 3px rgba(145, 104, 255, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.connect-workspace-root .connect-directory-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: rgba(244, 244, 244, 0.93);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+
+.connect-workspace-root .connect-directory-notice {
+  margin: 0;
+}
+
+.connect-workspace-root .connect-sections {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  margin: 0;
+  /* Tighter top so the list sits near the paragraph like Agent/Tasks. */
+  padding: 12px 14px 18px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--sonare-border);
+  border-radius: 18px;
+  background: rgba(12, 17, 20, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.024),
+    0 18px 42px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(9px) saturate(108%);
+  /* Hide default scrollbar chrome (scroll still works, like Agent list). */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.connect-workspace-root .connect-sections::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.connect-workspace-root .connect-section {
+  min-width: 0;
+  display: grid;
+  gap: 11px;
+}
+
+.connect-workspace-root .connect-section:not(:last-child) {
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.052);
+}
+
+/* Exactly three connectors per row in the center workspace. */
+.connect-workspace-root .connect-section .connect-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 14px;
+  padding: 0;
+}
+
+/* Agent uses the same 3-column .connect-grid as Connect (6 cards = 2×3). */
+.connect-workspace-root .connect-card {
+  cursor: pointer;
+}
+
+/* Agent cards are <button class="connect-card"> — same 38 | 1fr | 32 grid. */
+.connect-workspace-root button.connect-card {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+
+/* Trailing control is decorative layout parity with Connect’s + button. */
+.connect-workspace-root[data-page="agent"] button.connect-card .connect-card-add {
+  pointer-events: none;
+}
+
+.connect-workspace-root .connect-card.is-selected {
+  border-color: rgba(194, 155, 255, 0.42);
+  background: linear-gradient(
+    180deg,
+    rgba(42, 36, 58, 0.98),
+    rgba(24, 28, 36, 0.99)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(145, 104, 255, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.16);
+}
+
+/* Profile photos in Connect icon slots (Agent page). */
+.connect-workspace-root .agent-card-avatar-slot {
+  overflow: hidden;
+}
+
+.connect-workspace-root .agent-card-avatar-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  border-radius: 9px;
+  transform: none !important;
+}
+
+.connect-workspace-root .connect-section-count {
+  margin-left: auto;
+  color: var(--sonare-text-muted);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+/* Section glyphs stay white/muted like Connect — never purple SVG icons. */
+.connect-workspace-root .connect-section-glyph {
+  color: rgba(184, 188, 193, 0.76);
+}
+
+.connect-workspace-root .connect-section-glyph svg {
+  color: inherit;
+  vertical-align: middle;
+}
+
+.connect-workspace-root .connect-card-name-row .agent-list-card-status {
+  margin-left: auto;
+}
+
+.connect-workspace-root .agent-list-card-avatar-fallback {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--sonare-text-primary);
+}
+
+/* Quiet right-rail CTAs on Agent (no glowing primary). */
+.connect-workspace-root[data-page="agent"] .connect-inspector-actions .btn {
+  box-shadow: none;
+}
+
+/* ---- Tasks page: Connect-style center + readable subtask panel ---- */
+.connect-workspace-root[data-page="tasks"] .tasks-connect-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.connect-workspace-root[data-page="tasks"] .tasks-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.connect-workspace-root[data-page="tasks"] .tasks-group-head {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  gap: 8px;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-list > li {
+  min-width: 0;
+}
+
+/* Cleaner list cards — no progress column; room for title + description. */
+.connect-workspace-root[data-page="tasks"] .task-row,
+.connect-workspace-root[data-page="tasks"] .task-row-card {
+  grid-template-columns: 26px minmax(0, 1fr) 70px 32px;
+  gap: 10px 12px;
+  align-items: start;
+  overflow: visible;
+  min-width: 0;
+  min-height: 72px;
+  padding: 12px 12px 12px 16px;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-row .task-check {
+  margin-top: 3px;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-row .task-more-wrap {
+  margin-top: 0;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-row .priority-badge {
+  margin-top: 4px;
+  justify-self: end;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-open {
+  min-width: 0;
+  overflow: hidden;
+  align-items: flex-start;
+  min-height: 0;
+  padding: 0;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  max-width: 100%;
+  color: var(--sonare-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-sub {
+  margin-top: 1px;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-chip-agent {
+  color: #c9b6ff;
+  border-color: rgba(158, 117, 250, 0.28);
+  background: rgba(126, 72, 220, 0.1);
+}
+
+/* Progress bars removed from the queue cards. */
+.connect-workspace-root[data-page="tasks"] .task-progress,
+.connect-workspace-root[data-page="tasks"] .task-inspector-progress {
+  display: none !important;
+}
+
+/* Portaled ⋮ menu — never clipped by scroll parents. */
+.task-more-menu.is-portaled {
+  position: fixed;
+  top: auto;
+  right: auto;
+  margin: 0;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.connect-workspace-root[data-page="tasks"] .task-inspector-note {
+  margin: 0 0 8px;
+  color: var(--sonare-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-inspector-steps {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.connect-workspace-root[data-page="tasks"] .task-inspector-assign {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-inspector-select {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 12, 16, 0.55);
+  color: var(--sonare-text-primary);
+  font-size: 12.5px;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-inspector-select:focus {
+  outline: none;
+  border-color: rgba(158, 117, 250, 0.45);
+}
+
+.connect-workspace-root[data-page="tasks"] .task-center-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Explicitly hide retired search + view toggles if any residual markup appears. */
+.connect-workspace-root[data-page="tasks"] .tasks-search,
+.connect-workspace-root[data-page="tasks"] .task-view-toggle {
+  display: none !important;
+}
+
+.connect-workspace-root[data-page="tasks"] .dashboard-right {
+  min-height: 0;
+}
+
+.connect-workspace-root[data-page="tasks"] .dashboard-right .task-detail-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px 14px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-detail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-subtasks-block {
+  flex: 1 1 auto;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-subtask-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  margin: 0;
+  padding: 0 2px 4px 0;
+  list-style: none;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-subtask-list li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 4px;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-subtask-list li .task-check,
+.connect-workspace-root[data-page="tasks"] .task-subtask-list li span {
+  pointer-events: auto;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-subtask-list li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.4;
+  font-size: 12.5px;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-subtask-add {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-subtask-add input {
+  min-width: 0;
+  width: 100%;
+}
+
+.connect-workspace-root[data-page="tasks"] .task-history-block {
+  flex: 0 0 auto;
+  max-height: 120px;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1400px) {
+  .connect-workspace-root[data-page="tasks"] .task-row,
+  .connect-workspace-root[data-page="tasks"] .task-row-card {
+    grid-template-columns: 26px minmax(0, 1fr) 28px;
+  }
+
+  .connect-workspace-root[data-page="tasks"] .task-check {
+    align-self: start;
+    margin-top: 4px;
+  }
+
+  .connect-workspace-root[data-page="tasks"] .priority-badge {
+    display: none;
+  }
+
+  .connect-workspace-root[data-page="tasks"] .task-more-wrap {
+    align-self: start;
+  }
+}
+
+@media (max-width: 1280px) {
+  .connect-workspace-root[data-page="tasks"] .task-center-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+.connect-workspace-root[data-page="agent"] .dashboard-right .agent-inspector-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: none;
+  padding: 14px 14px 16px;
+}
+
+.connect-workspace-root[data-page="agent"] .agent-inspector-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.connect-workspace-root[data-page="agent"] .agent-linked-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+
+.connect-workspace-root[data-page="agent"] .agent-linked-empty .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.connect-workspace-root[data-page="agent"] .agent-permission-list-roomy {
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 8px;
+  margin: 0;
+}
+
+.connect-workspace-root[data-page="agent"] .agent-permission-list-roomy span {
+  padding: 9px 11px;
+  font-size: 11.5px;
+  border-radius: 10px;
+}
+
+.connect-workspace-root[data-page="agent"] .agent-inspector-foot {
+  margin-top: auto;
+}
+
+.connect-workspace-root[data-page="agent"]
+  .dashboard-right
+  .agent-inspector-panel::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Laptop / mid widths — same collapse path for Connect and Agent. */
+@media (max-width: 1450px) {
+  .connect-workspace-root.dashboard {
+    grid-template-columns:
+      minmax(260px, 290px)
+      minmax(0, 1fr)
+      minmax(260px, 290px);
+    column-gap: 14px;
+    padding: 0 14px 10px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .connect-workspace-root.dashboard {
+    grid-template-columns:
+      minmax(240px, 260px)
+      minmax(0, 1fr)
+      minmax(240px, 260px);
+    column-gap: 12px;
+  }
+
+  .connect-workspace-root .connect-directory-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .connect-workspace-root .connect-section .connect-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .connect-workspace-root .connect-section .connect-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.connect-workspace-root .connect-directory-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--sonare-border);
+  border-radius: 18px;
+  color: rgba(185, 188, 192, 0.68);
+  background: rgba(12, 17, 20, 0.45);
+  font-size: 13px;
+}
+
+/* ---- Right inspector ---- */
+
+.connect-workspace-root .dashboard-right > .card,
+.connect-workspace-root .dashboard-right > .sonare-card {
+  padding: 14px 14px 16px;
+  box-sizing: border-box;
+}
+
+.connect-inspector-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.connect-inspector-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.connect-inspector-top h2 {
+  margin: 2px 0 0;
+  color: var(--sonare-text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.connect-inspector-top > p {
+  margin: 0;
+  color: var(--sonare-text-muted);
+  font-size: 12px;
+}
+
+.connect-inspector-status {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.connect-inspector-status.active {
+  color: #8fe0b0;
+  border-color: rgba(89, 217, 153, 0.28);
+  background: rgba(89, 217, 153, 0.1);
+}
+
+.connect-inspector-desc {
+  margin: 0;
+  color: var(--sonare-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.connect-inspector-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.connect-inspector-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.connect-inspector-empty {
+  margin: 0;
+  color: var(--sonare-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.connect-linked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.connect-linked-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 8px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 8px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.14);
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.connect-linked-row:hover,
+.connect-linked-row.active {
+  border-color: rgba(194, 155, 255, 0.24);
+  background: rgba(145, 104, 255, 0.08);
+}
+
+.connect-linked-row strong {
+  display: block;
+  color: var(--sonare-text-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.connect-linked-row small {
+  display: block;
+  margin-top: 1px;
+  color: var(--sonare-text-muted);
+  font-size: 10.5px;
+}
+
+.connect-linked-row > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.connect-linked-row > i.online {
+  background: var(--sonare-green);
+  box-shadow: 0 0 0 3px rgba(89, 217, 153, 0.16);
+}
+
+.connect-inspector-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--sonare-text-muted);
+  font-size: 11px;
+}
+
+.connect-inspector-foot > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.connect-inspector-foot > span > i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--sonare-green);
+  box-shadow: 0 0 0 3px rgba(89, 217, 153, 0.14);
+}
+
+@media (max-width: 980px) {
+  .connect-workspace-root .connect-directory-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .connect-workspace-root .connect-directory-search {
+    width: 100%;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Tasks left rail — one label system, one spacing scale.
+ *
+ * Layout intent: "Views" is primary navigation and sits at the top; the two
+ * stat blocks are secondary and are pinned to the bottom. The flexible gap
+ * between them is deliberate separation, not leftover space — which is why
+ * the rail no longer ends in a dead pocket.
+ * ------------------------------------------------------------------------- */
+
+.task-left-rail {
+  grid-row: span 3;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.task-left-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* The rail now carries Views, Quick add and By priority above the stats, so
+   the stats no longer need to be pushed down to fill a void. */
+.task-rail-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.task-rail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* The single section-label style for this rail — replaces the mix of
+   .card-label (grey) and .agent-rail-label (violet, borrowed from the
+   Agent page) that made the sections look unrelated. */
+.task-rail-heading {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--sonare-text-muted);
+}
+
+.task-rail-block .task-rail-filters {
+  gap: 4px;
+}
+
+.task-rail-block .task-rail-filter {
+  min-height: 34px;
+}
+
+/* Stat blocks sit directly on the card surface — no nested panel, which is
+   what created the box-in-a-box look. A hairline rule separates instead. */
+.task-rail-stats .task-pulse {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+/* The pulse track was a 3px hairline — matched to the rail meter. */
+.task-rail-stats .task-pulse-track {
+  height: 7px;
+  margin: 9px 0 13px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.task-rail-stats .task-pulse-track span {
+  border-radius: inherit;
+  box-shadow: 0 0 10px rgba(157, 97, 255, 0.35);
+}
+
+.task-rail-stats .task-rail-block + .task-rail-block {
+  padding-top: 20px;
+  border-top: 1px solid var(--sonare-border-soft);
+}
+
+.task-rail-meter {
+  /* Was a 4px hairline — too thin to read as a progress bar. */
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.task-rail-meter > span {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7a45dc, #bb86ff);
+}
+
+.task-rail-split {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  color: var(--sonare-text-muted);
+  font-size: 10.5px;
+}
+
+.task-rail-split strong {
+  color: var(--sonare-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.task-rail-split.is-quiet strong {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sonare-text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+ * Selected-task inspector.
+ *
+ * Previously this borrowed .agent-inspector-* from agents.css, which centres
+ * everything around an avatar — a task has no avatar, so the centring read as
+ * arbitrary. This is a left-aligned single column: title → meta → badges →
+ * progress → actions, each step quieter than the one above it.
+ * ------------------------------------------------------------------------- */
+
+.task-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.task-inspector-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: var(--sonare-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.task-inspector-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: -6px;
+  color: var(--sonare-text-muted);
+  font-size: 11.5px;
+}
+
+/* Dot separator between meta items. */
+.task-inspector-meta > i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.task-inspector-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.task-inspector-done {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #7ee0b0;
+  background: rgba(85, 213, 154, 0.14);
+  border: 1px solid rgba(85, 213, 154, 0.3);
+}
+
+.task-inspector-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.task-inspector-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--sonare-text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.task-inspector-progress-head strong {
+  color: var(--sonare-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.task-inspector-progress-track {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.task-inspector-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7a45dc, #bb86ff);
+  transition: width 260ms var(--sonare-ease-out);
+}
+
+.task-inspector-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.task-inspector-actions .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tasks toolbar — one control language.
+ *
+ * The row previously mixed three geometries: search 11px/36px, the Sort and
+ * Group dropdowns 999px/34px (inherited from settings.css), and the view
+ * toggle 11px/36px. Every control in this bar is now the same pill and the
+ * same height, so the row reads as one component instead of three.
+ * ------------------------------------------------------------------------- */
+
+.task-toolbar-top .tasks-search,
+.task-toolbar-top .task-view-toggle,
+.task-toolbar-top .dropdown-button {
+  height: 38px;
+  border-radius: 999px;
+}
+
+.task-toolbar-top .tasks-search {
+  padding: 0 16px;
+}
+
+.task-toolbar-top .task-view-toggle {
+  padding: 4px;
+}
+
+/* Inner segments stay round so they nest inside the pill cleanly. */
+.task-toolbar-top .task-view-btn {
+  height: 30px;
+  width: 34px;
+  border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Grid view — real cards.
+ *
+ * .task-row is a horizontal 5-column strip (26px/300px/110px/78px/28px ≈ 542px
+ * minimum). Dropping that into a 260px grid cell is what made grid view look
+ * like a list cut in half. Inside .task-grid the same markup is re-laid-out as
+ * a vertical card via grid-template-areas — no JSX change needed.
+ * ------------------------------------------------------------------------- */
+
+.task-list.task-grid {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.task-grid .task-row {
+  grid-template-columns: 22px minmax(0, 1fr) 26px;
+  grid-template-areas:
+    "check title more"
+    ".     sub   sub"
+    ".     prog  prog"
+    ".     badge badge";
+  align-items: start;
+  gap: 8px 9px;
+  min-height: 0;
+  padding: 13px 14px 14px;
+  border-radius: 14px;
+}
+
+.task-grid .task-check { grid-area: check; margin-top: 1px; }
+.task-grid .task-open  { grid-area: title; min-width: 0; }
+.task-grid .task-more-wrap { grid-area: more; }
+.task-grid .task-progress { grid-area: prog; width: 100%; }
+.task-grid .priority-badge { grid-area: badge; justify-self: start; }
+
+/* Title wraps to two lines in a card instead of ellipsing at one. */
+.task-grid .task-open .task-meta { gap: 7px; }
+
+.task-grid .task-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+/* Chips move under the title and are free to wrap. */
+.task-grid .task-sub {
+  grid-area: sub;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.task-grid .task-progress { flex-direction: row; align-items: center; gap: 8px; }
+.task-grid .task-progress-track { flex: 1; }
+
+/* ---------------------------------------------------------------------------
+ * Views rail — colour-coded, not five identical grey rows.
+ *
+ * Each view now carries its own accent (today = blue, upcoming = violet,
+ * urgent = red, completed = green) shown on the leading rail and the count,
+ * so the list is scannable by colour before it is read.
+ * ------------------------------------------------------------------------- */
+
+.task-rail-filters {
+  display: grid;
+  gap: 3px;
+}
+
+.task-rail-filter {
+  position: relative;
+  width: 100%;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 3px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 0 11px 0 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--sonare-text-muted);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+/* Leading rail — the colour carrier. Grows when the view is active. */
+.task-rail-filter .task-rail-filter-dot {
+  width: 3px;
+  height: 14px;
+  border-radius: 0 999px 999px 0;
+  background: currentColor;
+  opacity: 0.28;
+  box-shadow: none;
+  transition: height 180ms var(--sonare-ease-out), opacity 150ms ease;
+}
+
+.task-rail-filter:hover {
+  color: var(--sonare-text-primary);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.task-rail-filter:hover .task-rail-filter-dot { opacity: 0.6; }
+
+.task-rail-filter.active {
+  color: var(--sonare-text-primary);
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.task-rail-filter.active .task-rail-filter-dot {
+  height: 22px;
+  opacity: 1;
+}
+
+.task-rail-filter-count {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+/* Per-view accents. The rail and the active count pick these up. */
+.task-rail-filter.view-today    { --view-accent: #5aa9f0; }
+.task-rail-filter.view-upcoming { --view-accent: #9168ff; }
+.task-rail-filter.view-urgent   { --view-accent: #ff6b6b; }
+.task-rail-filter.view-completed{ --view-accent: #55d59a; }
+.task-rail-filter.view-all      { --view-accent: #9aa4ad; }
+
+.task-rail-filter .task-rail-filter-dot { background: var(--view-accent, currentColor); }
+
+.task-rail-filter.active .task-rail-filter-count {
+  color: var(--view-accent, var(--sonare-text-primary));
+  background: color-mix(in srgb, var(--view-accent, #fff) 16%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Tasks page — Agent-page layout language.
+ *
+ * Constant card height: previously each card sized to its own content, so a
+ * two-line title made a visibly taller card than a one-line one (and a long
+ * title stretched the row). The title now always reserves two lines and the
+ * chip row is capped at one, so every card is the same height regardless of
+ * content — matching .agent-directory-card's fixed-height behaviour.
+ * ------------------------------------------------------------------------- */
+
+.task-list.task-grid {
+  /* Three per row — two made each card oversized for its content. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  /* Cards fill their track instead of hugging their content. */
+  align-items: stretch;
+}
+
+.task-grid .task-row {
+  min-height: 112px;
+  align-content: start;
+  padding: 11px 12px 12px;
+}
+
+/* Always two lines of title space, whether the title needs one or two. */
+.task-grid .task-title {
+  min-height: calc(2 * 1.35em);
+}
+
+/* One line of chips only — wrapping was a second source of height drift. */
+.task-grid .task-sub {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-height: 22px;
+}
+
+/* Progress and badge sit at the bottom of every card, aligned across the row. */
+.task-grid .task-progress {
+  align-self: end;
+}
+
+.task-grid .priority-badge {
+  align-self: end;
+}
+
+/* List view: a long title must ellipsis, never widen the row. */
+.task-list:not(.task-grid) .task-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------ filter bar ------------------------------- */
+/* Search leads at full width; sort/group are fixed-width and quiet. */
+
+.task-filter-bar {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 150px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 4px;
+}
+
+.task-filter-bar .tasks-search,
+.task-filter-bar .dropdown-button {
+  height: 38px;
+  border-radius: 999px;
+}
+
+.task-filter-bar .tasks-search {
+  padding: 0 16px;
+}
+
+.task-filter-bar .dropdown,
+.task-filter-bar .dropdown-button {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Header actions match the Agent page's pill treatment. */
+.agent-directory-head .task-view-toggle {
+  height: 38px;
+  padding: 4px;
+  border-radius: 999px;
+}
+
+.agent-directory-head .task-view-btn {
+  height: 30px;
+  width: 34px;
+  border-radius: 999px;
+}
+
+@media (max-width: 1500px) {
+  .task-list.task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1220px) {
+  .task-list.task-grid { grid-template-columns: minmax(0, 1fr); }
+  .task-filter-bar { grid-template-columns: minmax(0, 1fr) 130px 130px; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Tasks rail — quick add + priority breakdown.
+ * These fill the rail with tools rather than padding: fast capture (the modal
+ * was previously the only way to add a task) and counts that double as sorts.
+ * ------------------------------------------------------------------------- */
+
+.task-rail-quickadd form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: 6px;
+}
+
+.task-rail-quickadd input {
+  min-width: 0;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--sonare-text-primary);
+  /* Same glass as the filter bar and the cards — one input language. */
+  background: rgba(13, 19, 24, 0.68);
+  border: 1px solid rgba(119, 133, 144, 0.2);
+  backdrop-filter: blur(10px) saturate(112%);
+  transition: border-color 150ms ease;
+}
+
+.task-rail-quickadd input::placeholder {
+  color: var(--sonare-text-muted);
+}
+
+.task-rail-quickadd input:focus {
+  outline: none;
+  border-color: rgba(145, 110, 255, 0.4);
+}
+
+.task-rail-quickadd button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(160deg, var(--sonare-violet), #6a45c9);
+  border: 1px solid rgba(145, 104, 255, 0.5);
+  transition: opacity 150ms ease, filter 150ms ease;
+}
+
+.task-rail-quickadd button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.task-rail-quickadd button:disabled {
+  opacity: 0.35;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.task-rail-priorities {
+  display: grid;
+  gap: 3px;
+}
+
+.task-rail-priority {
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--sonare-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.task-rail-priority:hover {
+  color: var(--sonare-text-primary);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Active = the queue is filtered to this priority. Tinted with the priority's
+   own accent so it is obvious which filter is on. */
+.task-rail-priority.active {
+  color: var(--sonare-text-primary);
+  background: color-mix(in srgb, var(--pri-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--pri-accent) 34%, transparent);
+}
+
+.task-rail-priority.active .task-rail-priority-count {
+  color: var(--pri-accent);
+  background: color-mix(in srgb, var(--pri-accent) 18%, transparent);
+}
+
+.task-rail-priority-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pri-accent, #9aa4ad);
+}
+
+.task-rail-priority.pri-high { --pri-accent: #ff6b6b; }
+.task-rail-priority.pri-medium { --pri-accent: #f0b45a; }
+.task-rail-priority.pri-low { --pri-accent: #5aa9f0; }
+
+.task-rail-priority-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ------------------- one input colour across the page -------------------- */
+/* Search was rgba(0,0,0,.22), the dropdowns used --sonare-recessed and
+   --settings-input-bg. Three different surfaces in one row. */
+
+.task-filter-bar .tasks-search,
+.task-filter-bar .dropdown-button {
+  background: rgba(13, 19, 24, 0.68);
+  border: 1px solid rgba(119, 133, 144, 0.2);
+  backdrop-filter: blur(10px) saturate(112%);
+  color: var(--sonare-text-secondary);
+}
+
+.task-filter-bar .tasks-search:focus-within,
+.task-filter-bar .dropdown-button:hover {
+  border-color: rgba(145, 110, 255, 0.34);
+}
+
+.task-filter-bar .dropdown-button-label {
+  color: var(--sonare-text-secondary);
+}
+
+/* Detail panel content: no inner scrollbar — the sections are capped so the
+   panel fits. A nested scroll area inside a card reads as broken layout. */
+.task-detail-body {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.task-history-more {
+  margin-top: 2px;
+  color: var(--sonare-text-muted);
+  font-size: 10px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Create-task modal.
+ *
+ * Inputs previously used rgba(0,0,0,.28) while every other surface in the app
+ * had moved to the glass treatment — the modal read as a different product.
+ * All fields here use the same glass as the cards and the filter bar.
+ * ------------------------------------------------------------------------- */
+
+.modal-task-create {
+  width: min(560px, calc(100vw - 40px));
+  max-height: min(86vh, 760px);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 20px 0;
+  background: rgba(13, 19, 24, 0.9);
+  border: 1px solid rgba(119, 133, 144, 0.24);
+  backdrop-filter: blur(18px) saturate(112%);
+}
+
+/* Only this region scrolls, and it keeps bottom padding so the last field is
+   never flush against the action bar. */
+.modal-task-create .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+.modal-task-create .modal-input,
+.modal-task-create .modal-select {
+  background: rgba(13, 19, 24, 0.68);
+  border: 1px solid rgba(119, 133, 144, 0.2);
+  backdrop-filter: blur(10px) saturate(112%);
+  color: var(--sonare-text-primary);
+}
+
+.modal-task-create .modal-input:focus,
+.modal-task-create .modal-select:focus {
+  outline: none;
+  border-color: rgba(145, 110, 255, 0.42);
+}
+
+.modal-task-create .modal-input:disabled {
+  opacity: 0.45;
+}
+
+/* Native date/time pickers render a dark-on-dark icon by default. */
+.modal-task-create input[type="date"],
+.modal-task-create input[type="time"] {
+  color-scheme: dark;
+}
+
+.modal-due-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.modal-quick-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.modal-quick-dates button {
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--sonare-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.modal-quick-dates button:hover {
+  color: var(--sonare-text-primary);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.modal-quick-dates button.is-clear {
+  color: #ffb4b4;
+  border-color: rgba(255, 120, 120, 0.24);
+}
+
+/* Priority segments carry their own colour when selected. */
+.segment-pri-high.active { color: #ff8f8f; }
+.segment-pri-medium.active { color: #f0b45a; }
+.segment-pri-low.active { color: #7fc0f5; }
+
+.modal-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+}
+
+.modal-hint {
+  color: var(--sonare-text-muted);
+  font-size: 10.5px;
+}
+
+/* Subtask list built up before the task exists. */
+.modal-chip-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modal-chip-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 11px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  color: var(--sonare-text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.modal-chip-list li > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-chip-list li button {
+  display: flex;
+  color: var(--sonare-text-muted);
+  transition: color 140ms ease;
+}
+
+.modal-chip-list li button:hover { color: #ffb4b4; }
+
+.modal-inline-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 6px;
+}
+
+.modal-inline-add button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  border-radius: 9px;
+  color: #fff;
+  background: rgba(145, 110, 255, 0.22);
+  border: 1px solid rgba(145, 110, 255, 0.36);
+  transition: filter 140ms ease, opacity 140ms ease;
+}
+
+.modal-inline-add button:hover:not(:disabled) { filter: brightness(1.16); }
+.modal-inline-add button:disabled { opacity: 0.3; }
+
+.modal-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.modal-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: #d1b8ff;
+  background: rgba(145, 110, 255, 0.14);
+  border: 1px solid rgba(145, 110, 255, 0.3);
+}
+
+/* Action bar pinned below the scroll area, with its own padding. */
+.modal-task-create .modal-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(9, 13, 17, 0.5);
+}
+
+.modal-shortcut-hint {
+  margin-right: auto;
+  color: var(--sonare-text-muted);
+  font-size: 10px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tasks workspace — height that follows the window.
+ *
+ * .side-column uses `grid-template-rows: 258px 200px 182px`, a fixed 672px.
+ * On a taller window that left ~130px of dead space below the cards, and it
+ * capped the detail card at 398px so its content was clipped — the same root
+ * cause behind both "too much padding at the bottom" and "everything is
+ * hidden under the card".
+ *
+ * Here the columns fill the available height and distribute it, so spacing
+ * stays consistent at any window size.
+ * ------------------------------------------------------------------------- */
+
+.tasks-workspace-root .dashboard-left,
+.tasks-workspace-root .dashboard-right {
+  height: 100%;
+  min-height: 0;
+  /* Replaces the fixed pixel rows. */
+  grid-template-rows: none;
+}
+
+/* Left rail is one card that fills the column. */
+.tasks-workspace-root .dashboard-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.tasks-workspace-root .dashboard-left > .card {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Right column: the selected-task card sizes to its content, the detail card
+   takes whatever height remains — so nothing is ever clipped. */
+.tasks-workspace-root .dashboard-right {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.tasks-workspace-root .dashboard-right > .card {
+  min-height: 0;
+}
+
+/* Equal breathing room top and bottom, matching the Agent page's cards. */
+.tasks-workspace-root .side-column > .card {
+  padding: 17px 18px;
+}
+
+/* The rail's own content scrolls if the window gets short, rather than
+   overflowing the card. */
+.task-left-rail {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* Detail card: header stays put, body scrolls, both keep the card's padding. */
+.task-detail-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.task-detail-card > .task-detail-body {
+  flex: 1;
+  min-height: 0;
+  /* Was `hidden`, which silently clipped the last history entry. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  /* Keeps the final row clear of the card edge while scrolled to the bottom. */
+  padding-bottom: 2px;
+}
+
+/* ------------------------- subtasks in the inspector --------------------- */
+
+.task-subtasks-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-subtask-count {
+  color: var(--sonare-text-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-subtask-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-subtask-progress-track {
+  flex: 1;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.task-subtask-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7a45dc, #bb86ff);
+  box-shadow: 0 0 10px rgba(157, 97, 255, 0.35);
+  transition: width 260ms var(--sonare-ease-out);
+}
+
+.task-subtask-progress strong {
+  min-width: 32px;
+  text-align: right;
+  color: var(--sonare-text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* An empty list previously showed a lone progress bar and nothing else. */
+.task-subtask-empty {
+  margin: 0;
+  padding: 13px 14px;
+  border-radius: 11px;
+  color: var(--sonare-text-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px dashed rgba(255, 255, 255, 0.09);
+}
+
+.task-subtask-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-subtask-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--sonare-text-secondary);
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 140ms ease;
+}
+
+.task-subtask-list li:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.task-subtask-list li > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-subtask-list li > span.is-done {
+  color: var(--sonare-text-muted);
+  text-decoration: line-through;
+}
+
+/* A create that did not reach the database. Shown next to the control that
+   attempted it, so the failure is where the user is looking. */
+.modal-error,
+.task-rail-error {
+  color: var(--sonare-danger);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.modal-error {
+  margin-right: auto;
+  align-self: center;
+}
+
+.task-rail-error {
+  display: block;
+  margin-top: 6px;
+}
+
+/* ---------------------- honest connector card states ----------------------
+ * A catalogue card, a credential form and a working integration used to look
+ * identical. These distinguish them without shouting.
+ * ------------------------------------------------------------------------- */
+
+.connect-card-status {
+  margin: 3px 0 0;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.connect-card-status.is-real {
+  color: var(--sonare-text-secondary);
+}
+
+.connect-card-status.is-pending {
+  color: var(--sonare-text-muted);
+  font-style: italic;
+}
+
+/* No action at all — there is nothing behind this card to open. */
+.connect-card-soon {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+/* Storing a credential is real, but it buys nothing yet — so the action is
+   visibly quieter than a working Connect. */
+.connect-card-add.is-preview {
+  opacity: 0.65;
+  border-style: dashed;
+}
+
+/* ========================================================================
+   Tasks workspace v2
+   The task page is intentionally scoped under task-v2-root so its denser
+   mission-control layout cannot leak into Dashboard or Connect cards.
+   ======================================================================== */
+
+.tasks-workspace-root.task-v2-root {
+  --task-v2-line: rgba(151, 177, 215, 0.16);
+  --task-v2-line-soft: rgba(151, 177, 215, 0.09);
+  --task-v2-panel: linear-gradient(145deg, rgba(9, 18, 30, 0.94), rgba(5, 13, 23, 0.9));
+  --task-v2-violet: #8b5cf6;
+  grid-template-columns: minmax(244px, 0.88fr) minmax(570px, 2.48fr) minmax(306px, 1.16fr);
+  gap: 14px;
+  padding: 0 14px 10px;
+  overflow: hidden;
+}
+
+.tasks-workspace-root.task-v2-root.no-inspector {
+  grid-template-columns: minmax(244px, 0.72fr) minmax(680px, 3.28fr);
+}
+
+.tasks-workspace-root.task-v2-root.inspector-expanded {
+  grid-template-columns: minmax(232px, 0.76fr) minmax(520px, 1.86fr) minmax(380px, 1.42fr);
+}
+
+.task-v2-left,
+.task-v2-right,
+.task-v2-center {
+  min-width: 0;
+  min-height: 0;
+}
+
+.task-v2-left,
+.task-v2-right {
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.task-v2-left {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.task-v2-right {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.task-v2-center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.task-v2-panel,
+.task-v2-group {
+  border: 1px solid var(--task-v2-line);
+  background: var(--task-v2-panel);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.018), 0 14px 36px rgba(0, 0, 0, 0.12);
+}
+
+.task-v2-panel {
+  border-radius: 17px;
+  padding: 15px 17px;
+  overflow: hidden;
+}
+
+.task-v2-kicker,
+.task-v2-group-title,
+.task-v2-subhead {
+  margin: 0;
+  color: rgba(207, 218, 235, 0.62);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.105em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.task-v2-section-head,
+.task-v2-group-head,
+.task-v2-detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-v2-view-list {
+  display: grid;
+  gap: 3px;
+  margin: 10px -6px 0;
+}
+
+.task-v2-view {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: rgba(224, 232, 244, 0.76);
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+  transition: 140ms ease;
+}
+
+.task-v2-view:hover {
+  color: #f7f9ff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.task-v2-view.is-active {
+  color: #fff;
+  border-color: rgba(129, 92, 246, 0.18);
+  background: linear-gradient(90deg, rgba(105, 73, 210, 0.25), rgba(105, 73, 210, 0.08));
+  box-shadow: inset 2px 0 0 #8b5cf6;
+}
+
+.task-v2-view svg {
+  color: #678cff;
+}
+
+.task-v2-view.view-urgent svg {
+  color: #fb5067;
+}
+
+.task-v2-view.view-completed svg {
+  color: #27d694;
+}
+
+.task-v2-view-count {
+  display: grid;
+  min-width: 27px;
+  height: 23px;
+  padding: 0 7px;
+  place-items: center;
+  border-radius: 999px;
+  color: rgba(238, 243, 252, 0.8);
+  background: rgba(111, 137, 176, 0.1);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.task-v2-view.is-active .task-v2-view-count {
+  background: rgba(132, 94, 247, 0.32);
+  color: #fff;
+}
+
+.task-v2-quick-add {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--task-v2-line-soft);
+}
+
+.task-v2-quick-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.task-v2-quick-row input,
+.task-v2-search input {
+  min-width: 0;
+  border: 1px solid rgba(151, 177, 215, 0.16);
+  color: #eef4ff;
+  background: rgba(2, 8, 16, 0.42);
+  outline: none;
+  transition: 140ms ease;
+}
+
+.task-v2-quick-row input {
+  height: 36px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.task-v2-quick-row input:focus,
+.task-v2-search:focus-within input {
+  border-color: rgba(139, 92, 246, 0.62);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.task-v2-quick-button,
+.task-v2-list-tool,
+.task-v2-icon-btn,
+.task-v2-more-btn,
+.task-v2-close-btn {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--task-v2-line);
+  color: rgba(229, 236, 248, 0.8);
+  background: rgba(12, 24, 39, 0.78);
+  transition: 140ms ease;
+}
+
+.task-v2-quick-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.task-v2-quick-button:hover,
+.task-v2-list-tool:hover,
+.task-v2-icon-btn:hover,
+.task-v2-more-btn:hover,
+.task-v2-close-btn:hover {
+  color: #fff;
+  border-color: rgba(139, 92, 246, 0.42);
+  background: rgba(91, 61, 177, 0.22);
+}
+
+.task-v2-insights-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.task-v2-info {
+  display: inline-grid;
+  width: 15px;
+  height: 15px;
+  margin-left: 4px;
+  place-items: center;
+  border: 1px solid rgba(178, 196, 220, 0.25);
+  border-radius: 50%;
+  font-size: 9px;
+}
+
+.task-v2-insights {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.task-v2-insight-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(225, 233, 246, 0.78);
+  font-size: 12px;
+}
+
+.task-v2-insight-top strong {
+  color: #f2f6fd;
+  font-size: 12px;
+}
+
+.task-v2-insight-track,
+.task-v2-progress-track {
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(118, 144, 178, 0.1);
+}
+
+.task-v2-insight-track {
+  height: 3px;
+  margin-top: 6px;
+}
+
+.task-v2-insight-track span,
+.task-v2-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7349ee, #ad6cff);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.35);
+}
+
+.task-v2-insight-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  margin-top: auto;
+  padding: 0 12px;
+  border: 1px solid var(--task-v2-line-soft);
+  border-radius: 9px;
+  color: rgba(220, 230, 243, 0.72);
+  background: rgba(255, 255, 255, 0.018);
+  font-size: 11.5px;
+}
+
+.task-v2-workspace-head {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  flex: 0 0 auto;
+  min-height: 96px;
+  padding: 7px 1px 14px;
+}
+
+.task-v2-workspace-head .task-v2-kicker {
+  color: #d875e7;
+}
+
+.task-v2-workspace-head h1 {
+  margin: 9px 0 1px;
+  color: #f5f7fc;
+  font-size: clamp(22px, 1.65vw, 28px);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+.task-v2-workspace-head p {
+  margin: 0;
+  color: rgba(207, 219, 236, 0.7);
+  font-size: 11.5px;
+}
+
+.task-v2-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.task-v2-search {
+  position: relative;
+  width: clamp(180px, 18vw, 246px);
+}
+
+.task-v2-search > svg {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 13px;
+  color: rgba(206, 219, 237, 0.62);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.task-v2-search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 36px 0 38px;
+  border-radius: 999px;
+  font-size: 11.5px;
+}
+
+.task-v2-clear-search {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  color: rgba(213, 224, 240, 0.58);
+  background: transparent;
+  transform: translateY(-50%);
+}
+
+.task-v2-list-tool {
+  width: 47px;
+  height: 38px;
+  border-radius: 999px;
+}
+
+.task-v2-queue {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 13px;
+  padding: 0 2px 8px 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(132, 108, 197, 0.3) transparent;
+}
+
+.task-v2-group {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 15px;
+}
+
+.task-v2-group-head {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 15px;
+  border: 0;
+  color: rgba(234, 240, 250, 0.88);
+  background: rgba(12, 24, 39, 0.24);
+  text-align: left;
+}
+
+.task-v2-group-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-v2-group-count {
+  color: rgba(238, 243, 251, 0.85);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.task-v2-list {
+  display: block;
+}
+
+.task-v2-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(155px, 1fr) minmax(102px, 135px) minmax(105px, 145px) 67px 28px;
+  align-items: center;
+  min-height: 57px;
+  padding: 0 11px;
+  border-top: 1px solid var(--task-v2-line-soft);
+  color: rgba(226, 234, 247, 0.82);
+  cursor: pointer;
+  outline: none;
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+
+.task-v2-row:hover {
+  background: rgba(126, 97, 215, 0.055);
+}
+
+.task-v2-row.is-selected {
+  z-index: 1;
+  background: linear-gradient(90deg, rgba(104, 74, 216, 0.17), rgba(67, 45, 135, 0.07));
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.54);
+}
+
+.task-v2-row.is-done {
+  opacity: 0.58;
+}
+
+.task-v2-row.is-done .task-v2-row-title {
+  text-decoration: line-through;
+}
+
+.task-v2-check-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.task-v2-select-dot,
+.task-v2-complete {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.task-v2-select-dot {
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(188, 205, 230, 0.38);
+  background: rgba(2, 7, 14, 0.38);
+}
+
+.task-v2-row.is-selected .task-v2-select-dot {
+  border: 4px solid #9b77ff;
+  box-shadow: 0 0 0 2px rgba(202, 187, 255, 0.84), 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.task-v2-complete {
+  width: 21px;
+  height: 21px;
+  margin-left: -3px;
+  border: 0;
+  color: rgba(211, 224, 242, 0.62);
+  background: rgba(120, 146, 181, 0.075);
+}
+
+.task-v2-complete.is-done {
+  color: #b7ffa8;
+  background: rgba(58, 188, 122, 0.18);
+}
+
+.task-v2-row-copy,
+.task-v2-row-source {
+  min-width: 0;
+}
+
+.task-v2-row-copy {
+  padding-right: 10px;
+}
+
+.task-v2-row-title,
+.task-v2-row-category,
+.task-v2-row-due,
+.task-v2-row-source > span:last-child {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-v2-row-title {
+  color: #f0f4fb;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.task-v2-row-category {
+  margin-top: 3px;
+  color: rgba(190, 205, 225, 0.54);
+  font-size: 10.5px;
+}
+
+.task-v2-row-due {
+  padding-right: 8px;
+  color: rgba(188, 165, 255, 0.88);
+  font-size: 10.5px;
+}
+
+.task-v2-row-source {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 8px;
+  font-size: 10.5px;
+}
+
+.task-v2-source-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(151, 177, 215, 0.18);
+  border-radius: 50%;
+  color: #d5c8ff;
+  background: linear-gradient(145deg, rgba(113, 68, 207, 0.48), rgba(38, 67, 120, 0.46));
+  box-shadow: inset 0 0 0 2px rgba(4, 12, 21, 0.72), 0 0 10px rgba(95, 69, 192, 0.2);
+}
+
+.task-v2-source-icon.is-calendar {
+  color: #ffd06f;
+  background: rgba(29, 111, 178, 0.4);
+}
+
+.task-v2-source-icon.is-drive {
+  color: #6fe0a4;
+  background: rgba(31, 119, 95, 0.36);
+}
+
+.task-v2-source-icon.is-manual {
+  color: #9ec6ff;
+  background: rgba(46, 93, 148, 0.36);
+}
+
+.task-v2-priority {
+  justify-self: start;
+  min-width: 58px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
+  text-align: center;
+}
+
+.task-v2-priority.pri-high {
+  color: #ff626e;
+  border-color: rgba(239, 61, 81, 0.15);
+  background: rgba(140, 25, 42, 0.17);
+}
+
+.task-v2-priority.pri-medium {
+  color: #f4b23d;
+  border-color: rgba(218, 153, 32, 0.12);
+  background: rgba(128, 86, 18, 0.16);
+}
+
+.task-v2-priority.pri-low {
+  color: #63a4ff;
+  border-color: rgba(53, 120, 225, 0.12);
+  background: rgba(24, 70, 139, 0.16);
+}
+
+.task-v2-more-btn {
+  width: 27px;
+  height: 27px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.task-v2-empty {
+  display: grid;
+  min-height: 260px;
+  padding: 30px;
+  place-items: center;
+  border: 1px dashed rgba(151, 177, 215, 0.17);
+  border-radius: 16px;
+  background: rgba(4, 12, 21, 0.52);
+}
+
+.task-v2-selected-panel {
+  flex: 0 0 auto;
+}
+
+.task-v2-icon-row {
+  display: flex;
+  gap: 4px;
+}
+
+.task-v2-icon-btn,
+.task-v2-close-btn {
+  width: 28px;
+  height: 28px;
+  border-color: transparent;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.task-v2-icon-btn.is-active {
+  color: #c3b2ff;
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.task-v2-selected-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.task-v2-selected-title-row h2 {
+  min-width: 0;
+  margin: 0;
+  color: #f3f6fc;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.task-v2-selected-category {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 7px 0 0;
+  color: rgba(204, 217, 235, 0.66);
+  font-size: 10.5px;
+}
+
+.task-v2-facts {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px 8px;
+  margin: 17px 0 15px;
+  color: rgba(205, 218, 236, 0.64);
+  font-size: 10.5px;
+}
+
+.task-v2-facts dd,
+.task-v2-facts dt {
+  min-width: 0;
+  margin: 0;
+}
+
+.task-v2-facts dd {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  color: rgba(238, 243, 251, 0.83);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-v2-status-pill {
+  display: inline-flex;
+  padding: 5px 11px;
+  border-radius: 999px;
+  color: #b79cff;
+  background: rgba(101, 65, 190, 0.18);
+}
+
+.task-v2-focus-btn,
+.task-v2-secondary-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.task-v2-focus-btn {
+  width: 100%;
+  border: 1px solid rgba(173, 126, 255, 0.38);
+  color: #fff;
+  background: linear-gradient(135deg, #6841e9, #8c47f1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 8px 18px rgba(91, 49, 201, 0.18);
+}
+
+.task-v2-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 38px;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.task-v2-secondary-btn {
+  border: 1px solid rgba(151, 177, 215, 0.08);
+  color: rgba(232, 238, 248, 0.8);
+  background: rgba(91, 116, 151, 0.09);
+}
+
+.task-v2-detail-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.task-v2-detail-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(132, 108, 197, 0.3) transparent;
+}
+
+.task-v2-detail-heading {
+  margin-bottom: 8px;
+}
+
+.task-v2-progress-label {
+  color: rgba(220, 229, 241, 0.72);
+  font-size: 10px;
+}
+
+.task-v2-progress-track {
+  height: 4px;
+  margin-bottom: 10px;
+}
+
+.task-v2-subtasks {
+  display: grid;
+  gap: 4px;
+}
+
+.task-v2-subtask {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  min-height: 28px;
+  color: rgba(225, 233, 245, 0.78);
+  font-size: 10.5px;
+}
+
+.task-v2-subtask input {
+  position: absolute;
+  opacity: 0;
+}
+
+.task-v2-subtask-box {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid rgba(170, 191, 221, 0.28);
+  border-radius: 4px;
+  color: transparent;
+  background: rgba(4, 11, 20, 0.55);
+}
+
+.task-v2-subtask input:checked + .task-v2-subtask-box {
+  color: #fff;
+  border-color: #8059ef;
+  background: #7044df;
+}
+
+.task-v2-subtask.is-done > span:last-child {
+  color: rgba(176, 191, 213, 0.44);
+  text-decoration: line-through;
+}
+
+.task-v2-add-subtask {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  color: rgba(198, 210, 228, 0.52);
+  background: transparent;
+  font-size: 10.5px;
+}
+
+.task-v2-subtask-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.task-v2-subtask-form input {
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 7px;
+  color: #f2f6fc;
+  background: rgba(2, 8, 16, 0.5);
+  outline: 0;
+  font-size: 10.5px;
+}
+
+.task-v2-subtask-form button {
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 7px;
+  color: #ded3ff;
+  background: rgba(112, 68, 223, 0.2);
+  font-size: 10px;
+}
+
+.task-v2-activity-section {
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--task-v2-line-soft);
+}
+
+.task-v2-activity-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.task-v2-activity {
+  display: grid;
+  grid-template-columns: 29px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.task-v2-activity-copy {
+  min-width: 0;
+}
+
+.task-v2-activity-copy p {
+  margin: 0;
+  color: rgba(225, 233, 245, 0.76);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.task-v2-activity-copy time {
+  display: block;
+  margin-top: 2px;
+  color: rgba(177, 195, 218, 0.42);
+  font-size: 9.5px;
+}
+
+.task-v2-activity-empty {
+  color: rgba(187, 202, 222, 0.48);
+  font-size: 10.5px;
+}
+
+.task-v2-menu {
+  z-index: 5000;
+  display: grid;
+  width: 188px;
+  padding: 6px;
+  border: 1px solid rgba(151, 177, 215, 0.2);
+  border-radius: 11px;
+  background: rgba(7, 15, 27, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+
+.task-v2-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 31px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  color: rgba(228, 235, 247, 0.76);
+  background: transparent;
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.task-v2-menu button:hover {
+  color: #fff;
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.task-v2-menu button.is-danger {
+  color: #ff7b88;
+}
+
+.task-v2-undo {
+  position: fixed;
+  z-index: 4000;
+  left: 50%;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 9px 11px 9px 14px;
+  border: 1px solid rgba(151, 177, 215, 0.2);
+  border-radius: 11px;
+  color: rgba(238, 243, 251, 0.84);
+  background: rgba(8, 17, 29, 0.97);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+  font-size: 11px;
+  transform: translateX(-50%);
+}
+
+.task-v2-undo button {
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 7px;
+  color: #c8b6ff;
+  background: rgba(139, 92, 246, 0.15);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+@media (max-width: 1450px) {
+  .tasks-workspace-root.task-v2-root {
+    grid-template-columns: minmax(222px, 0.78fr) minmax(520px, 2.38fr) minmax(280px, 1.06fr);
+    gap: 10px;
+    padding-inline: 10px;
+  }
+
+  .task-v2-panel {
+    padding: 13px 14px;
+  }
+
+  .task-v2-row {
+    grid-template-columns: 29px minmax(145px, 1fr) minmax(92px, 118px) minmax(96px, 122px) 61px 26px;
+    padding-inline: 9px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .tasks-workspace-root.task-v2-root,
+  .tasks-workspace-root.task-v2-root.inspector-expanded {
+    grid-template-columns: 220px minmax(520px, 1fr);
+  }
+
+  .task-v2-right {
+    display: none;
+  }
+
+  .task-v2-row {
+    grid-template-columns: 29px minmax(170px, 1fr) minmax(100px, 130px) 68px 26px;
+  }
+
+  .task-v2-row-source {
+    display: none;
+  }
+}
+
+/* Exact component hooks. These sit after the broad visual primitives above
+   because the page deliberately avoids inheriting the old task-rail markup. */
+.task-v2-panel-head,
+.task-v2-inspector-head,
+.task-v2-subtasks-head,
+.task-v2-activity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.task-v2-panel-head > svg {
+  color: rgba(188, 203, 224, 0.48);
+}
+
+.task-v2-view > strong {
+  display: grid;
+  min-width: 27px;
+  height: 23px;
+  padding: 0 7px;
+  place-items: center;
+  border-radius: 999px;
+  color: rgba(238, 243, 252, 0.8);
+  background: rgba(111, 137, 176, 0.1);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.task-v2-view.is-active > strong {
+  color: #fff;
+  background: rgba(132, 94, 247, 0.32);
+}
+
+.task-v2-divider {
+  height: 1px;
+  margin: 12px 0;
+  background: var(--task-v2-line-soft);
+}
+
+.task-v2-quick-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 0;
+  border: 0;
+}
+
+.task-v2-quick-add > input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 13px;
+  border: 1px solid rgba(151, 177, 215, 0.16);
+  border-radius: 999px;
+  color: #eef4ff;
+  background: rgba(2, 8, 16, 0.42);
+  outline: none;
+  font-size: 12px;
+}
+
+.task-v2-quick-add > input:focus {
+  border-color: rgba(139, 92, 246, 0.62);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.task-v2-quick-add > button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--task-v2-line);
+  border-radius: 50%;
+  color: rgba(229, 236, 248, 0.8);
+  background: rgba(12, 24, 39, 0.78);
+}
+
+.task-v2-quick-add > button:disabled {
+  opacity: 0.42;
+}
+
+.task-v2-error {
+  margin: 7px 2px 0;
+  color: #ff7481;
+  font-size: 10px;
+}
+
+.task-v2-insight > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(225, 233, 246, 0.78);
+  font-size: 12px;
+}
+
+.task-v2-insight > div strong {
+  color: #f2f6fd;
+  font-size: 12px;
+}
+
+.task-v2-insight-track > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7349ee, #ad6cff);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.35);
+}
+
+.task-v2-insight-track {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(118, 144, 178, 0.1);
+  line-height: 0;
+}
+
+.task-v2-insight.is-red .task-v2-insight-track > i {
+  background: linear-gradient(90deg, #cc4158, #ff6f79);
+}
+
+.task-v2-insight.is-green .task-v2-insight-track > i {
+  background: linear-gradient(90deg, #1fa76e, #51dea0);
+}
+
+.task-v2-insights-link {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+}
+
+.task-v2-eyebrow {
+  color: #d875e7;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.105em;
+  text-transform: uppercase;
+}
+
+.task-v2-workspace-head > div:first-child {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+}
+
+.task-v2-workspace-head h1 {
+  position: relative;
+  z-index: 2;
+  display: block;
+  line-height: 1.18;
+}
+
+.task-v2-workspace-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.task-v2-search > button {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  color: rgba(213, 224, 240, 0.58);
+  background: transparent;
+  transform: translateY(-50%);
+}
+
+.task-v2-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.task-v2-group-head {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto 18px;
+  justify-content: initial;
+}
+
+.task-v2-group-head > span {
+  color: rgba(237, 242, 250, 0.86);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.task-v2-group-head > strong {
+  min-width: 20px;
+  color: rgba(238, 243, 251, 0.88);
+  font-size: 11px;
+  text-align: center;
+}
+
+.task-v2-list,
+.task-v2-subtask-list,
+.task-v2-more-menu {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-v2-row.is-completed {
+  opacity: 0.58;
+}
+
+.task-v2-row.is-completed .task-v2-row-info strong {
+  text-decoration: line-through;
+}
+
+.task-v2-check {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(188, 205, 230, 0.38);
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(2, 7, 14, 0.38);
+}
+
+.task-v2-row.is-selected .task-v2-check {
+  border: 4px solid #9b77ff;
+  box-shadow: 0 0 0 2px rgba(202, 187, 255, 0.84), 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.task-v2-check.is-done {
+  border-width: 1px;
+  border-color: rgba(58, 205, 139, 0.72);
+  background: rgba(39, 173, 112, 0.6);
+  box-shadow: none;
+}
+
+.task-v2-row-info {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding-right: 10px;
+}
+
+.task-v2-row-info > strong,
+.task-v2-row-info > small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-v2-row-info > strong {
+  color: #f0f4fb;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.task-v2-row-info > small {
+  color: rgba(190, 205, 225, 0.54);
+  font-size: 10.5px;
+}
+
+.task-v2-row-due {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.task-v2-row-due.is-overdue {
+  color: #ff7180;
+}
+
+.task-v2-inspector-head > div {
+  display: flex;
+  gap: 3px;
+}
+
+.task-v2-inspector-head button,
+.task-v2-inspector-actions button,
+.task-v2-activity-head button {
+  border: 0;
+  color: rgba(219, 229, 243, 0.68);
+  background: transparent;
+}
+
+.task-v2-inspector-head button {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  place-items: center;
+  border-radius: 8px;
+}
+
+.task-v2-inspector-head button:hover,
+.task-v2-inspector-head button.is-active {
+  color: #d1c3ff;
+  background: rgba(139, 92, 246, 0.13);
+}
+
+.task-v2-category {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 7px 0 0;
+  color: rgba(204, 217, 235, 0.66);
+  font-size: 10.5px;
+}
+
+.task-v2-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 16px 0 15px;
+}
+
+.task-v2-facts > div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.task-v2-facts dt,
+.task-v2-facts dd {
+  margin: 0;
+  font-size: 10.5px;
+}
+
+.task-v2-facts dt {
+  color: rgba(205, 218, 236, 0.58);
+}
+
+.task-v2-facts dd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  color: rgba(238, 243, 251, 0.83);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-v2-facts .task-v2-source-icon {
+  width: 27px;
+  height: 27px;
+}
+
+.task-v2-inspector-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 38px;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.task-v2-inspector-actions > button,
+.task-v2-inspector-more-wrap > button {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(151, 177, 215, 0.08);
+  border-radius: 9px;
+  background: rgba(91, 116, 151, 0.09);
+  font-size: 10.5px;
+}
+
+.task-v2-inspector-more-wrap {
+  position: relative;
+}
+
+.task-v2-inspector-more-wrap > button {
+  width: 38px;
+}
+
+.task-v2-inspector-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 5px);
+  right: 0;
+  min-width: 140px;
+  padding: 5px;
+  border: 1px solid var(--task-v2-line);
+  border-radius: 9px;
+  background: rgba(7, 15, 27, 0.98);
+}
+
+.task-v2-inspector-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  align-items: center;
+  gap: 7px;
+  color: #ff7b88;
+  font-size: 10.5px;
+}
+
+.task-v2-subtasks-head > strong {
+  color: rgba(229, 236, 247, 0.72);
+  font-size: 10px;
+}
+
+.task-v2-subtasks-head .task-v2-kicker b {
+  margin-left: 7px;
+  color: rgba(229, 236, 247, 0.72);
+}
+
+.task-v2-subtask-progress {
+  height: 4px;
+  margin: 9px 0 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(118, 144, 178, 0.1);
+}
+
+.task-v2-subtask-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7349ee, #ad6cff);
+}
+
+.task-v2-subtask-list {
+  display: grid;
+  gap: 3px;
+}
+
+.task-v2-subtask-list > li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  min-height: 28px;
+  color: rgba(225, 233, 245, 0.78);
+  font-size: 10.5px;
+}
+
+.task-v2-subtask-list > li > button {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(170, 191, 221, 0.28);
+  border-radius: 4px;
+  color: #fff;
+  background: rgba(4, 11, 20, 0.55);
+}
+
+.task-v2-subtask-list > li > button.is-done {
+  border-color: #8059ef;
+  background: #7044df;
+}
+
+.task-v2-subtask-list > li > span.is-done {
+  color: rgba(176, 191, 213, 0.44);
+  text-decoration: line-through;
+}
+
+.task-v2-subtask-empty {
+  margin: 9px 0;
+  color: rgba(190, 204, 223, 0.52);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.task-v2-activity-head {
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--task-v2-line-soft);
+}
+
+.task-v2-activity-head button {
+  font-size: 9.5px;
+}
+
+.task-v2-activity-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+
+.task-v2-activity-icon {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid rgba(151, 177, 215, 0.16);
+  border-radius: 50%;
+  color: #cdbfff;
+  background: rgba(100, 68, 185, 0.27);
+}
+
+.task-v2-activity-row > span:last-child {
+  display: block;
+  min-width: 0;
+  color: rgba(211, 222, 238, 0.62);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.task-v2-activity-row strong,
+.task-v2-activity-row small,
+.task-v2-activity-row > span:last-child > span {
+  display: block;
+}
+
+.task-v2-activity-row strong {
+  color: rgba(241, 245, 252, 0.88);
+  font-size: 10.5px;
+}
+
+.task-v2-activity-row small {
+  margin-top: 2px;
+  color: rgba(177, 195, 218, 0.42);
+  font-size: 9px;
+}
+
+.task-v2-more-menu {
+  z-index: 5000;
+  display: grid;
+  padding: 6px;
+  border: 1px solid rgba(151, 177, 215, 0.2);
+  border-radius: 11px;
+  background: rgba(7, 15, 27, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+
+.task-v2-more-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 31px;
+  padding: 0 9px;
+  align-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: rgba(228, 235, 247, 0.76);
+  background: transparent;
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.task-v2-more-menu button:hover {
+  color: #fff;
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.task-v2-more-menu button.is-danger {
+  color: #ff7b88;
+}
+
+/* ------------------------------------------------------------------------
+   Tasks v2 — ArcSonare visual-language alignment
+
+   Keep the new information architecture, but use the exact smoked-titanium
+   shell, quiet violet accents, card curve, and rail behavior already used by
+   Agent and Connect. This block intentionally wins over the exploratory v2
+   palette above.
+   ------------------------------------------------------------------------ */
+
+.tasks-workspace-root.task-v2-root {
+  --task-v2-line: rgba(119, 133, 144, 0.2);
+  --task-v2-line-soft: rgba(255, 255, 255, 0.052);
+  --task-v2-panel:
+    radial-gradient(180px 90px at 0% 0%, rgba(122, 82, 211, 0.035), transparent 72%),
+    linear-gradient(150deg, rgba(23, 31, 38, 0.97), rgba(9, 15, 19, 0.995));
+  grid-template-columns: minmax(250px, 0.95fr) minmax(540px, 2.5fr) minmax(330px, 1.3fr);
+  gap: 22px;
+  padding: 0 15px 10px;
+}
+
+.tasks-workspace-root.task-v2-root.no-inspector {
+  grid-template-columns: minmax(250px, 0.82fr) minmax(680px, 3.18fr);
+}
+
+.tasks-workspace-root.task-v2-root.inspector-expanded {
+  grid-template-columns: minmax(238px, 0.86fr) minmax(500px, 2fr) minmax(390px, 1.55fr);
+}
+
+.task-v2-left,
+.task-v2-right {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.task-v2-panel,
+.task-v2-group {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(119, 133, 144, 0.2);
+  background: var(--task-v2-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    0 10px 25px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px) saturate(112%);
+}
+
+.task-v2-panel {
+  padding: 14px 14px 16px;
+  border-radius: 16px;
+}
+
+.task-v2-group {
+  border-radius: 16px;
+}
+
+.task-v2-panel::after,
+.task-v2-group::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  display: block;
+  width: 150px;
+  height: 112px;
+  right: -1px;
+  top: -1px;
+  border: 0;
+  border-left: 1px solid rgba(153, 112, 246, 0.13);
+  border-bottom: 1px solid rgba(153, 112, 246, 0.13);
+  border-radius: 0 0 0 100%;
+  box-shadow: inset 18px -12px 30px rgba(106, 70, 194, 0.025);
+  pointer-events: none;
+}
+
+.task-v2-panel > *,
+.task-v2-group > * {
+  position: relative;
+  z-index: 1;
+}
+
+.task-v2-insights-panel,
+.task-v2-detail-panel {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.task-v2-detail-panel {
+  max-height: calc(100% - 14px);
+}
+
+.task-v2-view {
+  border-radius: 12px;
+  color: var(--sonare-text-secondary);
+}
+
+.task-v2-view:hover {
+  color: var(--sonare-text-primary);
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.task-v2-view.is-active {
+  color: var(--sonare-text-primary);
+  border-color: rgba(194, 155, 255, 0.28);
+  background: linear-gradient(
+    135deg,
+    rgba(145, 104, 255, 0.16),
+    rgba(91, 58, 184, 0.1)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.task-v2-view > strong {
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.task-v2-view.is-active > strong {
+  color: #fff;
+  background: rgba(145, 104, 255, 0.28);
+}
+
+.task-v2-kicker,
+.task-v2-group-title,
+.task-v2-subhead {
+  color: var(--sonare-text-muted);
+}
+
+.task-v2-quick-add > input,
+.task-v2-search input,
+.task-v2-subtask-form input {
+  border-color: rgba(119, 133, 144, 0.2);
+  color: var(--sonare-text-primary);
+  background: rgba(5, 10, 13, 0.38);
+}
+
+.task-v2-quick-add > input:focus,
+.task-v2-search:focus-within input,
+.task-v2-subtask-form input:focus {
+  border-color: rgba(156, 125, 228, 0.36);
+  box-shadow: 0 0 0 2px rgba(123, 82, 214, 0.07);
+}
+
+.task-v2-quick-add > button,
+.task-v2-list-tool,
+.task-v2-inspector-actions > button,
+.task-v2-inspector-more-wrap > button {
+  border-color: rgba(119, 133, 144, 0.2);
+  color: var(--sonare-text-secondary);
+  background: linear-gradient(180deg, rgba(23, 29, 32, 0.94), rgba(14, 19, 21, 0.97));
+  box-shadow: none;
+}
+
+.task-v2-quick-add > button:hover,
+.task-v2-list-tool:hover,
+.task-v2-inspector-actions > button:hover,
+.task-v2-inspector-more-wrap > button:hover {
+  color: var(--sonare-text-primary);
+  border-color: rgba(151, 166, 178, 0.3);
+  background: linear-gradient(180deg, rgba(34, 42, 46, 0.98), rgba(22, 29, 32, 0.99));
+}
+
+.task-v2-group-head {
+  color: var(--sonare-text-secondary);
+  background: rgba(9, 15, 19, 0.34);
+}
+
+.task-v2-row {
+  border-top-color: rgba(255, 255, 255, 0.052);
+  background: rgba(5, 10, 13, 0.08);
+}
+
+.task-v2-row:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.task-v2-row.is-selected {
+  background: linear-gradient(180deg, rgba(42, 36, 58, 0.72), rgba(24, 28, 36, 0.78));
+  box-shadow:
+    inset 0 0 0 1px rgba(194, 155, 255, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.task-v2-row.is-selected .task-v2-check {
+  border-color: rgba(190, 164, 255, 0.9);
+  box-shadow:
+    0 0 0 2px rgba(139, 99, 225, 0.14),
+    0 0 10px rgba(113, 72, 218, 0.14);
+}
+
+.task-v2-source-icon {
+  border-color: rgba(119, 133, 144, 0.22);
+  color: rgba(202, 211, 224, 0.78);
+  background: linear-gradient(145deg, rgba(31, 42, 50, 0.96), rgba(15, 23, 29, 0.98));
+  box-shadow: inset 0 0 0 2px rgba(4, 9, 12, 0.62);
+}
+
+.task-v2-status-pill {
+  color: #c5adff;
+  background: rgba(112, 72, 202, 0.13);
+}
+
+.task-v2-focus-btn {
+  border-color: rgba(194, 157, 255, 0.4);
+  background: linear-gradient(135deg, #a36af8, #7441d2 66%, #6535c0);
+  box-shadow:
+    0 10px 28px rgba(104, 55, 199, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.17);
+}
+
+.task-v2-insight-track,
+.task-v2-progress-track,
+.task-v2-subtask-progress {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+@media (max-width: 1450px) {
+  .tasks-workspace-root.task-v2-root {
+    grid-template-columns: minmax(230px, 0.92fr) minmax(500px, 2.45fr) minmax(306px, 1.28fr);
+    gap: 16px;
+    padding-inline: 12px;
+  }
+}
+
+/* Tasks page bottom rhythm: like Dashboard / Agent / Connect, each column's
+   final surface reaches the same page baseline. Content remains top-aligned;
+   only the final surface absorbs the available height. */
+.task-v2-insights-panel,
+.task-v2-detail-panel {
+  flex: 1 1 0;
+  max-height: none;
+}
+
+.task-v2-queue {
+  padding-bottom: 0;
+}
+
+.task-v2-queue > .task-v2-groups {
+  min-height: 100%;
+}
+
+.task-v2-groups > .task-v2-group:last-child {
+  flex: 1 1 auto;
+}
+
+/* The selected state owns a real overlay border. An inset shadow alone was
+   visually lost where the final row meets the group's rounded lower edge and
+   decorative curve. */
+.task-v2-row.is-selected {
+  isolation: isolate;
+}
+
+.task-v2-row.is-selected::after {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  border: 1px solid rgba(194, 155, 255, 0.62);
+  pointer-events: none;
+}
+
+.task-v2-list > li:last-child .task-v2-row.is-selected,
+.task-v2-list > li:last-child .task-v2-row.is-selected::after {
+  border-radius: 0 0 15px 15px;
+}
+
+.task-v2-row.is-selected > * {
+  position: relative;
+  z-index: 6;
+}
+
+/* Manual tasks are authored locally. Use the saved Settings photo; without
+   one, the ArcSonare mark is the honest source instead of a generic person. */
+.task-v2-source-icon.is-manual {
+  overflow: hidden;
+  color: var(--sonare-text-secondary);
+  border-color: rgba(119, 133, 144, 0.22);
+  background: linear-gradient(145deg, rgba(31, 42, 50, 0.96), rgba(15, 23, 29, 0.98));
+  box-shadow: inset 0 0 0 2px rgba(4, 9, 12, 0.62);
+}
+
+.task-v2-source-icon.is-manual.has-profile {
+  background: rgba(9, 15, 19, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.task-v2-source-profile-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+/* Match Connect's restrained titanium actions. The task inspector does not
+   introduce a separate saturated CTA color system. */
+.task-v2-focus-btn {
+  color: var(--sonare-text-secondary);
+  border: 1px solid var(--sonare-border);
+  background: linear-gradient(180deg, rgba(23, 29, 32, 0.94), rgba(14, 19, 21, 0.97));
+  box-shadow: none;
+}
+
+.task-v2-focus-btn:hover {
+  color: var(--sonare-text-primary);
+  border-color: var(--sonare-border-strong);
+  background: linear-gradient(180deg, rgba(34, 42, 46, 0.98), rgba(22, 29, 32, 0.99));
+  box-shadow: none;
+}
+
+/* Exact Connect surfaces. Side rails and the center holder should not drift
+   toward the cooler Agent gradient or the earlier purple task experiment. */
+.task-v2-left .task-v2-panel,
+.task-v2-right .task-v2-panel {
+  border-color: rgba(119, 133, 144, 0.2);
+  background: rgba(13, 19, 24, 0.68);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.034),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 18px 42px rgba(0, 0, 0, 0.17);
+  backdrop-filter: blur(10px) saturate(112%);
+}
+
+.task-v2-group,
+.task-v2-empty {
+  border-color: var(--sonare-border);
+  background: rgba(12, 17, 20, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.024),
+    0 18px 42px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(9px) saturate(108%);
+}
+
+.task-v2-empty {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  padding: 12px 14px 18px;
+  border-style: solid;
+  border-radius: 18px;
+}
+
+.task-v2-group-empty {
+  display: grid;
+  min-height: 56px;
+  padding: 12px 16px;
+  place-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.052);
+  color: var(--sonare-text-muted);
+  background: rgba(5, 10, 13, 0.08);
+  font-size: 10.5px;
+}
+
+/* Task menus use the same neutral charcoal interaction language as Connect. */
+.task-v2-more-menu,
+.task-v2-inspector-menu {
+  border-color: #2b3338;
+  background: #12191e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 18px 42px rgba(0, 0, 0, 0.34);
+}
+
+.task-v2-more-menu button,
+.task-v2-inspector-menu button {
+  color: #aeb5ba;
+}
+
+.task-v2-more-menu button:hover,
+.task-v2-inspector-menu button:hover {
+  color: #f0edf5;
+  background: #20282e;
+}
+
+.task-v2-more-menu button.is-danger,
+.task-v2-inspector-menu button {
+  color: #e77b84;
+}
+
+.task-v2-more-menu button.is-danger:hover,
+.task-v2-inspector-menu button:hover {
+  color: #ff9aa3;
+  background: rgba(103, 39, 48, 0.24);
+}
+
+.task-v2-more-btn:hover,
+.task-v2-more-btn[aria-expanded="true"] {
+  color: var(--sonare-text-primary);
+  border-color: #3a444a;
+  background: #1c242a;
+  box-shadow: none;
+}
+
+/* ------------------------- connector detail panel -------------------------
+ * What a connector can actually do, from the canonical registry. Capability
+ * names only — internal ids belong in developer diagnostics, not here.
+ * ------------------------------------------------------------------------- */
+
+.connect-detail {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.connect-detail-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.connect-detail-facts > div {
+  display: contents;
+}
+
+.connect-detail-facts dt {
+  color: var(--sonare-text-muted);
+}
+
+.connect-detail-facts dd {
+  margin: 0;
+  color: var(--sonare-text-secondary);
+  font-weight: 500;
+}
+
+.connect-detail-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.connect-detail-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sonare-text-muted);
+}
+
+.connect-detail-lists ul {
+  margin: 0;
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11.5px;
+  color: var(--sonare-text-secondary);
+}
+
+.connect-detail-lists ul.is-unavailable {
+  color: var(--sonare-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.22);
+}
+
+.connect-detail-none {
+  margin: 0;
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--sonare-text-muted);
 }

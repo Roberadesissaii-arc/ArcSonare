@@ -18,6 +18,7 @@ export function FocusCard() {
         <div className="card-head">
           <span className="card-label">Focus</span>
         </div>
+        <p className="card-lede">Your top priority right now.</p>
         <EmptyState
           icon={<ListIcon size={23} />}
           title="Nothing in focus"
@@ -52,6 +53,7 @@ export function FocusCard() {
           <DotsIcon size={15} />
         </button>
       </div>
+      <p className="card-lede">Your top priority right now.</p>
 
       <h2 className="card-title">{focus.title}</h2>
       <p className="card-text">

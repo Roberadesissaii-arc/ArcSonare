@@ -56,7 +56,7 @@ export function VoiceCharactersCard({
       setPreviewError(
         err instanceof Error
           ? err.message
-          : "Could not play this voice preview. Check Voice Lab / Pocket TTS.",
+          : "Could not play this voice preview.",
       );
     } finally {
       setPreviewingId((id) => (id === character.id ? null : id));
@@ -143,7 +143,7 @@ export function VoiceCharactersCard({
         </p>
       ) : (
         <p className="voice-help" style={{ marginTop: 10 }}>
-          Each character uses a different Pocket TTS voice. Selecting one also
+          Each character uses a different voice. Selecting one also
           sets the overlay speaking voice.
         </p>
       )}

@@ -1,13 +1,8 @@
 /**
- * Play a short Pocket TTS preview for a voice character.
+ * Play a short spoken preview for a voice character.
  * Used from Settings → Voice (character tiles + preview card).
  */
-import {
-  ensurePocketTtsRuntime,
-  setPocketTtsVoicePreference,
-  speakWithPocketTts,
-  stopPocketTtsPlayback,
-} from "../../services/PocketTtsService";
+import { speak, stopSpeaking } from "../../services/SpeechService";
 import type { VoiceCharacter } from "./voiceCharacters";
 
 let previewEpoch = 0;
@@ -20,13 +15,9 @@ export async function previewVoiceCharacter(
   const phrase = (text ?? character.sampleGreeting).trim();
   if (!phrase) return;
 
-  setPocketTtsVoicePreference(character.preferredProviderVoiceId);
-  stopPocketTtsPlayback();
+  stopSpeaking();
 
-  await ensurePocketTtsRuntime();
-  if (epoch !== previewEpoch) return;
-
-  await speakWithPocketTts(phrase, {
+  await speak(phrase, {
     voice: character.preferredProviderVoiceId,
     shouldAbort: () => epoch !== previewEpoch,
   });
@@ -34,5 +25,5 @@ export async function previewVoiceCharacter(
 
 export function stopVoiceCharacterPreview(): void {
   previewEpoch += 1;
-  stopPocketTtsPlayback();
+  stopSpeaking();
 }

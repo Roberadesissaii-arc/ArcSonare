@@ -1,0 +1,613 @@
+﻿/* Display Mapping â€” settings page, first-run prompt and wizard.
+   Smoked titanium: graphite surfaces, restrained violet accent, hairline rules. */
+
+/* ---------------------------------------------------------------- settings */
+
+.dm-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dm-card {
+  background: var(--surface-raised, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dm-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dm-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0 0 4px;
+  color: var(--text-primary, #e9edf2);
+}
+
+.dm-muted {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary, #9aa4b0);
+  margin: 0;
+}
+
+.dm-error {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--danger, #f2777a);
+  margin: 0;
+}
+
+.dm-ok {
+  font-size: 12.5px;
+  color: var(--success, #7ad19a);
+  margin: 0;
+}
+
+/* Status chips ------------------------------------------------------------ */
+
+.dm-status {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.dm-status-valid {
+  color: #7ad19a;
+  background: rgba(122, 209, 154, 0.1);
+  border-color: rgba(122, 209, 154, 0.28);
+}
+.dm-status-unconfigured,
+.dm-status-configuring {
+  color: #d7b26a;
+  background: rgba(215, 178, 106, 0.1);
+  border-color: rgba(215, 178, 106, 0.28);
+}
+.dm-status-stale {
+  color: #d7b26a;
+  background: rgba(215, 178, 106, 0.08);
+  border-color: rgba(215, 178, 106, 0.22);
+}
+.dm-status-failed {
+  color: #f2777a;
+  background: rgba(242, 119, 122, 0.1);
+  border-color: rgba(242, 119, 122, 0.3);
+}
+.dm-status-ignored,
+.dm-status-disconnected {
+  color: var(--text-secondary, #9aa4b0);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Facts ------------------------------------------------------------------- */
+
+.dm-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+
+.dm-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dm-facts dt {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary, #6f7783);
+}
+
+.dm-facts dd {
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, #e9edf2);
+}
+
+.dm-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  min-width: 0;
+}
+
+.dm-identity-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary, #6f7783);
+}
+
+.dm-identity code {
+  font-size: 11px;
+  color: var(--text-secondary, #9aa4b0);
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 5px 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Arrangement diagram ----------------------------------------------------- */
+
+.dm-arrangement-card {
+  align-items: flex-start;
+}
+
+.dm-arrangement-note {
+  margin-top: -6px;
+}
+
+.dm-arrangement {
+  position: relative;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.07));
+  border-radius: 10px;
+  max-width: 100%;
+}
+
+.dm-monitor {
+  position: absolute;
+  border-radius: 5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  overflow: hidden;
+  min-width: 12px;
+  min-height: 12px;
+}
+
+.dm-monitor-valid {
+  border-color: rgba(122, 209, 154, 0.55);
+  background: rgba(122, 209, 154, 0.09);
+}
+.dm-monitor-failed {
+  border-color: rgba(242, 119, 122, 0.55);
+  background: rgba(242, 119, 122, 0.09);
+}
+.dm-monitor-unconfigured,
+.dm-monitor-stale {
+  border-color: rgba(215, 178, 106, 0.5);
+  background: rgba(215, 178, 106, 0.08);
+}
+
+.dm-monitor-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #e9edf2);
+  line-height: 1;
+}
+
+.dm-monitor-res,
+.dm-monitor-primary {
+  font-size: 9px;
+  color: var(--text-tertiary, #6f7783);
+  line-height: 1.2;
+}
+
+/* Buttons ----------------------------------------------------------------- */
+
+.dm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dm-btn,
+.dmw-btn {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #e9edf2);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.dm-btn:hover:not(:disabled),
+.dmw-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.dm-btn:disabled,
+.dmw-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dm-btn-primary,
+.dmw-btn-primary {
+  background: var(--accent, #7c6cf5);
+  border-color: transparent;
+  color: #fff;
+}
+
+.dm-btn-primary:hover:not(:disabled),
+.dmw-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  background: var(--accent, #7c6cf5);
+}
+
+.dm-btn-ghost,
+.dmw-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary, #9aa4b0);
+}
+
+.dm-btn-danger {
+  color: #f2777a;
+  border-color: rgba(242, 119, 122, 0.3);
+}
+
+.dm-diagnostics {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary, #9aa4b0);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  max-height: 340px;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------- first run */
+
+.dm-prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.dm-prompt {
+  pointer-events: auto;
+  width: min(420px, 100%);
+  background: var(--surface-overlay, #12161b);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dm-prompt-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #e9edf2);
+}
+
+.dm-prompt-body {
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+  color: var(--text-secondary, #9aa4b0);
+}
+
+.dm-prompt-note {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--text-tertiary, #6f7783);
+}
+
+.dm-prompt-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dm-prompt-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary, #9aa4b0);
+}
+
+.dm-prompt-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.dm-prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- wizard */
+
+.dmw-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(4, 7, 10, 0.72);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.dmw-panel {
+  width: min(520px, 100%);
+  background: var(--surface-overlay, #12161b);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.dmw-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary, #e9edf2);
+}
+
+.dmw-body {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  color: var(--text-secondary, #9aa4b0);
+}
+
+.dmw-note {
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+  color: var(--text-tertiary, #6f7783);
+  border-left: 2px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  padding-left: 10px;
+}
+
+.dmw-error {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--danger, #f2777a);
+}
+
+.dmw-display-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.dmw-display-label {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text-primary, #e9edf2);
+}
+
+.dmw-display-name {
+  font-size: 12.5px;
+  color: var(--text-secondary, #9aa4b0);
+}
+
+.dmw-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px 16px;
+  margin: 10px 0 0;
+}
+
+.dmw-facts-wide {
+  margin: 0;
+}
+
+.dmw-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dmw-facts dt {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary, #6f7783);
+}
+
+.dmw-facts dd {
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, #e9edf2);
+}
+
+.dmw-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* Target surface ---------------------------------------------------------- */
+
+.dmw-target-surface {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 9, 13, 0.94);
+}
+
+.dmw-target-hud {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  background: rgba(18, 22, 27, 0.92);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  text-align: center;
+  max-width: 90vw;
+}
+
+.dmw-target-phase {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent, #7c6cf5);
+}
+
+.dmw-target-progress {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #e9edf2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dmw-target-hint {
+  font-size: 12.5px;
+  color: var(--text-secondary, #9aa4b0);
+}
+
+.dmw-target-hud-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* Per-press feedback and result sections ---------------------------------- */
+
+.dmw-feedback-ok,
+.dmw-feedback-bad {
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-top: 2px;
+}
+
+.dmw-feedback-ok {
+  color: #7ad19a;
+  background: rgba(122, 209, 154, 0.1);
+}
+
+/* A refused point has to be unmissable: the user is about to press again, and
+   pressing again without moving is what produced the lost samples. */
+.dmw-feedback-bad {
+  color: #f2777a;
+  background: rgba(242, 119, 122, 0.12);
+}
+
+.dmw-section {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary, #6f7783);
+  margin: 8px 0 0;
+}
+
+.dmw-target-hint kbd {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.18));
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Accuracy rating and phase cues ------------------------------------------ */
+
+.dmw-rating-ok,
+.dmw-rating-bad {
+  font-size: 13px;
+  margin: 0;
+}
+
+.dmw-rating-ok {
+  color: #7ad19a;
+}
+
+.dmw-rating-bad {
+  color: #f2777a;
+}
+
+/* Stated on the result screen so the user can see what the verdict was
+   measured against, rather than being told a number is "outside tolerance". */
+.dmw-thresholds {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary, #6f7783);
+  margin: 0;
+}
+
+/* Validation is a different stage, not more of the same nine points. */
+.dmw-phase-validation {
+  color: #7ad19a;
+}
+
+.dmw-phase-explain {
+  font-size: 11.5px;
+  color: var(--text-tertiary, #6f7783);
+}

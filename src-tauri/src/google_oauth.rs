@@ -27,8 +27,16 @@ const USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v3/userinfo";
 const LISTEN_ADDR: &str = "127.0.0.1:8765";
 const WAIT_TIMEOUT: Duration = Duration::from_secs(300);
 const CLIENT_SECRET_KEY: &str = "oauth.google:client_secret";
-/// One token bundle for Gmail + Calendar + Drive + Docs + Sheets.
+/// Stored separately from the token bundle so a connection made before the
+/// bundle carried a client id can still be refreshed (no reconnect needed).
+const CLIENT_ID_KEY: &str = "oauth.google:client_id";
+/// Id of the single-account bundle written by versions before multi-account
+/// support. Kept so `ensure_legacy_account_migrated` can adopt it in place.
 const SHARED_ACCOUNT_ID: &str = "local:google";
+/// Index of every connected Google account: `[{accountId, email}, ...]`.
+const ACCOUNT_INDEX_KEY: &str = "oauth.google:index";
+/// Id of the account whose tokens `valid_access_token` currently borrows.
+const ACTIVE_ACCOUNT_KEY: &str = "oauth.google:active";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +53,22 @@ pub struct GoogleOAuthStatus {
     pub connected: bool,
     pub email: Option<String>,
     pub scopes: Vec<String>,
+    pub account_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GoogleAccountEntry {
+    account_id: String,
+    email: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleAccountSummary {
+    pub account_id: String,
+    pub email: Option<String>,
+    pub active: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,6 +79,10 @@ struct StoredGoogleTokens {
     scope: String,
     email: Option<String>,
     token_type: String,
+    /// Needed to refresh without a round-trip to the frontend.
+    /// `default` keeps token bundles written before this field existed readable.
+    #[serde(default)]
+    client_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -75,9 +103,54 @@ struct UserInfo {
     name: Option<String>,
 }
 
-fn token_storage_key(_account_id: &str) -> String {
-    // All Google cards share one token vault entry.
-    format!("oauth.google:{SHARED_ACCOUNT_ID}")
+fn token_storage_key(account_id: &str) -> String {
+    format!("oauth.google:{account_id}")
+}
+
+fn read_account_index() -> Vec<GoogleAccountEntry> {
+    credentials::secure_storage_read(ACCOUNT_INDEX_KEY)
+        .ok()
+        .flatten()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn write_account_index(entries: &[GoogleAccountEntry]) -> Result<(), String> {
+    let json = serde_json::to_string(entries).map_err(|e| e.to_string())?;
+    credentials::secure_storage_write(ACCOUNT_INDEX_KEY, &json)
+}
+
+fn read_active_account_id() -> Option<String> {
+    credentials::secure_storage_read(ACTIVE_ACCOUNT_KEY)
+        .ok()
+        .flatten()
+        .filter(|s| !s.trim().is_empty())
+}
+
+fn write_active_account_id(account_id: &str) -> Result<(), String> {
+    credentials::secure_storage_write(ACTIVE_ACCOUNT_KEY, account_id)
+}
+
+/// Adopts a pre-multi-account token bundle in place. Before this feature, one
+/// bundle lived at `token_storage_key(SHARED_ACCOUNT_ID)` with no index and no
+/// active pointer; that key layout is unchanged, so this only needs to write
+/// the index + active pointer the first time, never move the token bundle.
+fn ensure_legacy_account_migrated() {
+    if read_active_account_id().is_some() || !read_account_index().is_empty() {
+        return;
+    }
+    let Ok(Some(raw)) = credentials::secure_storage_read(&token_storage_key(SHARED_ACCOUNT_ID))
+    else {
+        return;
+    };
+    let email = serde_json::from_str::<StoredGoogleTokens>(&raw)
+        .ok()
+        .and_then(|t| t.email);
+    let _ = write_account_index(&[GoogleAccountEntry {
+        account_id: SHARED_ACCOUNT_ID.to_string(),
+        email,
+    }]);
+    let _ = write_active_account_id(SHARED_ACCOUNT_ID);
 }
 
 fn pkce_pair() -> (String, String) {
@@ -356,20 +429,112 @@ fn resolve_client_secret(passed: Option<String>) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
+/// Return a usable access token, refreshing it first when it is expired or
+/// within 60s of expiring. Refreshed tokens are written back to the vault so
+/// the next call is a cheap read.
+///
+/// `Ok(None)` means "not connected" — callers should report that, not an error.
+pub(crate) async fn valid_access_token() -> Result<Option<String>, String> {
+    ensure_legacy_account_migrated();
+    let Some(active_id) = read_active_account_id() else {
+        return Ok(None);
+    };
+    let key = token_storage_key(&active_id);
+    let Some(raw) = credentials::secure_storage_read(&key)? else {
+        return Ok(None);
+    };
+    let mut stored: StoredGoogleTokens =
+        serde_json::from_str(&raw).map_err(|e| format!("Stored Google tokens are corrupt: {e}"))?;
+
+    // Still fresh — 60s of headroom so a token can't expire mid-request.
+    if !stored.access_token.is_empty() && now_epoch() + 60 < stored.expires_at {
+        return Ok(Some(stored.access_token));
+    }
+
+    // Fall back to the standalone client-id entry: bundles written before the
+    // struct carried `client_id` would otherwise be permanently unrefreshable
+    // and every API call would 401.
+    let client_id = stored.client_id.clone().or_else(|| {
+        credentials::secure_storage_read(CLIENT_ID_KEY)
+            .ok()
+            .flatten()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    });
+
+    let (Some(refresh_token), Some(client_id)) = (stored.refresh_token.clone(), client_id) else {
+        return Err(
+            "Your Google sign-in needs to be renewed. Open Connect and reconnect Google.".into(),
+        );
+    };
+    let secret = resolve_client_secret(None);
+
+    let mut form = vec![
+        ("grant_type", "refresh_token".to_string()),
+        ("refresh_token", refresh_token),
+        ("client_id", client_id),
+    ];
+    if let Some(s) = secret {
+        form.push(("client_secret", s));
+    }
+
+    let res = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(6))
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Could not prepare the Google connection: {e}"))?
+        .post(TOKEN_URL)
+        .form(&form)
+        .send()
+        .await
+        .map_err(|e| format!("Could not reach Google to refresh the session: {e}"))?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        log::error!("google token refresh failed ({status}): {body}");
+        return Err(
+            "Your Google session expired and could not be renewed. Reconnect Google in Connect."
+                .into(),
+        );
+    }
+
+    let refreshed: TokenResponse = res
+        .json()
+        .await
+        .map_err(|e| format!("Google returned an unreadable refresh response: {e}"))?;
+    if refreshed.access_token.is_empty() {
+        return Err(
+            "Google did not return a new access token. Reconnect Google in Connect.".into(),
+        );
+    }
+
+    stored.expires_at = now_epoch() + refreshed.expires_in.unwrap_or(3600);
+    stored.access_token = refreshed.access_token.clone();
+    // A refresh response usually omits refresh_token — keep the existing one.
+    if let Some(new_refresh) = refreshed.refresh_token {
+        stored.refresh_token = Some(new_refresh);
+    }
+    if let Ok(json) = serde_json::to_string(&stored) {
+        let _ = credentials::secure_storage_write(&key, &json);
+    }
+    Ok(Some(refreshed.access_token))
+}
+
 /// Full Connect flow: listen → browser consent → exchange → store tokens.
 #[tauri::command]
 pub async fn google_oauth_connect(
     client_id: String,
     scopes: Vec<String>,
+    // Legacy parameter: the real account id is resolved from the signed-in
+    // email after the OAuth round trip, so any value here is ignored.
     account_id: String,
     client_secret: Option<String>,
 ) -> Result<GoogleOAuthResult, String> {
+    let _ = account_id;
     let client_id = client_id.trim().to_string();
     if client_id.is_empty() {
         return Err("Google Client ID is missing. Add it in Settings → Integrations.".into());
-    }
-    if account_id.trim().is_empty() {
-        return Err("Missing account id.".into());
     }
     if scopes.is_empty() {
         return Err("No OAuth scopes requested.".into());
@@ -398,10 +563,27 @@ pub async fn google_oauth_connect(
         .map_err(|e| format!("OAuth wait task failed: {e}"))??;
 
     let secret = resolve_client_secret(client_secret);
+    // Kept alongside the tokens so refresh works even if the bundle is ever
+    // rewritten by an older build.
+    let _ = credentials::secure_storage_write(CLIENT_ID_KEY, &client_id);
     let tokens = exchange_code(&client_id, secret.as_deref(), &code, &verifier).await?;
     let email = fetch_email(&tokens.access_token).await;
     let scope = tokens.scope.clone().unwrap_or_else(|| scopes.join(" "));
     let expires_at = now_epoch() + tokens.expires_in.unwrap_or(3600);
+
+    // Reuse the existing account entry when this email is already connected
+    // (a plain reconnect), otherwise mint a new one so multiple Google
+    // accounts can be signed in at once.
+    let mut index = read_account_index();
+    let resolved_id = email
+        .as_deref()
+        .and_then(|addr| {
+            index
+                .iter()
+                .find(|e| e.email.as_deref() == Some(addr))
+                .map(|e| e.account_id.clone())
+        })
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
 
     let stored = StoredGoogleTokens {
         access_token: tokens.access_token,
@@ -410,9 +592,20 @@ pub async fn google_oauth_connect(
         scope: scope.clone(),
         email: email.clone(),
         token_type: tokens.token_type.unwrap_or_else(|| "Bearer".into()),
+        client_id: Some(client_id.clone()),
     };
     let json = serde_json::to_string(&stored).map_err(|e| e.to_string())?;
-    credentials::secure_storage_write(&token_storage_key(SHARED_ACCOUNT_ID), &json)?;
+    credentials::secure_storage_write(&token_storage_key(&resolved_id), &json)?;
+
+    match index.iter_mut().find(|e| e.account_id == resolved_id) {
+        Some(entry) => entry.email = email.clone(),
+        None => index.push(GoogleAccountEntry {
+            account_id: resolved_id.clone(),
+            email: email.clone(),
+        }),
+    }
+    write_account_index(&index)?;
+    write_active_account_id(&resolved_id)?;
 
     let granted: Vec<String> = scope
         .split_whitespace()
@@ -421,7 +614,7 @@ pub async fn google_oauth_connect(
         .collect();
 
     Ok(GoogleOAuthResult {
-        account_id: SHARED_ACCOUNT_ID.to_string(),
+        account_id: resolved_id,
         email: email.clone(),
         account_label: email.unwrap_or_else(|| "Google account".into()),
         scopes: if granted.is_empty() { scopes } else { granted },
@@ -429,25 +622,79 @@ pub async fn google_oauth_connect(
 }
 
 #[tauri::command]
-pub fn google_oauth_disconnect(_account_id: String) -> Result<(), String> {
-    credentials::secure_storage_remove(token_storage_key(SHARED_ACCOUNT_ID))
+pub fn google_oauth_disconnect(account_id: String) -> Result<(), String> {
+    ensure_legacy_account_migrated();
+    let account_id = account_id.trim();
+    if account_id.is_empty() {
+        return Err("Missing account id.".into());
+    }
+    credentials::secure_storage_remove(token_storage_key(account_id))?;
+
+    let mut index = read_account_index();
+    index.retain(|e| e.account_id != account_id);
+    write_account_index(&index)?;
+
+    if read_active_account_id().as_deref() == Some(account_id) {
+        match index.first() {
+            Some(next) => write_active_account_id(&next.account_id)?,
+            None => credentials::secure_storage_remove(ACTIVE_ACCOUNT_KEY.to_string())?,
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
-pub fn google_oauth_has_tokens(_account_id: String) -> bool {
-    credentials::secure_storage_read(&token_storage_key(SHARED_ACCOUNT_ID))
+pub fn google_oauth_has_tokens(account_id: String) -> bool {
+    credentials::secure_storage_read(&token_storage_key(&account_id))
         .ok()
         .flatten()
         .is_some()
 }
 
 #[tauri::command]
+pub fn google_oauth_list_accounts() -> Vec<GoogleAccountSummary> {
+    ensure_legacy_account_migrated();
+    let active = read_active_account_id();
+    read_account_index()
+        .into_iter()
+        .map(|entry| GoogleAccountSummary {
+            active: active.as_deref() == Some(entry.account_id.as_str()),
+            account_id: entry.account_id,
+            email: entry.email,
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub fn google_oauth_set_active_account(account_id: String) -> Result<(), String> {
+    ensure_legacy_account_migrated();
+    let exists = read_account_index()
+        .iter()
+        .any(|e| e.account_id == account_id);
+    if !exists {
+        return Err("Unknown Google account.".into());
+    }
+    write_active_account_id(&account_id)
+}
+
+#[tauri::command]
 pub fn google_oauth_status() -> Result<GoogleOAuthStatus, String> {
-    let Some(raw) = credentials::secure_storage_read(&token_storage_key(SHARED_ACCOUNT_ID))? else {
+    ensure_legacy_account_migrated();
+    let account_count = read_account_index().len();
+    let Some(active_id) = read_active_account_id() else {
         return Ok(GoogleOAuthStatus {
             connected: false,
             email: None,
             scopes: vec![],
+            account_count,
+        });
+    };
+    let Some(raw) = credentials::secure_storage_read(&token_storage_key(&active_id))? else {
+        return Ok(GoogleOAuthStatus {
+            connected: false,
+            email: None,
+            scopes: vec![],
+            account_count,
         });
     };
     let stored: StoredGoogleTokens =
@@ -462,7 +709,19 @@ pub fn google_oauth_status() -> Result<GoogleOAuthStatus, String> {
         connected: !stored.access_token.is_empty() || stored.refresh_token.is_some(),
         email: stored.email,
         scopes,
+        account_count,
     })
+}
+
+/// Backfills the client id for a connection made before it was persisted.
+/// Cheap and idempotent — the frontend calls it on startup.
+#[tauri::command]
+pub fn set_google_oauth_client_id(client_id: String) -> Result<(), String> {
+    let client_id = client_id.trim();
+    if client_id.is_empty() {
+        return Ok(());
+    }
+    credentials::secure_storage_write(CLIENT_ID_KEY, client_id)
 }
 
 #[tauri::command]

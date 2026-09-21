@@ -49,13 +49,7 @@ pub fn pick_background_image(app: AppHandle) -> Result<Option<String>, String> {
         dialog = dialog.set_parent(&window);
     }
 
-    // Courtesy default — only used if it happens to exist on this machine.
-    let preferred = PathBuf::from(r"C:\Users\rober\Desktop\ArcSonare\background");
-    if let Some(dir) = if preferred.is_dir() {
-        Some(preferred)
-    } else {
-        dirs::picture_dir()
-    } {
+    if let Some(dir) = dirs::picture_dir() {
         dialog = dialog.set_directory(dir);
     }
 

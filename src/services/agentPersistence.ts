@@ -43,8 +43,24 @@ export function rowToAgent(
 export async function listAgentsFromDb(
   normalize: (raw: Partial<AgentConfig> & { id: string }) => AgentConfig,
 ): Promise<AgentConfig[]> {
-  const rows = await invoke<LocalAgentRow[]>("agents_list_local");
-  return rows.map((r) => rowToAgent(r, normalize));
+  const rows = await invoke<LocalAgentRow[] | null>("agents_list_local");
+  const list = Array.isArray(rows) ? rows : [];
+  return list
+    .filter((r) => r && typeof r.id === "string" && r.id.length > 0)
+    .map((r) => {
+      try {
+        return rowToAgent(r, normalize);
+      } catch (err) {
+        console.error("[ArcSonare] bad agent row", r?.id, err);
+        return normalize({
+          id: r.id,
+          name: r.name || r.id,
+          role: r.role || "Specialist",
+          description: r.description ?? "",
+          demo: false,
+        });
+      }
+    });
 }
 
 export async function upsertAgentToDb(agent: AgentConfig): Promise<void> {

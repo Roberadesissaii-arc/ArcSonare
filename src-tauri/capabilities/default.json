@@ -6,6 +6,7 @@
     "main",
     "sonare-overlay",
     "sonare-quick-menu",
+    "sonare-agent-pointer",
     "sonare-edge-*",
     "sonare-annotate"
   ],

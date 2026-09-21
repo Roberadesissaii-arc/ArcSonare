@@ -3,21 +3,124 @@
  * command composer.
  * ------------------------------------------------------------------------- */
 
+/*
+ * One grid for the whole Dashboard — all six side cards and the centre.
+ *
+ * Two separate rails could not produce equal pairs, however carefully their
+ * track lists were kept in step. Each rail was its own grid container, so each
+ * resolved its own rows against its own content: Focus has more to say than Up
+ * Next, its row grew to fit, and the row opposite it did not. Matching
+ * `grid-template-rows` strings only ever made the *inputs* identical.
+ *
+ * Now every pair is literally the same grid row, so equal height is not
+ * something to compute or verify — it is what a grid row is.
+ */
 .dashboard {
   display: grid;
   grid-template-columns:
-    minmax(300px, 326px)
-    minmax(660px, 1fr)
-    minmax(300px, 326px);
-  column-gap: 22px;
-  row-gap: 0;
+    minmax(280px, var(--dashboard-side-width))
+    minmax(0, 1fr)
+    minmax(280px, var(--dashboard-side-width));
+  /*
+   * Fractions, not `auto`. With `auto` on the outer rows the middle row took
+   * every spare pixel — Focus collapsed to its text and Meeting Intelligence
+   * became half the rail. The fractions keep the proportions the design had
+   * while still letting all three rows share the slack; the floors stop a short
+   * window from crushing any of them.
+   */
+  grid-template-rows:
+    minmax(var(--dashboard-row-top-min), var(--dashboard-row-top))
+    minmax(var(--dashboard-row-middle-min), var(--dashboard-row-middle))
+    minmax(var(--dashboard-row-bottom-min), var(--dashboard-row-bottom));
+  column-gap: var(--dashboard-column-gap);
+  row-gap: var(--dashboard-row-gap);
   height: 100%;
+  min-height: 0;
   padding: 0 20px 10px;
   overflow: hidden;
   /* Inherit shell atmosphere — a separate fill created a hard seam under the header. */
   background: transparent;
 }
 
+/*
+ * The rails stop being layout boxes. `display: contents` lifts their cards into
+ * the Dashboard grid above without touching the component tree, so each card is
+ * placed by row and column directly.
+ *
+ * Scoped to `.dashboard >` deliberately. These elements also carry
+ * `.dashboard-col`/`.side-column`, which declare `display: grid` at the same
+ * specificity — and that rule wins on source order from another stylesheet.
+ * The extra `.dashboard` is what makes this unambiguous rather than a bet on
+ * which file loads last.
+ */
+.dashboard > .dashboard-left-stretch,
+.dashboard > .dashboard-right-stretch {
+  display: contents;
+}
+
+/* Left column, top to bottom. */
+.dashboard .focus-card {
+  grid-column: 1;
+  grid-row: 1;
+}
+.dashboard .mi-card {
+  grid-column: 1;
+  grid-row: 2;
+}
+.dashboard .applications-card {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+/* Right column — the same three rows. */
+.dashboard .upnext-card {
+  grid-column: 3;
+  grid-row: 1;
+}
+.dashboard .urgent-card {
+  grid-column: 3;
+  grid-row: 2;
+}
+.dashboard .opened-apps-card {
+  grid-column: 3;
+  grid-row: 3;
+}
+
+/* The centre spans all three. */
+.dashboard > .dashboard-center {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  min-height: 0;
+}
+
+/*
+ * Every paired card fills the row it was placed in. `align-self: stretch` is
+ * the grid default, but it is stated here because the previous rails set
+ * `height: auto` on one side, which is precisely what let Up Next stop short of
+ * Focus's bottom edge.
+ */
+.dashboard .focus-card,
+.dashboard .mi-card,
+.dashboard .applications-card,
+.dashboard .upnext-card,
+.dashboard .urgent-card,
+.dashboard .opened-apps-card {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  align-self: stretch;
+  box-sizing: border-box;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * Kept for other pages that still use these classes as real columns. The
+ * Dashboard's own rails override it with `display: contents` above, so these
+ * tracks no longer apply there.
+ */
 .dashboard-col,
 .side-column {
   display: grid;
@@ -29,12 +132,13 @@
   padding-bottom: 0;
 }
 
-.dashboard-col > *,
-.side-column > * {
-  min-height: 0;
-  overflow: hidden;
-}
-
+/*
+ * Matched side rails.
+ *   Left: Focus → Meeting Intelligence → Glance → Connected Tools  (4 rows)
+ *   Right: Up Next → Urgent → Running Apps                          (3 rows)
+ *
+ * minmax floors stop laptop/short windows from crushing.
+ */
 /* Agent-page card chrome on Dashboard side cards: smoked gradient + top-left
    highlight curve + decorative corner ring. */
 .dashboard-col > .card,
@@ -115,12 +219,55 @@
   pointer-events: none;
 }
 
+/* The list scrolls; the track is what grows. Auto-follow watches the track's
+   size so late images and controls are included, not just new messages. */
+.chat-bubble-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  /* Must not be compressed by the scroll container, or nothing ever overflows
+     and the list silently stops scrolling. */
+  flex-shrink: 0;
+}
+
+/* Sits under the complete last message so "at the bottom" means all of it. */
+.chat-bottom-sentinel {
+  height: 1px;
+  flex-shrink: 0;
+}
+
+.chat-jump-latest {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(96, 62, 178, 0.92);
+  border: 1px solid rgba(160, 125, 255, 0.55);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.chat-jump-latest:hover {
+  background: rgba(112, 74, 204, 0.96);
+}
+
 .chat-bubble-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  max-width: min(760px, 100%);
+  /* Follows the column width instead of stopping at a fixed 760px, which left
+     a wide gutter on either side. The cap only kicks in on very wide screens,
+     where an unbounded line length would be hard to read. */
+  max-width: min(1180px, 100%);
   max-height: 100%;
   overflow-y: auto;
   pointer-events: auto;
@@ -132,7 +279,9 @@
 }
 
 .chat-bubble {
-  max-width: 78%;
+  /* Reaches further toward each edge; the remaining gap keeps the sender's
+     side obvious (user right, assistant left). */
+  max-width: 86%;
   padding: 10px 20px;
   border-radius: 16px;
   font-size: 13px;
@@ -147,6 +296,31 @@
   background: linear-gradient(160deg, var(--sonare-violet), #6a45c9);
   border: 1px solid rgba(145, 104, 255, 0.5);
   border-bottom-right-radius: 4px;
+}
+
+.chat-bubble-images {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chat-bubble-image-link {
+  display: block;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  max-width: min(420px, 100%);
+}
+
+.chat-bubble-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+  vertical-align: middle;
 }
 
 .chat-bubble-assistant {
@@ -190,6 +364,72 @@
   align-items: flex-end;
 }
 
+/* Attachment / mode chips sit above the bubble instead of being appended to
+   the message text. */
+.chat-bubble-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  /* Matches .chat-bubble so chips wrap on the same boundary as the bubble. */
+  max-width: 86%;
+}
+
+.chat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 190px;
+  height: 24px;
+  padding: 0 9px 0 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--sonare-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chat-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Image attachments show a thumbnail in place of the paperclip. */
+.chat-chip-file img {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.chat-chip svg { flex-shrink: 0; }
+
+.chat-chip-mode.mode-search {
+  color: #6cc9ea;
+  background: rgba(30, 174, 219, 0.12);
+  border-color: rgba(30, 174, 219, 0.3);
+}
+
+.chat-chip-mode.mode-browser {
+  color: #a5b4fc;
+  background: rgba(93, 95, 239, 0.14);
+  border-color: rgba(93, 95, 239, 0.34);
+}
+
+.chat-chip-mode.mode-reasoning {
+  color: #d1b8ff;
+  background: rgba(145, 110, 255, 0.14);
+  border-color: rgba(145, 110, 255, 0.34);
+}
+
+.chat-chip-mode.mode-watch {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.32);
+}
+
 .chat-bubble-actions {
   display: flex;
   align-items: center;
@@ -219,6 +459,46 @@
 
 .chat-bubble-actions button.active {
   color: var(--sonare-violet-light);
+}
+
+/* Copy confirmation — the tick pops in so the click is unmistakably registered. */
+.chat-bubble-actions button.is-copied {
+  color: #55d59a;
+  background: rgba(85, 213, 154, 0.14);
+}
+
+.chat-bubble-actions button.is-copied svg {
+  animation: chat-action-pop 260ms var(--sonare-ease-out);
+}
+
+@keyframes chat-action-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Playback state — pulses for as long as audio is actually playing. */
+.chat-bubble-actions button.is-speaking {
+  color: var(--sonare-violet-light);
+  background: rgba(145, 110, 255, 0.14);
+}
+
+.chat-bubble-actions button.is-speaking svg {
+  animation: chat-action-speak 1s ease-in-out infinite;
+}
+
+@keyframes chat-action-speak {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.14); opacity: 0.7; }
+}
+
+/* Feedback buttons get the same pop when toggled on. */
+.chat-bubble-actions button.active svg {
+  animation: chat-action-pop 240ms var(--sonare-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-bubble-actions button svg { animation: none !important; }
 }
 
 /* ------------------------------ orbital map ------------------------------ */
@@ -372,12 +652,16 @@
   display: none;
 }
 
-/* Pause orbits + travelers while a chip is hovered */
-.orbital-map.is-orbit-paused .orbit-chip-motion,
+/* Keep the hovered task under the pointer while the surrounding galaxy
+   settles around it. Other task chips can continue their own orbits. */
 .orbital-map.is-orbit-paused .orbit-traveler,
 .orbital-map.is-orbit-paused .orbit-fade-a,
 .orbital-map.is-orbit-paused .orbit-fade-b,
 .orbital-map.is-orbit-paused .orbit-marble-travel {
+  animation-play-state: paused !important;
+}
+
+.orbit-chip-motion.is-hovered {
   animation-play-state: paused !important;
 }
 
@@ -413,6 +697,22 @@
   justify-content: center;
   width: 100%;
   height: 100%;
+}
+
+.orbit-chip-holder.is-actionable {
+  cursor: pointer;
+}
+
+.orbit-chip-holder.is-actionable:focus-visible {
+  outline: none;
+}
+
+.orbit-chip-holder.is-actionable:focus-visible .orbit-chip {
+  border-color: rgba(194, 155, 255, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 28px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(145, 110, 255, 0.26);
 }
 
 .orbit-chip {
@@ -663,6 +963,117 @@
   color: var(--sonare-text-muted);
 }
 
+/* ---------------------------- recording state ---------------------------- */
+/* Replaces the textarea while the mic is live. The bar heights are written as
+   percentages by CommandComposer's AnalyserNode loop, so .composer-waveform
+   must keep a definite height — otherwise the percentages resolve to zero and
+   the waveform is invisible. */
+
+.composer-recording {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+}
+
+.composer-recording-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #ff5c5c;
+  box-shadow: 0 0 10px rgba(255, 92, 92, 0.6);
+  animation: composer-rec-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes composer-rec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
+
+.composer-recording-time {
+  flex-shrink: 0;
+  min-width: 42px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: var(--sonare-text-secondary);
+}
+
+.composer-waveform {
+  flex: 1;
+  min-width: 0;
+  /* Definite height — the bars are sized in %. */
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.composer-waveform-bar {
+  flex: 1;
+  min-width: 2px;
+  max-width: 3px;
+  /* Starting height before the first analyser frame lands. */
+  height: 14%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--sonare-violet-light), var(--sonare-violet));
+  transition: height 90ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-recording-dot { animation: none; }
+  .composer-waveform-bar { transition: none; }
+}
+
+/* ------------------------------ attachments ------------------------------ */
+
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.composer-attachment {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--sonare-border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.composer-attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.composer-attachment-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.62);
+  transition: background 140ms ease;
+}
+
+.composer-attachment-remove:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
 .composer-foot {
   display: flex;
   align-items: center;
@@ -816,14 +1227,14 @@
   color: #6cc9ea;
 }
 
-.toggle-pill-canvas.active {
-  background: rgba(249, 115, 22, 0.15);
-  border-color: rgba(249, 115, 22, 0.4);
-  color: #fbab6b;
+.toggle-pill-watch.active {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.42);
+  color: #7dd3fc;
 }
 
-.toggle-pill-canvas.active svg {
-  color: #fbab6b;
+.toggle-pill-watch.active svg {
+  color: #7dd3fc;
 }
 
 .quick-action:hover svg {
@@ -1121,4 +1532,594 @@
   .app-main {
     animation: none !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+ * Thinking indicator + formatted assistant replies.
+ * ------------------------------------------------------------------------- */
+
+/* Pulsing dots alone read as "stuck"; a shimmering label makes the wait legible. */
+.chat-bubble-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.chat-bubble-thinking-label,
+.thinking-row-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  background: linear-gradient(
+    90deg,
+    var(--sonare-text-muted) 0%,
+    var(--sonare-text-primary) 45%,
+    var(--sonare-text-muted) 90%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: reply-shimmer 1.6s ease-in-out infinite;
+}
+
+/* ------------------------- thinking / thought rows -------------------------
+ * Both live INSIDE the assistant message they belong to. The previous version
+ * was a detached panel that stacked every progress event and then vanished when
+ * the answer arrived in what looked like a different card.
+ * ------------------------------------------------------------------------- */
+
+.thinking-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.thinking-row-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thinking-row-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  animation: composer-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.thinking-row-dots i:nth-child(2) { animation-delay: 0.15s; }
+.thinking-row-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+/* Quiet by default: the record of what ran is reference, not the answer. */
+.thought-row {
+  margin-bottom: 7px;
+}
+
+.thought-row-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--sonare-text-muted);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+
+.thought-row-head:hover {
+  color: var(--sonare-text-secondary);
+}
+
+.thought-row-chevron {
+  flex-shrink: 0;
+  transition: transform 140ms ease;
+}
+
+.thought-row.is-open .thought-row-chevron {
+  transform: rotate(90deg);
+}
+
+.thought-row-steps {
+  margin: 5px 0 0;
+  padding-left: 15px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--sonare-text-muted);
+}
+
+.thought-row-steps li::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+  vertical-align: middle;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-row-dots i { animation: none; }
+  .thought-row-chevron { transition: none; }
+  .thinking-row-label { animation: none; color: var(--sonare-text-secondary); }
+}
+}
+
+@keyframes reply-shimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -60% 0; }
+}
+
+/* Each finished reply fades up rather than snapping in. */
+.chat-bubble-assistant .reply-body,
+.chat-bubble-assistant > :not(.chat-bubble-thinking):not(.thinking-row) {
+  animation: reply-enter 260ms var(--sonare-ease-out) both;
+}
+
+@keyframes reply-enter {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* -- structured reply content -- */
+
+.reply-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  /* The bubble uses pre-wrap for plain text; structured blocks own their own
+     spacing, so raw newlines must not add a second layer of gaps. */
+  white-space: normal;
+}
+
+.reply-paragraph {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.reply-heading {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  color: var(--sonare-text-primary);
+}
+
+.reply-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.5;
+}
+
+.reply-list li::marker {
+  color: var(--sonare-violet-light);
+}
+
+.reply-body code,
+.chat-bubble code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.88em;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.reply-code {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* The block already provides the surface — don't double-style inner code. */
+.reply-code code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.reply-quote {
+  margin: 0;
+  padding: 2px 0 2px 11px;
+  border-left: 2px solid rgba(145, 110, 255, 0.45);
+  color: var(--sonare-text-secondary);
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-bubble-thinking-label { animation: none; color: var(--sonare-text-secondary); }
+  .chat-bubble-assistant .reply-body,
+  .chat-bubble-assistant > :not(.chat-bubble-thinking):not(.thinking-row) { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Reply provenance footer: agent · tool · model.
+ * Quiet by default, legible on hover — it is reference information, not part
+ * of the answer.
+ * ------------------------------------------------------------------------- */
+
+.chat-bubble-source {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-left: 2px;
+  font-size: 10px;
+  color: var(--sonare-text-muted);
+  opacity: 0.72;
+  transition: opacity 140ms ease;
+}
+
+.chat-bubble-wrap:hover .chat-bubble-source {
+  opacity: 1;
+}
+
+/* Dot separators between the three parts. */
+.chat-bubble-source > i {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.chat-source-agent {
+  padding: 1.5px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sonare-violet-light);
+  background: rgba(145, 110, 255, 0.13);
+  border: 1px solid rgba(145, 110, 255, 0.26);
+}
+
+.chat-source-tool {
+  font-weight: 500;
+  color: var(--sonare-text-secondary);
+}
+
+.chat-source-model {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Circular app/site mark beside the result label. Bundled assets only.
+ *
+ * A product logo FILLS its circle — it is the mark, not a picture sitting in a
+ * frame. Padding it inside a bordered disc left a small logo adrift in a large
+ * ring, which reads as a layout fault. Only the drawn concept glyphs keep the
+ * translucent disc, because an outline needs something to sit on. */
+.chat-source-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  color: var(--sonare-text-secondary);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.chat-source-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Square app icons fill exactly; the rare wide mark loses a sliver rather
+     than floating in empty space. */
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* A drawn concept glyph is an outline, so it keeps the disc behind it. */
+.chat-source-icon.is-glyph {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Bare brand marks ship with no container of their own — the Connect page
+   draws one for them, and so do we, or they float next to logos that have one. */
+.chat-source-icon.is-framed {
+  padding: 2px;
+  background: var(--integration-icon-bg, rgba(255, 255, 255, 0.09));
+  border: 1px solid var(--integration-icon-border, rgba(255, 255, 255, 0.14));
+}
+
+.chat-source-icon.is-framed img {
+  object-fit: contain;
+  border-radius: 0;
+}
+
+.chat-source-result {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--sonare-text-secondary);
+}
+
+/* ------------------------- suggested next actions ------------------------ */
+
+.chat-bubble-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-left: 2px;
+}
+
+.chat-suggestion {
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--sonare-violet-light);
+  background: rgba(145, 110, 255, 0.11);
+  border: 1px solid rgba(145, 110, 255, 0.28);
+  cursor: pointer;
+  transition: background 140ms ease, opacity 140ms ease;
+}
+
+.chat-suggestion:hover:not(:disabled) {
+  background: rgba(145, 110, 255, 0.2);
+}
+
+.chat-suggestion:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ------------------------- tables in AI replies -------------------------- */
+
+/* Wrapper scrolls independently so a wide table can never stretch the bubble. */
+.reply-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  scrollbar-width: thin;
+}
+
+.reply-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.reply-table th {
+  padding: 7px 12px;
+  text-align: left;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sonare-text-muted);
+  background: rgba(255, 255, 255, 0.045);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reply-table td {
+  padding: 7px 12px;
+  color: var(--sonare-text-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.reply-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.reply-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--sonare-text-primary);
+}
+
+/* First column carries the row's identity — give it more weight. */
+.reply-table td:first-child {
+  font-weight: 500;
+  color: var(--sonare-text-primary);
+}
+
+/* ---------------------- screenshots in AI replies ----------------------- */
+
+.chat-capture {
+  margin: 10px 0 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.chat-capture img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}
+
+.chat-capture-loading {
+  height: 120px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.02) 30%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.02) 70%
+  );
+  background-size: 220% 100%;
+  animation: reply-shimmer 1.4s ease-in-out infinite;
+}
+
+.chat-capture-failed {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: #ffb4b4;
+}
+
+/* ------------------------ developer response trace ------------------------
+ * Present only in dev builds (`import.meta.env.DEV`) — the bundler removes the
+ * whole component from a release, so this is absent rather than hidden.
+ * ------------------------------------------------------------------------- */
+
+.response-diagnostics {
+  padding-left: 2px;
+  font-size: 10px;
+  color: var(--sonare-text-muted);
+  opacity: 0.55;
+}
+
+/* Legible once opened — it exists to be read, and only developers see it. */
+.response-diagnostics.is-open {
+  opacity: 1;
+  color: var(--sonare-text-secondary);
+}
+
+.response-diagnostics-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.response-diagnostics-chevron {
+  transition: transform 140ms ease;
+}
+
+.response-diagnostics.is-open .response-diagnostics-chevron {
+  transform: rotate(90deg);
+}
+
+.response-diagnostics-body {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1px 10px;
+  margin: 4px 0 0;
+}
+
+.response-diagnostics-body > div {
+  display: contents;
+}
+
+.response-diagnostics-body dt {
+  opacity: 0.75;
+}
+
+.response-diagnostics-body dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* ------------------------- inline result list ----------------------------
+ * A compact list, not a card per result: five stacked cards push the answer
+ * and its controls off screen, which auto-scroll spent a round of work fixing.
+ * ------------------------------------------------------------------------- */
+
+.chat-result-list {
+  list-style: none;
+  margin: 10px 0 2px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-result-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px 5px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.chat-result-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.chat-result-ordinal {
+  width: 15px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--sonare-text-muted);
+}
+
+.chat-result-thumb {
+  width: 52px;
+  height: 30px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.chat-result-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-result-title {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--sonare-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-result-sub {
+  font-size: 10.5px;
+  color: var(--sonare-text-muted);
+}
+
+.chat-result-open {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sonare-violet-light);
+  background: rgba(145, 110, 255, 0.11);
+  border: 1px solid rgba(145, 110, 255, 0.28);
+  cursor: pointer;
+}
+
+.chat-result-open:hover:not(:disabled) {
+  background: rgba(145, 110, 255, 0.2);
+}
+
+.chat-result-open:disabled {
+  opacity: 0.45;
+  cursor: default;
 }

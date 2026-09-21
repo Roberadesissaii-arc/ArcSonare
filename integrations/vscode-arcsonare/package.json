@@ -1,0 +1,50 @@
+{
+  "name": "arcsonare-bridge",
+  "displayName": "ArcSonare Bridge",
+  "description": "Lets ArcSonare read this workspace's editor state and run its configured tasks. Local only — nothing leaves this machine through this extension.",
+  "version": "0.1.0",
+  "publisher": "arcsonare",
+  "private": true,
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "The bridge can run this workspace's configured tasks, which requires a trusted workspace."
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "arcsonare.showBridgeStatus",
+        "title": "ArcSonare: Show bridge status"
+      },
+      {
+        "command": "arcsonare.stopBridge",
+        "title": "ArcSonare: Stop the bridge for this window"
+      }
+    ],
+    "configuration": {
+      "title": "ArcSonare Bridge",
+      "properties": {
+        "arcsonare.bridge.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Serve this workspace to ArcSonare."
+        },
+        "arcsonare.bridge.shareSelectedText": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include the current selection in the context ArcSonare reads. Off by default — a selection is source code."
+        },
+        "arcsonare.bridge.shareTerminalOutput": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include recent task and debug output. Off by default — build output can contain paths, tokens and machine names."
+        }
+      }
+    }
+  }
+}

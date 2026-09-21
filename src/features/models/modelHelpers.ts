@@ -14,8 +14,6 @@ import type {
   ProviderRuntimeStatus,
   StripRoleDef,
 } from "./modelTypes";
-import type { OllamaStatus } from "../../services/OllamaService";
-
 export const STRIP_ROLES: StripRoleDef[] = [
   {
     id: "assistant",
@@ -73,56 +71,20 @@ export const SORTS: { id: ModelSortId; label: string }[] = [
 export function isModelConnected(
   model: ModelInfo,
   keys: Record<ProviderId, boolean>,
-  ollama: OllamaStatus | null,
-  ollamaModel: string,
-  ollamaCloudModel = "",
+  _ollama: unknown = null,
+  _ollamaModel = "",
+  _ollamaCloudModel = "",
 ): boolean {
-  if (model.id === "ollama-local") {
-    return Boolean(ollama?.available && ollamaModel.trim());
-  }
-  if (model.id === "ollama-cloud") {
-    return Boolean(keys.ollama && ollamaCloudModel.trim());
-  }
-  if (model.provider === "ollama") {
-    return Boolean(ollama?.available && ollamaModel.trim());
-  }
   return Boolean(keys[model.provider]);
 }
 
 export function modelStatus(
   model: ModelInfo,
   keys: Record<ProviderId, boolean>,
-  ollama: OllamaStatus | null,
-  ollamaModel: string,
-  ollamaCloudModel = "",
+  _ollama: unknown = null,
+  _ollamaModel = "",
+  _ollamaCloudModel = "",
 ): { kind: ModelStatusKind; label: string } {
-  if (model.id === "ollama-local") {
-    if (ollama?.available && ollamaModel.trim()) {
-      return { kind: "running", label: "Running locally" };
-    }
-    if (ollama && !ollama.available) {
-      return { kind: "unavailable", label: "Offline" };
-    }
-    return { kind: "not-configured", label: "Not detected" };
-  }
-  if (model.id === "ollama-cloud") {
-    if (keys.ollama && ollamaCloudModel.trim()) {
-      return { kind: "configured", label: "Cloud configured" };
-    }
-    if (keys.ollama) {
-      return { kind: "not-configured", label: "Model name needed" };
-    }
-    return { kind: "not-configured", label: "API key needed" };
-  }
-  if (model.provider === "ollama") {
-    if (ollama?.available && ollamaModel.trim()) {
-      return { kind: "running", label: "Running locally" };
-    }
-    if (ollama && !ollama.available) {
-      return { kind: "unavailable", label: "Offline" };
-    }
-    return { kind: "not-configured", label: "Not detected" };
-  }
   if (keys[model.provider]) {
     return { kind: "configured", label: "Configured" };
   }
@@ -131,45 +93,10 @@ export function modelStatus(
 
 export function providerStatuses(
   keys: Record<ProviderId, boolean>,
-  ollama: OllamaStatus | null,
+  _ollama: unknown = null,
 ): ProviderRuntimeStatus[] {
   const ids = Array.from(new Set(MODELS.map((m) => m.provider)));
   return ids.map((providerId) => {
-    const provider = providerById(providerId);
-    if (providerId === "ollama") {
-      if (ollama?.available || keys.ollama) {
-        return {
-          providerId,
-          hasKey: Boolean(keys.ollama),
-          label: ollama?.available
-            ? ("Running" as const)
-            : ("Configured" as const),
-          kind: ollama?.available ? ("running" as const) : ("configured" as const),
-        };
-      }
-      return {
-        providerId,
-        hasKey: false,
-        label: ollama ? ("Offline" as const) : ("Not detected" as const),
-        kind: "unavailable" as const,
-      };
-    }
-    if (provider.configuration === "local-runtime") {
-      if (ollama?.available) {
-        return {
-          providerId,
-          hasKey: false,
-          label: "Running" as const,
-          kind: "running" as const,
-        };
-      }
-      return {
-        providerId,
-        hasKey: false,
-        label: ollama ? ("Offline" as const) : ("Not detected" as const),
-        kind: "unavailable" as const,
-      };
-    }
     if (keys[providerId]) {
       return {
         providerId,
@@ -252,11 +179,10 @@ export function sortModels(
     default:
       return list.sort((a, b) => {
         const rank = (m: ModelInfo) => {
-          if (m.id === "ollama-local") return 0;
-          if (m.provider === "deepseek") return 1;
-          if (m.supportsReasoning && m.supportsTools) return 2;
-          if (m.supportsText) return 3;
-          return 4;
+          if (m.provider === "deepseek") return 0;
+          if (m.supportsReasoning && m.supportsTools) return 1;
+          if (m.supportsText) return 2;
+          return 3;
         };
         return rank(a) - rank(b) || a.displayName.localeCompare(b.displayName);
       });

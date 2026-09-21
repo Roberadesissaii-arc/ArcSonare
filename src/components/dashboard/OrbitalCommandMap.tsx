@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { filterTasks, useTasks } from "../../stores/taskStore";
+import { filterTasks, setTaskPrefs, useTasks } from "../../stores/taskStore";
+import { navigate } from "../../stores/appStore";
 import { useVoiceState } from "../../stores/voiceStore";
 import { usePrefs } from "../../stores/settingsStore";
 import { characterById } from "../../features/voice-settings/voiceCharacters";
@@ -45,6 +46,7 @@ const CHIP_ICONS: Record<string, ComponentType<{ size?: number }>> = {
 interface ChipOrbitDef {
   id: string;
   chip: OrbitChipData;
+  taskId?: string;
   rx: number;
   ry: number;
   counter: number;
@@ -55,6 +57,20 @@ interface ChipOrbitDef {
 
 const TILT_A = -17;
 const TILT_B = 14;
+
+/**
+ * Fixed sample chips for the sign-in screen.
+ *
+ * The signed-in dashboard orbits the user's real open tasks. The sign-in page
+ * must never do that — it renders before authentication, so real task titles
+ * would be readable by anyone looking at a locked machine.
+ */
+const EXAMPLE_CHIPS: OrbitChipData[] = [
+  { icon: "tasks", label: "Draft the launch brief", status: "Today" },
+  { icon: "calendar", label: "Team sync at 3:00", status: "Today" },
+  { icon: "agent", label: "Summarise this week", status: "Agent" },
+  { icon: "search", label: "Find the Q3 report", status: "Open" },
+];
 
 const ORBIT_SLOTS: Omit<ChipOrbitDef, "chip">[] = [
   { id: "chip-0", rx: 268, ry: 104, counter: 17, duration: 72, delay: -38, restAt: 53 },
@@ -130,19 +146,23 @@ function OrbitingChip({
   def,
   depth,
   visible,
+  hovered,
   onHoverChange,
+  onActivate,
 }: {
   def: ChipOrbitDef;
   depth: "front" | "back";
   visible: boolean;
-  onHoverChange: (hovering: boolean) => void;
+  hovered: boolean;
+  onHoverChange: (chipId: string | null) => void;
+  onActivate: (taskId: string) => void;
 }) {
   const Icon = CHIP_ICONS[def.chip.icon];
   return (
     <g
       data-chip-id={def.id}
       data-depth={depth}
-      className={`orbit-chip-motion orbit-chip-depth-${depth}${visible ? " is-visible" : " is-hidden"}`}
+      className={`orbit-chip-motion orbit-chip-depth-${depth}${visible ? " is-visible" : " is-hidden"}${hovered ? " is-hovered" : ""}`}
       style={{
         offsetPath: `path('${orbitPath(def.rx, def.ry)}')`,
         offsetDistance: `${def.restAt}%`,
@@ -152,12 +172,28 @@ function OrbitingChip({
     >
       <foreignObject x={-85} y={-27} width={170} height={54} overflow="visible">
         <div
-          className="orbit-chip-holder"
+          className={`orbit-chip-holder${def.taskId ? " is-actionable" : ""}`}
           style={{ transform: `rotate(${def.counter}deg)` }}
+          role={def.taskId ? "button" : undefined}
+          tabIndex={def.taskId && visible ? 0 : undefined}
+          aria-label={def.taskId ? `Open task: ${def.chip.label}` : undefined}
           onPointerEnter={() => {
-            if (visible) onHoverChange(true);
+            if (visible) onHoverChange(def.id);
           }}
-          onPointerLeave={() => onHoverChange(false)}
+          onPointerLeave={() => onHoverChange(null)}
+          onClick={() => {
+            if (visible && def.taskId) onActivate(def.taskId);
+          }}
+          onKeyDown={(event) => {
+            if (
+              visible &&
+              def.taskId &&
+              (event.key === "Enter" || event.key === " ")
+            ) {
+              event.preventDefault();
+              onActivate(def.taskId);
+            }
+          }}
         >
           <OrbitActionChip
             icon={Icon}
@@ -174,11 +210,15 @@ function OrbitingChip({
 function ChipSet({
   chips,
   front,
+  hoveredChipId,
   onHoverChange,
+  onActivate,
 }: {
   chips: ChipOrbitDef[];
   front: Record<string, boolean>;
-  onHoverChange: (h: boolean) => void;
+  hoveredChipId: string | null;
+  onHoverChange: (chipId: string | null) => void;
+  onActivate: (taskId: string) => void;
 }) {
   return (
     <>
@@ -188,7 +228,9 @@ function ChipSet({
           def={def}
           depth="back"
           visible={!front[def.id]}
+          hovered={hoveredChipId === def.id}
           onHoverChange={onHoverChange}
+          onActivate={onActivate}
         />
       ))}
     </>
@@ -198,11 +240,15 @@ function ChipSet({
 function ChipSetFront({
   chips,
   front,
+  hoveredChipId,
   onHoverChange,
+  onActivate,
 }: {
   chips: ChipOrbitDef[];
   front: Record<string, boolean>;
-  onHoverChange: (h: boolean) => void;
+  hoveredChipId: string | null;
+  onHoverChange: (chipId: string | null) => void;
+  onActivate: (taskId: string) => void;
 }) {
   return (
     <>
@@ -212,22 +258,33 @@ function ChipSetFront({
           def={def}
           depth="front"
           visible={Boolean(front[def.id])}
+          hovered={hoveredChipId === def.id}
           onHoverChange={onHoverChange}
+          onActivate={onActivate}
         />
       ))}
     </>
   );
 }
 
-/** Atmospheric map with orbit chips driven by real open tasks. */
-export function OrbitalCommandMap() {
+/**
+ * Atmospheric map with orbit chips.
+ *
+ * @param examples — render fixed sample chips instead of the user's tasks.
+ *   Used by the sign-in screen, which must not expose real data.
+ */
+export function OrbitalCommandMap({ examples = false }: { examples?: boolean } = {}) {
   const voice = useVoiceState();
   const tasks = useTasks();
   const prefs = usePrefs();
   const marbleTint = characterById(prefs.voice.voiceId).marbleTint;
-  const [chipHover, setChipHover] = useState(false);
+  const [hoveredChipId, setHoveredChipId] = useState<string | null>(null);
+  const chipHover = hoveredChipId !== null;
 
   const allChips = useMemo(() => {
+    if (examples) {
+      return EXAMPLE_CHIPS.map((chip, i) => ({ ...ORBIT_SLOTS[i], chip }));
+    }
     const open = filterTasks(tasks, "open");
     const urgent = filterTasks(tasks, "urgent");
     const today = filterTasks(tasks, "today");
@@ -245,6 +302,7 @@ export function OrbitalCommandMap() {
 
     return ranked.map((t, i) => ({
       ...ORBIT_SLOTS[i],
+      taskId: t.id,
       chip: {
         icon: (t.agent
           ? "agent"
@@ -263,10 +321,15 @@ export function OrbitalCommandMap() {
               : "Open",
       },
     }));
-  }, [tasks]);
+  }, [tasks, examples]);
 
   const chipsA = allChips.slice(0, 2);
   const chipsB = allChips.slice(2, 4);
+
+  const openTask = (taskId: string) => {
+    setTaskPrefs({ lastSelectedId: taskId });
+    navigate("tasks", { taskFilter: "all" });
+  };
 
   const [front, setFront] = useState<Record<string, boolean>>({});
   const mapRef = useRef<HTMLDivElement>(null);
@@ -316,7 +379,8 @@ export function OrbitalCommandMap() {
         className="orbital-svg"
         viewBox="0 0 720 480"
         preserveAspectRatio="xMidYMid meet"
-        aria-hidden="true"
+        aria-hidden={examples ? true : undefined}
+        aria-label={examples ? undefined : "Orbiting task shortcuts"}
       >
         {STARS.map((s, i) => (
           <circle
@@ -349,10 +413,22 @@ export function OrbitalCommandMap() {
         </g>
 
         <g transform={`rotate(${TILT_A} ${CX} ${CY})`} className="orbit-chip-layer-back">
-          <ChipSet chips={chipsA} front={front} onHoverChange={setChipHover} />
+          <ChipSet
+            chips={chipsA}
+            front={front}
+            hoveredChipId={hoveredChipId}
+            onHoverChange={setHoveredChipId}
+            onActivate={openTask}
+          />
         </g>
         <g transform={`rotate(${TILT_B} ${CX} ${CY})`} className="orbit-chip-layer-back">
-          <ChipSet chips={chipsB} front={front} onHoverChange={setChipHover} />
+          <ChipSet
+            chips={chipsB}
+            front={front}
+            hoveredChipId={hoveredChipId}
+            onHoverChange={setHoveredChipId}
+            onActivate={openTask}
+          />
         </g>
 
         <foreignObject
@@ -372,10 +448,22 @@ export function OrbitalCommandMap() {
         </foreignObject>
 
         <g transform={`rotate(${TILT_A} ${CX} ${CY})`} className="orbit-chip-layer-front">
-          <ChipSetFront chips={chipsA} front={front} onHoverChange={setChipHover} />
+          <ChipSetFront
+            chips={chipsA}
+            front={front}
+            hoveredChipId={hoveredChipId}
+            onHoverChange={setHoveredChipId}
+            onActivate={openTask}
+          />
         </g>
         <g transform={`rotate(${TILT_B} ${CX} ${CY})`} className="orbit-chip-layer-front">
-          <ChipSetFront chips={chipsB} front={front} onHoverChange={setChipHover} />
+          <ChipSetFront
+            chips={chipsB}
+            front={front}
+            hoveredChipId={hoveredChipId}
+            onHoverChange={setHoveredChipId}
+            onActivate={openTask}
+          />
         </g>
 
         <g className="orbit-flares">

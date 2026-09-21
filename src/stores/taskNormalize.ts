@@ -15,6 +15,22 @@ function activity(
   };
 }
 
+/**
+ * Rejects placeholder agent values.
+ *
+ * A model calling tasks.create emitted `agent_id: "null"` as a *string*, which
+ * was stored verbatim and then displayed as an agent literally named "null".
+ * Also repairs rows already persisted with such a value.
+ */
+export function cleanAgent(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return /^(null|undefined|none|nil|n\/a|unassigned)$/i.test(trimmed)
+    ? undefined
+    : trimmed;
+}
+
 /** Normalize a partial / unknown task blob into a full ArcSonareTask. */
 export function normalizeTaskFromUnknown(raw: unknown): ArcSonareTask {
   const obj = (raw && typeof raw === "object" ? raw : {}) as Partial<ArcSonareTask> & {
@@ -40,7 +56,7 @@ export function normalizeTaskFromUnknown(raw: unknown): ArcSonareTask {
     priority: obj.priority === "high" || obj.priority === "low" ? obj.priority : "medium",
     due: obj.due,
     dueBucket: obj.dueBucket ?? "none",
-    agent: obj.agent,
+    agent: cleanAgent(obj.agent),
     completed: Boolean(obj.completed),
     urgent: Boolean(obj.urgent),
     demo: obj.demo,

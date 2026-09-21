@@ -24,6 +24,13 @@ import {
   resolveFailureMessage,
 } from "./ResponsePolicy";
 import { auditFromContract } from "./OrchestrationAudit";
+import { parseEventFromText } from "./parseEventTime";
+import {
+  calendarCreateEvent,
+  calendarListEvents,
+  driveListFiles,
+  gmailListMessages,
+} from "../../services/GoogleWorkspaceService";
 import {
   CONTENT_TTL_MS,
   contentCacheKey,
@@ -32,6 +39,7 @@ import {
   setCached,
   shouldBypassContentCache,
 } from "./ServiceDataCache";
+import { resolveCalendarQueryRange } from "./parseCalendarRange";
 
 export type HandleOptions = {
   /** Model-proposed tool to validate (optional). */
@@ -69,19 +77,45 @@ function navigateArcPage(
 }
 
 /** Honest yes/no for “is my Gmail connected?” — never opens the web app. */
-function connectionStatusResult(
+async function connectionStatusResult(
   contract: IntentContract,
   capabilityId: string,
   service: "email" | "calendar" | "drive",
   started: number,
-): OrchestrationResult {
+): Promise<OrchestrationResult> {
+  // Live OAuth is ground truth — broker cache can lag after Connect.
+  const { syncConnectionBrokerFromIntegrations, getConnectedIntegrationIds } =
+    await import("../../services/integrationStatusService");
+  await syncConnectionBrokerFromIntegrations().catch(() => undefined);
+
   const required =
     service === "email"
       ? ["email.read"]
       : service === "calendar"
         ? ["calendar.read"]
         : ["drive.read"];
-  const resolved = resolveConnection({ service, requiredScopes: required });
+  let resolved = resolveConnection({ service, requiredScopes: required });
+
+  // If the broker still says disconnected, re-check live Connect state.
+  if (resolved.status === "not-connected") {
+    const live = await getConnectedIntegrationIds().catch(() => new Set());
+    const integrationId =
+      service === "email"
+        ? "gmail"
+        : service === "calendar"
+          ? "googleCalendar"
+          : "googleDrive";
+    if (live.has(integrationId as never)) {
+      resolved = {
+        status: "ready",
+        accountIds: ["google-shared"],
+        provider: "google",
+        missingScopes: [],
+        message: "Connected (live OAuth).",
+      };
+    }
+  }
+
   const label =
     service === "email"
       ? "Gmail"
@@ -139,7 +173,74 @@ async function executeCalendar(
   started: number,
 ): Promise<OrchestrationResult> {
   if (capabilityId === "calendar.get_connection_status") {
-    return connectionStatusResult(contract, capabilityId, "calendar", started);
+    return await connectionStatusResult(contract, capabilityId, "calendar", started);
+  }
+
+  if (capabilityId === "calendar.create_event") {
+    const resolved = resolveConnection({
+      service: "calendar",
+      requiredScopes: ["calendar.read"],
+    });
+    if (resolved.status !== "ready") {
+      const fail = resolveFailureMessage("calendar", resolved);
+      const audit = auditFromContract(contract, {
+        selectedCapabilityId: capabilityId,
+        connectionStatus: resolved.status,
+        resultStatus: "disconnected",
+        durationMs: Date.now() - started,
+      });
+      return {
+        handled: true,
+        contract,
+        capabilityId,
+        text: `${fail.text} I didn't create the event.`,
+        action: fail.action,
+        auditId: audit.id,
+      };
+    }
+
+    // Never guess a time — ask instead.
+    const parsed = parseEventFromText(contract.utterance);
+    if (!parsed) {
+      const audit = auditFromContract(contract, {
+        selectedCapabilityId: capabilityId,
+        connectionAccountId: resolved.accountIds[0],
+        connectionStatus: "connected",
+        resultStatus: "partial",
+        durationMs: Date.now() - started,
+      });
+      return {
+        handled: true,
+        contract,
+        capabilityId,
+        text: "Sure — what's it for, and when?",
+        auditId: audit.id,
+      };
+    }
+
+    const result = await calendarCreateEvent({
+      summary: parsed.title,
+      start: parsed.start,
+      end: parsed.end,
+    });
+    // A create invalidates any cached listing.
+    invalidateContentCache("calendar");
+    const audit = auditFromContract(contract, {
+      selectedCapabilityId: capabilityId,
+      connectionAccountId: resolved.accountIds[0],
+      connectionStatus: "connected",
+      resultStatus: result.ok ? "success" : "failed",
+      durationMs: Date.now() - started,
+    });
+    return {
+      handled: true,
+      contract,
+      capabilityId,
+      text: result.ok && parsed.assumedTime
+        ? `${result.text} I put it at 9am — tell me if you'd like a different time.`
+        : result.text,
+      auditId: audit.id,
+    };
   }
 
   if (capabilityId === "calendar.open_ui") {
@@ -236,10 +337,18 @@ async function executeCalendar(
   }
 
   const accountId = resolved.accountIds[0];
-  const cacheKey = contentCacheKey("calendar", capabilityId, accountId);
+  // Parse "August 8th" / today / tomorrow / next two weeks from the utterance.
+  // Cache key MUST include the range or "today empty" poisons "August 8".
+  const range = resolveCalendarQueryRange(contract.utterance);
+  const cacheKey = contentCacheKey(
+    "calendar",
+    `${capabilityId}:${range.relativeExpression}:${range.timeMin.slice(0, 10)}`,
+    accountId,
+  );
   const bypass =
     shouldBypassContentCache(contract.utterance) ||
-    contract.requestedData?.includes("latest");
+    contract.requestedData?.includes("latest") ||
+    range.relativeExpression === "absolute_day";
   if (!bypass) {
     const cached = getCached<string>(cacheKey);
     if (cached) {
@@ -260,22 +369,45 @@ async function executeCalendar(
     }
   }
 
-  // API not implemented — honest partial success once connected metadata exists.
-  const text =
-    "Your calendar connection is recorded, but event reading isn’t available until the calendar provider API is wired. I did not open the calendar app.";
-  setCached(cacheKey, text, CONTENT_TTL_MS.calendarList);
+  // Real Calendar read for the resolved window (not always "now → end of today").
+  const result = await calendarListEvents({
+    maxResults: capabilityId === "calendar.get_next_event" ? 1 : 15,
+    timeMin: range.timeMin,
+    timeMax: range.timeMax,
+    rangeLabel: range.label,
+  });
+
+  if (!result.ok) {
+    const audit = auditFromContract(contract, {
+      selectedCapabilityId: capabilityId,
+      connectionAccountId: accountId,
+      connectionStatus: "connected",
+      resultStatus: "failed",
+      durationMs: Date.now() - started,
+    });
+    return {
+      handled: true,
+      contract,
+      capabilityId,
+      text: result.text,
+      action: disconnectedMessage("calendar").action,
+      auditId: audit.id,
+    };
+  }
+
+  setCached(cacheKey, result.text, CONTENT_TTL_MS.calendarList);
   const audit = auditFromContract(contract, {
     selectedCapabilityId: capabilityId,
     connectionAccountId: accountId,
     connectionStatus: "connected",
-    resultStatus: "partial",
+    resultStatus: "success",
     durationMs: Date.now() - started,
   });
   return {
     handled: true,
     contract,
     capabilityId,
-    text,
+    text: result.text,
     auditId: audit.id,
   };
 }
@@ -286,7 +418,7 @@ async function executeEmail(
   started: number,
 ): Promise<OrchestrationResult> {
   if (capabilityId === "email.get_connection_status") {
-    return connectionStatusResult(contract, capabilityId, "email", started);
+    return await connectionStatusResult(contract, capabilityId, "email", started);
   }
 
   if (capabilityId === "email.open_inbox_ui") {
@@ -443,17 +575,41 @@ async function executeEmail(
     }
   }
 
-  const text =
-    "Your email connection is recorded, but reading messages isn’t available until the email provider API is wired. I did not open Gmail.";
-  setCached(cacheKey, text, CONTENT_TTL_MS.latestEmail);
+  // Real Gmail read. `unread` and `latest` narrow the same endpoint.
+  const wantsUnread = capabilityId === "email.list_unread";
+  const wantsLatest = capabilityId === "email.get_latest_message";
+  const result = await gmailListMessages({
+    maxResults: wantsLatest ? 1 : 8,
+    query: wantsUnread ? "is:unread" : undefined,
+  });
+
+  if (!result.ok) {
+    const audit = auditFromContract(contract, {
+      selectedCapabilityId: capabilityId,
+      connectionAccountId: accountId,
+      connectionStatus: "connected",
+      resultStatus: "failed",
+      durationMs: Date.now() - started,
+    });
+    return {
+      handled: true,
+      contract,
+      capabilityId,
+      text: result.text,
+      action: disconnectedMessage("email").action,
+      auditId: audit.id,
+    };
+  }
+
+  setCached(cacheKey, result.text, CONTENT_TTL_MS.latestEmail);
   const audit = auditFromContract(contract, {
     selectedCapabilityId: capabilityId,
     connectionAccountId: accountId,
     connectionStatus: "connected",
-    resultStatus: "partial",
+    resultStatus: "success",
     durationMs: Date.now() - started,
   });
-  return { handled: true, contract, capabilityId, text, auditId: audit.id };
+  return { handled: true, contract, capabilityId, text: result.text, auditId: audit.id };
 }
 
 async function executeDrive(
@@ -461,6 +617,10 @@ async function executeDrive(
   capabilityId: string,
   started: number,
 ): Promise<OrchestrationResult> {
+  if (capabilityId === "drive.get_connection_status") {
+    return await connectionStatusResult(contract, capabilityId, "drive", started);
+  }
+
   if (capabilityId === "drive.open_ui") {
     try {
       await invoke("overlay_open_url", { url: "https://drive.google.com" });
@@ -503,18 +663,21 @@ async function executeDrive(
     };
   }
 
+  // Real Drive read.
+  const result = await driveListFiles({ maxResults: 10 });
   const audit = auditFromContract(contract, {
     selectedCapabilityId: capabilityId,
     connectionAccountId: resolved.accountIds[0],
     connectionStatus: "connected",
-    resultStatus: "partial",
+    resultStatus: result.ok ? "success" : "failed",
     durationMs: Date.now() - started,
   });
   return {
     handled: true,
     contract,
     capabilityId,
-    text: "Drive is connected in metadata, but listing files isn’t available until the Drive API is wired. I did not open Google Drive.",
+    text: result.text,
+    action: result.ok ? undefined : disconnectedMessage("drive").action,
     auditId: audit.id,
   };
 }

@@ -6,7 +6,10 @@ interface SettingsPageHeaderProps {
   actions?: ReactNode;
 }
 
-/** Content-area title + one-sentence description for every Settings section. */
+/**
+ * Section header inside the right content card.
+ * Matches Arceclaw tab headers: 16px bold title + 12px muted subtitle.
+ */
 export function SettingsPageHeader({
   title,
   description,
@@ -15,7 +18,7 @@ export function SettingsPageHeader({
   return (
     <header className="settings-page-header page-header">
       <div className="settings-page-header-text">
-        <h1 className="page-title settings-page-title">{title}</h1>
+        <h2 className="page-title settings-page-title">{title}</h2>
         <p className="page-subtitle settings-page-subtitle">{description}</p>
       </div>
       {actions ? <div className="settings-page-header-actions">{actions}</div> : null}

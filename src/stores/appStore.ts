@@ -12,28 +12,28 @@ export type SettingsSection =
   | "account"
   | "general"
   | "voice"
-  | "models"
   | "shortcuts"
   | "appearance"
   | "sounds"
   | "notifications"
+  | "display-mapping"
   | "data-privacy"
-  | "integrations"
-  | "about"
-  | "voice-lab";
+  | "conversation-logs"
+  | "updates"
+  | "about";
 
 const SETTINGS_SECTIONS: SettingsSection[] = [
   "account",
   "general",
   "voice",
-  "voice-lab",
-  "models",
   "shortcuts",
   "appearance",
   "sounds",
   "notifications",
+  "display-mapping",
   "data-privacy",
-  "integrations",
+  "conversation-logs",
+  "updates",
   "about",
 ];
 
@@ -42,6 +42,8 @@ const SECTION_KEY = "arcsonare.settingsSection.v1";
 function loadSettingsSection(): SettingsSection {
   try {
     const raw = window.localStorage.getItem(SECTION_KEY);
+    // Models settings removed — AI keys live under Voice.
+    if (raw === "models") return "voice";
     if (raw && SETTINGS_SECTIONS.includes(raw as SettingsSection)) {
       return raw as SettingsSection;
     }
@@ -171,6 +173,11 @@ export function addActivity(text: string, source: ActivityEntry["source"]) {
     console.error("[ArcSonare] failed to persist activity:", err);
   }
   set({ activity });
+}
+
+/** Current display name, for non-React callers (voice prompt, services). */
+export function getProfileName(): string {
+  return state.profileName;
 }
 
 /** Updates the display name used by the Dashboard greeting. */

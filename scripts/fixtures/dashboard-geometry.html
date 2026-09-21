@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dashboard geometry harness</title>
+    <!--
+      A measuring rig for the Dashboard's six side cards.
+
+      The app itself cannot be measured in a plain browser — it needs Tauri to
+      get past the account gate — and screenshot crops are not evidence. This
+      page loads ArcSonare's *real* stylesheets and reproduces the Dashboard's
+      real DOM shape: the same container class, the same rail wrappers, the same
+      card class names, and deliberately lopsided content so a card that sizes
+      itself to its own text is caught rather than flattered.
+
+      Whatever the grid does here, it does in the app: it is the same CSS.
+
+      A developer harness, not an application asset — it lives under
+      `scripts/fixtures/` so it never ships in `public/`. Open it directly:
+
+          npm run test:dashboard-geometry
+
+      which prints the path to load in a browser, or open the file and call
+      `window.measureDashboard()` from the console.
+    -->
+    <link rel="stylesheet" href="../../src/styles/tokens.css" />
+    <link rel="stylesheet" href="../../src/styles/global.css" />
+    <link rel="stylesheet" href="../../src/styles/cards.css" />
+    <link rel="stylesheet" href="../../src/styles/dashboard.css" />
+    <link rel="stylesheet" href="../../src/styles/meeting.css" />
+    <link rel="stylesheet" href="../../src/styles/responsive.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #05090c;
+      }
+      /* Stands in for the app shell that normally wraps the Dashboard. */
+      #shell {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      #shell > .dashboard {
+        flex: 1;
+        min-height: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="shell">
+      <div class="dashboard" data-page="dashboard">
+        <div class="dashboard-col side-column dashboard-left dashboard-left-stretch">
+          <section class="card sonare-card focus-card">
+            <div class="card-head"><span class="card-label">Focus</span></div>
+            <!-- Focus is the tallest by content. If a rail ever sizes itself to
+                 its children again, this is what makes it visible. -->
+            <p>Your top priority right now.</p>
+            <h3>Conversation memory test 5501</h3>
+            <p>Test task to verify conversation memory.</p>
+            <p>0% complete</p>
+            <p><button>Open task</button> <button>Snooze</button></p>
+          </section>
+
+          <section class="card sonare-card mi-card">
+            <div class="mi-card-header">
+              <span class="card-label">Meeting Intelligence</span>
+              <div class="mi-platform-row">
+                <span class="mi-platform-chip"><span class="mi-platform-icon"></span></span>
+                <span class="mi-platform-chip"><span class="mi-platform-icon"></span></span>
+                <span class="mi-platform-chip"><span class="mi-platform-icon"></span></span>
+                <span class="mi-platform-chip"><span class="mi-platform-icon"></span></span>
+              </div>
+            </div>
+            <p>ArcSonare will ask before taking notes when a meeting is detected.</p>
+          </section>
+
+          <section
+            class="card sonare-card tools-card tools-card-stretch applications-card"
+          >
+            <div class="tools-section-head">
+              <span class="card-label">Applications</span>
+            </div>
+            <p class="card-lede">Apps you can link in Connect.</p>
+            <div class="opened-apps-list-wrap opened-apps-paged applications-paged">
+              <span class="opened-apps-page-spacer"></span>
+              <ul class="tools-list tools-list-opened tools-list-opened-snap">
+                <li><div class="tools-list-row">Discord</div></li>
+                <li><div class="tools-list-row">YouTube</div></li>
+              </ul>
+              <button class="opened-apps-page-btn opened-apps-page-down"></button>
+            </div>
+          </section>
+        </div>
+
+        <div class="dashboard-center"><div class="orbital-zone"></div></div>
+
+        <div class="dashboard-col side-column dashboard-right dashboard-right-stretch">
+          <!-- Up Next is deliberately short: it is the card that used to stop
+               above Focus's bottom edge. -->
+          <section class="card sonare-card upnext-card">
+            <div class="card-head"><span class="card-label">Up next</span></div>
+            <p>What's coming up next on your schedule.</p>
+          </section>
+
+          <section class="card sonare-card urgent-card">
+            <div class="card-head urgent-card-head">
+              <span class="card-label">Urgent</span>
+            </div>
+            <p>Tasks that need attention first.</p>
+            <p>Conversation memory test</p>
+            <p>Apply to Y Combinator</p>
+            <p>Modal persistence test</p>
+          </section>
+
+          <section
+            class="card sonare-card tools-card tools-card-stretch opened-apps-card"
+          >
+            <div class="tools-section-head">
+              <span class="card-label">Running apps</span>
+            </div>
+            <p class="card-lede">Apps ArcSonare can watch and control.</p>
+            <div class="opened-apps-list-wrap opened-apps-paged applications-paged">
+              <span class="opened-apps-page-spacer"></span>
+              <ul class="tools-list tools-list-opened tools-list-opened-snap">
+                <li><div class="tools-list-row watch-row">Chrome</div></li>
+                <li><div class="tools-list-row watch-row">Discord</div></li>
+              </ul>
+              <button class="opened-apps-page-btn opened-apps-page-down"></button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /** Rounded rectangles for the six paired cards, for the measuring tool. */
+      window.measureDashboard = function () {
+        const selectors = {
+          Focus: ".focus-card",
+          UpNext: ".upnext-card",
+          Meeting: ".mi-card",
+          Urgent: ".urgent-card",
+          Applications: ".applications-card",
+          RunningApps: ".opened-apps-card",
+        };
+        const rects = {};
+        for (const [name, selector] of Object.entries(selectors)) {
+          const el = document.querySelector(selector);
+          if (!el) {
+            rects[name] = null;
+            continue;
+          }
+          const r = el.getBoundingClientRect();
+          rects[name] = {
+            x: Math.round(r.x),
+            y: Math.round(r.y),
+            width: Math.round(r.width),
+            height: Math.round(r.height),
+            bottom: Math.round(r.bottom),
+          };
+        }
+        const pair = (a, b) => ({
+          dHeight: Math.abs(rects[a].height - rects[b].height),
+          dTop: Math.abs(rects[a].y - rects[b].y),
+          dBottom: Math.abs(rects[a].bottom - rects[b].bottom),
+        });
+        return {
+          viewport: { w: window.innerWidth, h: window.innerHeight },
+          rects,
+          pairs: {
+            "Focus/UpNext": pair("Focus", "UpNext"),
+            "Meeting/Urgent": pair("Meeting", "Urgent"),
+            "Applications/RunningApps": pair("Applications", "RunningApps"),
+          },
+          gaps: {
+            row1to2: rects.Meeting.y - rects.Focus.bottom,
+            row2to3: rects.Applications.y - rects.Meeting.bottom,
+            row1to2Right: rects.Urgent.y - rects.UpNext.bottom,
+            row2to3Right: rects.RunningApps.y - rects.Urgent.bottom,
+          },
+        };
+      };
+    </script>
+  </body>
+</html>

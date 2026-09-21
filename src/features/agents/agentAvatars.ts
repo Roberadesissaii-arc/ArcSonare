@@ -40,5 +40,14 @@ export function defaultAvatarIdForAgent(id: string): AgentAvatarId | null {
   if (id === "screen-analyst") return "sora";
   if (id === "data-analyst") return "pulse";
   if (id === "workflow-automator") return "flux";
+  // New roster members reuse abstract portraits until dedicated art ships.
+  if (id === "schedule-coordinator") return "celeste";
+  if (id === "knowledge-librarian") return "atlas";
+  if (id === "security-auditor") return "sora";
+  if (id === "briefing-writer") return "lyra";
+  if (id === "code-reviewer") return "pulse";
+  if (id === "customer-support") return "echo";
+  if (id === "sales-assistant") return "nova";
+  if (id === "qa-tester") return "flux";
   return null;
 }

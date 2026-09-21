@@ -1,0 +1,580 @@
+/* ===========================================================================
+   Watch — additions only.
+
+   The rows, icons, typography and spacing come from ArcSonare's existing list
+   language (`tools-list-row`, `tools-list-icon`, `tools-list-title`). A previous
+   pass introduced a private Watch style with smaller rows and smaller icons,
+   which made the Spotify artwork unrecognisable and the card feel bolted on.
+   Everything here is what the existing language does not already provide:
+   a status indicator, row actions, and the modals.
+   =========================================================================== */
+
+/* --- status indicator ---------------------------------------------------- */
+
+/*
+ * Sized to actually be seen: 9px of solid colour inside a dark ring, beside the
+ * name rather than on top of the application icon. The previous 8px-including-
+ * ring dot sat over the artwork and vanished at normal scale.
+ */
+.watch-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  vertical-align: middle;
+  box-shadow: 0 0 0 2px rgba(16, 20, 27, 0.9);
+}
+
+/* Watched and active in this conversation. */
+.watch-dot-active {
+  background: rgb(72, 207, 149);
+  box-shadow:
+    0 0 0 2px rgba(16, 20, 27, 0.9),
+    0 0 6px rgba(72, 207, 149, 0.55);
+}
+
+/* Watched, but not the subject of this conversation. */
+.watch-dot-watched {
+  background: transparent;
+  border: 2px solid rgb(72, 207, 149);
+}
+
+/* Watched, application closed. */
+.watch-dot-offline {
+  background: rgba(150, 162, 176, 0.5);
+}
+
+/* Running, not watched. */
+.watch-dot-unwatched {
+  background: rgba(150, 162, 176, 0.35);
+}
+
+/* --- row ----------------------------------------------------------------- */
+
+/* Three columns: the existing 40px icon + copy, plus the actions. */
+.watch-row.tools-list-row {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  cursor: default;
+}
+
+.watch-row .tools-list-desc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/*
+ * The row is the activation control, so it has to look like one. Only rows that
+ * can actually be toggled get the affordance: a watched-but-closed row in the
+ * manager would bind nothing, and a hover state promising otherwise is a lie.
+ */
+.watch-row.is-watch-clickable {
+  cursor: pointer;
+}
+
+.watch-row.is-watch-clickable:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.watch-row.is-watch-clickable:focus-visible {
+  outline: 2px solid rgba(140, 184, 255, 0.75);
+  outline-offset: -2px;
+}
+
+/*
+ * The active row has no surface of its own.
+ *
+ * It used to be tinted green with a green inset border, which recoloured the
+ * whole row and made the two cards in the rail look like different products.
+ * Active is now said by a badge on the icon — the same badge the Applications
+ * card uses for "connected" — so a row reads as a row whatever its state.
+ */
+
+/*
+ * The active badge: `.tools-list-status` geometry exactly, in the accent the
+ * composer's sparkle already uses. Only the fill and the icon colour are set
+ * here; size, position, radius, border and shadow all come from the shared
+ * rule, so the two badges cannot drift apart.
+ */
+.tools-list-status.is-watch-active {
+  color: var(--sonare-on-accent);
+  background: linear-gradient(
+    145deg,
+    var(--sonare-violet-light),
+    var(--sonare-violet)
+  );
+}
+
+.watch-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.watch-row-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sonare-text-muted);
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.watch-row-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--sonare-text-primary);
+}
+
+.watch-row-btn.is-on {
+  color: rgb(96, 214, 168);
+  background: rgba(52, 168, 120, 0.14);
+}
+
+.watch-row-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.watch-row-watch {
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sonare-text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.watch-row-watch:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* --- overflow menu ------------------------------------------------------- */
+
+.watch-row-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+/*
+ * Portalled to `document.body` and positioned in viewport coordinates.
+ *
+ * Both surfaces that host a row clip an absolutely-positioned child: the
+ * compact card is `.tools-card-stretch`, which is `overflow: hidden`, and the
+ * modal body scrolls. Anchored inside the row, the menu simply never appeared
+ * on the dashboard — and it is the only way a normal user starts watching an
+ * application now that the composer chip is gone.
+ */
+.watch-row-menu-pop {
+  position: fixed;
+  z-index: 950;
+  min-width: 196px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(22, 27, 35, 0.98);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.watch-row-menu-pop button {
+  display: block;
+  width: 100%;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--sonare-text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.watch-row-menu-pop button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.watch-row-menu-pop button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.watch-row-menu-pop button.is-danger {
+  color: rgb(238, 152, 152);
+}
+
+/*
+ * The Running Apps card itself has no styles of its own. Its frame, header,
+ * subtitle, row metrics and chevron all come from the Applications card's
+ * classes (`tools-card`, `tools-section-head`, `card-lede`, `tools-list-row`,
+ * `opened-apps-page-btn`). A private style here is what made the two cards in
+ * one rail look like two different products.
+ */
+
+/* --- composer Watch control ---------------------------------------------- */
+
+/*
+ * The fourth quick action. It inherits `toggle-pill` entirely — size, padding,
+ * radius, typography — so the composer's dimensions are untouched whether Watch
+ * is active or not. Nothing here sets a height or a font size.
+ */
+.watch-composer {
+  display: inline-flex;
+  align-items: center;
+}
+
+/*
+ * The pill's label. One application's name, or `Watch +N` — never artwork, and
+ * never every name, so the control cannot grow with the number of active
+ * applications and crowd the input. The width cap is a backstop for an
+ * application with an unusually long name.
+ */
+.watch-composer .toggle-pill-label {
+  max-width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-composer-pop {
+  position: fixed;
+  z-index: 950;
+  width: 268px;
+  max-height: min(360px, calc(100vh - 160px));
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(22, 27, 35, 0.98);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+}
+
+.watch-composer-note {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--sonare-text-muted);
+}
+
+.watch-composer-heading {
+  margin: 10px 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sonare-text-muted);
+}
+
+.watch-composer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.watch-composer-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sonare-text-primary);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.watch-composer-option:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.watch-composer-option.is-on {
+  background: rgba(52, 168, 120, 0.12);
+}
+
+.watch-composer-option:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.watch-composer-option img {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.watch-composer-manage {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sonare-text-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.watch-composer-manage:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sonare-text-primary);
+}
+
+.watch-composer-option-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- message source badge ------------------------------------------------ */
+
+/*
+ * Informational only. It carries no controls: duplicating the composer's watch
+ * controls under every reply was noise, and a settings surface in a chat bubble
+ * is not where anyone looks for settings.
+ */
+.watch-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 2px 0 4px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--sonare-text-muted);
+}
+
+.watch-source-badge img {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+/* --- modals -------------------------------------------------------------- */
+
+.watch-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 10, 16, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.watch-modal {
+  display: flex;
+  flex-direction: column;
+  /* Viewport-relative, so the portal is never clipped and fits 1280×720. */
+  width: min(680px, calc(100vw - 48px));
+  max-height: min(760px, calc(100vh - 64px));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(20, 25, 33, 0.97);
+  color: var(--sonare-text-primary);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.watch-modal-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.watch-modal-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.watch-modal-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.watch-modal-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--sonare-text-muted);
+}
+
+.watch-modal-close {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.watch-modal-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Only the body scrolls, so Close and the actions stay reachable at 720px. */
+.watch-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 20px 16px;
+}
+
+.watch-modal-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.watch-section {
+  margin-top: 16px;
+}
+
+.watch-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sonare-text-muted);
+}
+
+/* The collapse control inherits the section heading rather than becoming a
+   button-shaped object inside it. */
+.watch-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.watch-section-toggle:hover {
+  color: var(--sonare-text-primary);
+}
+
+.watch-section-toggle:focus-visible {
+  outline: 2px solid rgba(140, 184, 255, 0.75);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.watch-count {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.watch-note {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sonare-text-muted);
+}
+
+.watch-list {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.watch-list-muted {
+  color: var(--sonare-text-muted);
+}
+
+.watch-btn {
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sonare-text-primary);
+  font-size: 11.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.watch-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.watch-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.watch-btn-danger {
+  border-color: rgba(232, 118, 118, 0.3);
+  color: rgb(244, 176, 176);
+}
+
+.watch-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.watch-row-btn:focus-visible,
+.watch-btn:focus-visible {
+  outline: 2px solid rgba(140, 184, 255, 0.75);
+  outline-offset: 2px;
+}
+
+/* --- responsive ---------------------------------------------------------- */
+
+/*
+ * There is no breakpoint here on purpose: the card holds two rows at their
+ * natural height at every supported size, and it narrows exactly as the
+ * Applications card beside it does.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .watch-row-btn {
+    transition: none;
+  }
+}

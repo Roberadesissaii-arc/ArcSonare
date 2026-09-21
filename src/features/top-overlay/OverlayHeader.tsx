@@ -18,6 +18,8 @@ interface OverlayHeaderProps {
   onCancel: () => void;
   /** Tap the marble to barge in — stop speaking / thinking and listen. */
   onActivateListening: () => void;
+  /** Tap status text to open full transcript dropdown. */
+  onToggleTranscript?: () => void;
   expanded: boolean;
 }
 
@@ -47,6 +49,7 @@ export function OverlayHeader({
   waveformLevels,
   onCancel,
   onActivateListening,
+  onToggleTranscript,
   expanded,
 }: OverlayHeaderProps) {
   const orb = modeToOrbStatus(mode);
@@ -66,7 +69,12 @@ export function OverlayHeader({
       >
         <ArcSonareLogo size={26} title="ArcSonare" />
       </button>
-      <OverlayStatusText mode={mode} status={status} />
+      <OverlayStatusText
+        mode={mode}
+        status={status}
+        expanded={expanded}
+        onStatusClick={onToggleTranscript}
+      />
       <span className="overlay-divider" aria-hidden="true" />
       <div className="overlay-wave">
         <SonareLiveWaveform

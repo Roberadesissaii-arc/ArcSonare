@@ -39,6 +39,11 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+import {
+  considerTranscript,
+  type TranscriptDisposition,
+} from "./voiceSession";
+
 let active: SpeechRecognitionLike | null = null;
 let shouldRestart = false;
 
@@ -63,12 +68,18 @@ export function stopSpeechListening() {
 /**
  * Start continuous listening. Final phrases call `onFinal` (trimmed).
  * Returns false if the browser/WebView has no speech recognizer.
+ *
+ * `onFinal` fires only for speech the shared voice session accepts as the
+ * user's. Anything it rejects — ArcSonare's own voice, the echo tail after it,
+ * a repeated transcript — goes to `onSuppressed` instead, so a caller can say
+ * why nothing happened rather than appearing deaf.
  */
 export function startSpeechListening(opts: {
   lang?: string;
   onFinal: FinalHandler;
   onPartial?: PartialHandler;
   onError?: (message: string) => void;
+  onSuppressed?: (text: string, disposition: TranscriptDisposition) => void;
 }): boolean {
   stopSpeechListening();
   const Ctor = getRecognitionCtor();
@@ -85,13 +96,41 @@ export function startSpeechListening(opts: {
   recognition.lang = opts.lang ?? "en-US";
   shouldRestart = true;
 
+  import("../features/overlay-log/overlayLogService").then((m) => {
+    m.logListeningStarted();
+  });
+
   recognition.onresult = (event) => {
     let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const piece = event.results[i][0]?.transcript ?? "";
       if (event.results[i].isFinal) {
         const text = piece.trim();
-        if (text) opts.onFinal(text);
+        // The one gate every transcript passes. ArcSonare speaks through the
+        // speakers, the microphone hears it, and without this the recogniser
+        // hands ArcSonare's own sentence back as a user request — and it
+        // answers itself, forever. The session state lives in Rust because the
+        // overlay is a separate webview and would otherwise have its own idea
+        // of whether anyone is speaking.
+        if (text) {
+          void considerTranscript(text)
+            .then((disposition) => {
+              if (disposition === "accepted") {
+                opts.onFinal(text);
+                return;
+              }
+              import("../features/overlay-log/overlayLogService").then((m) => {
+                m.logTranscriptRejected(disposition);
+              });
+              opts.onSuppressed?.(text, disposition);
+            })
+            .catch(() => {
+              // The gate is unreachable. Delivering the transcript anyway is
+              // the pre-existing behaviour and keeps voice usable; the echo
+              // risk returns, which is better than a mute assistant.
+              opts.onFinal(text);
+            });
+        }
       } else {
         interim += piece;
       }

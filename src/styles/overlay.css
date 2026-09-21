@@ -160,6 +160,33 @@ html.overlay-window #root {
 
 /* ----------------------------- status text -------------------------------- */
 
+.overlay-status-text.is-clickable .ost-status-btn {
+  cursor: pointer;
+  max-width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.overlay-status-text.is-clickable .ost-status-btn:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.overlay-status-text.is-clickable .ost-status-btn.is-expanded {
+  opacity: 0.95;
+}
+
+.panel-body-transcript {
+  white-space: pre-wrap;
+  line-height: 1.45;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
 .overlay-status-text {
   display: flex;
   flex-direction: column;
@@ -172,7 +199,7 @@ html.overlay-window #root {
 .ost-name {
   font-size: 16px;
   font-weight: 600;
-  color: #f1f3f4;
+  color: #ffffff;
   line-height: 20px;
   white-space: nowrap;
   overflow: hidden;
@@ -188,13 +215,15 @@ html.overlay-window #root {
   text-overflow: ellipsis;
 }
 
+/* Listening + speaking: bright purple on white brand name */
 .status-listening,
 .status-responding {
-  color: #c39bff;
+  color: #c084fc;
+  font-weight: 600;
 }
 
 .status-thinking {
-  color: #ac8bef;
+  color: #a78bfa;
 }
 
 .status-working {
@@ -583,6 +612,41 @@ html.overlay-window #root {
   font-size: 13px;
   font-weight: 500;
   border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 90ms ease,
+    box-shadow 120ms ease;
+}
+
+/* Press feedback shared by all three — without it the buttons read as labels. */
+.btn-ghost:active,
+.btn-secondary:active,
+.btn-primary:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.btn-ghost:disabled,
+.btn-secondary:disabled,
+.btn-primary:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-ghost,
+  .btn-secondary,
+  .btn-primary {
+    transition: none;
+  }
+
+  .btn-ghost:active,
+  .btn-secondary:active,
+  .btn-primary:active {
+    transform: none;
+  }
 }
 
 .btn-ghost {
@@ -591,10 +655,22 @@ html.overlay-window #root {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+.btn-ghost:hover {
+  color: #e8eaed;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
 .btn-secondary {
   color: #e8eaed;
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+.btn-secondary:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .btn-primary {
@@ -604,6 +680,14 @@ html.overlay-window #root {
   box-shadow:
     0 10px 28px rgba(104, 55, 199, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.17);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #b17dff, #8150e0 66%, #7343cd);
+  border-color: rgba(210, 180, 255, 0.55);
+  box-shadow:
+    0 12px 32px rgba(104, 55, 199, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .btn-primary:disabled {
@@ -782,11 +866,12 @@ html.overlay-window #root {
 
 .vst-listening,
 .vst-responding {
-  color: #c39bff;
+  color: #c084fc;
+  font-weight: 600;
 }
 
 .vst-thinking {
-  color: #ac8bef;
+  color: #a78bfa;
 }
 
 .vst-success {
@@ -801,6 +886,8 @@ html.overlay-window #root {
 .vst-cancelled {
   color: #87909a;
 }
+
+/* --------------------------- agent purple pointer ------------------------- */
 
 .voice-overlay-divider {
   width: 1px;
@@ -831,3 +918,4 @@ html.overlay-window #root {
   border: 1px solid rgba(255, 255, 255, 0.07);
   color: #aeb5bf;
 }
+

@@ -14,13 +14,19 @@ import {
   resolveDemoContact,
   type ParsedIntent,
 } from "./iconResolver";
-import { ollamaDraftEmail } from "../../services/OllamaService";
-import { askAssistant } from "../../services/AssistantService";
+
+import { askAssistant, getAssistantRoute } from "../../services/AssistantService";
+import { describeProviderError, errorText } from "../../services/providerErrors";
 import {
-  ensurePocketTtsRuntime,
-  speakWithPocketTts,
-  stopPocketTtsPlayback,
-} from "../../services/PocketTtsService";
+  clipForError,
+  playBuiltinVoice,
+  stopBuiltinVoice,
+} from "../../services/builtinVoice";
+import { speak, stopSpeaking } from "../../services/SpeechService";
+import {
+  startRealtimeOverlaySession,
+  stopRealtimeOverlaySession,
+} from "./realtimeOverlay";
 import { characterById } from "../voice-settings/voiceCharacters";
 import {
   handleCapabilityRequest,
@@ -73,15 +79,28 @@ let demoActive = false;
  */
 let listenEpoch = 0;
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 function isStale(epoch: number): boolean {
   return epoch !== listenEpoch;
 }
 
-/** How long the answer dropdown stays visible after returning to listening. */
-const RESULT_PANEL_HOLD_MS = 8_000;
+/**
+ * How long expanded panels stay readable before idle auto-close.
+ * Panels carry lists and multi-line results, so they hold longer than a
+ * one-line spoken answer.
+ */
+const RESULT_PANEL_HOLD_MS = 14_000;
 
 /**
- * Speak overlay replies with Pocket TTS (voice conversations only).
+ * After an answer is spoken (or shown), keep the overlay visible this long
+ * so the user can read it — then hide. Does **not** re-open the mic.
+ * Press the activation shortcut again for another utterance.
+ */
+const POST_ANSWER_DISMISS_MS = 10_000;
+
+/**
+ * Speak overlay replies (voice conversations only).
  * Dashboard / typed chat must not call this.
  */
 async function speakOverlayReply(text: string): Promise<void> {
@@ -91,31 +110,35 @@ async function speakOverlayReply(text: string): Promise<void> {
   const spoken =
     trimmed.length > 480 ? `${trimmed.slice(0, 480).trim()}…` : trimmed;
   try {
-    await ensurePocketTtsRuntime();
-    if (isStale(epoch)) return;
     const voice = characterById(getPrefs().voice.voiceId).preferredProviderVoiceId;
-    await speakWithPocketTts(spoken, {
-      voice,
-      shouldAbort: () => isStale(epoch),
-    });
+    const { speakWithTurnTaking } = await import("../../services/voiceSession");
+    const { logTtsStarted, logTtsCompleted } = await import("../overlay-log/overlayLogService");
+    logTtsStarted();
+    await speakWithTurnTaking(spoken, () =>
+      speak(spoken, { voice, shouldAbort: () => isStale(epoch) }),
+    );
+    logTtsCompleted();
   } catch (err) {
-    console.warn("[ArcSonare] overlay TTS skipped:", err);
+    import("../overlay-log/overlayLogService").then((m) => {
+      m.logTtsFailed(undefined, String(err));
+    });
+    console.warn("[ArcSonare] overlay speech skipped:", err);
   }
 }
 
-/** Present text, speak it, then reopen the mic (after TTS so it isn’t overheard). */
+/**
+ * Present text, speak it, then hold the answer briefly and dismiss the overlay.
+ * Mic does not reopen — one shortcut press = one listen → one answer.
+ */
 async function finishSpokenReply(
   text: string,
-  opts?: { afterMs?: number; keepPanelMs?: number },
+  opts?: { dismissAfterMs?: number },
 ) {
   const epoch = listenEpoch;
   playEventSound("responding");
   await speakOverlayReply(text);
   if (isStale(epoch)) return;
-  resumeConversationListening({
-    afterMs: opts?.afterMs ?? 400,
-    keepPanelMs: opts?.keepPanelMs,
-  });
+  scheduleOverlayAutoDismiss(opts?.dismissAfterMs ?? POST_ANSWER_DISMISS_MS);
 }
 
 /**
@@ -134,7 +157,7 @@ export function activateOverlayListening() {
   }
 
   listenEpoch += 1;
-  stopPocketTtsPlayback();
+  stopSpeaking();
   clearSessionTimers();
   demoActive = false;
 
@@ -151,33 +174,18 @@ export function activateOverlayListening() {
     return;
   }
 
-  const keepPanel = hasResultPanel(current);
+  // Explicit re-listen (marble / barge-in): collapse leftover panels, open mic.
+  void collapseOverlayWindow();
   setOverlayMode("listening", {
     status: "Listening...",
-    expanded: keepPanel,
+    expanded: false,
     transcript: "",
     requiresConfirmation: false,
-    actionPayload: keepPanel ? current.actionPayload : undefined,
-    result: keepPanel ? current.result : undefined,
-    error: keepPanel ? current.error : undefined,
+    actionPayload: undefined,
+    result: undefined,
+    error: undefined,
   });
-
-  if (keepPanel) {
-    scheduleResultPanelDismiss(RESULT_PANEL_HOLD_MS);
-  } else {
-    void collapseOverlayWindow();
-  }
   playEventSound("listening");
-
-  const windowMs = followUpListenMs();
-  if (windowMs === null) return;
-  sessionTimers.push(
-    window.setTimeout(() => {
-      const s = getOverlayState();
-      if (s.mode !== "listening") return;
-      cancelOverlaySession();
-    }, windowMs),
-  );
 }
 
 function clearSessionTimers() {
@@ -185,107 +193,55 @@ function clearSessionTimers() {
   sessionTimers = [];
 }
 
-/** How long the overlay stays in follow-up listening after an answer. */
-function followUpListenMs(): number | null {
-  switch (getPrefs().voice.followUpWindow) {
-    case "off":
-      return null;
-    case "30s":
-      return 30_000;
-    case "1m":
-      return 60_000;
-    case "2m":
-      return 120_000;
-    case "5m":
-      return 300_000;
-    default:
-      return 30_000;
-  }
-}
-
 function hasResultPanel(s: ReturnType<typeof getOverlayState>): boolean {
   return Boolean(s.expanded && (s.actionPayload || s.result || s.error));
 }
 
-/** Collapse only the bottom dropdown; capsule stays in listening. */
-function scheduleResultPanelDismiss(holdMs: number) {
-  sessionTimers.push(
-    window.setTimeout(() => {
-      const s = getOverlayState();
-      if (s.mode !== "listening") return;
-      if (!hasResultPanel(s)) return;
-      patchOverlay({
-        expanded: false,
-        actionPayload: undefined,
-        result: undefined,
-        error: undefined,
-      });
-      void collapseOverlayWindow();
-    }, holdMs),
+/**
+ * Modes that mean "we're done answering" and may auto-hide.
+ * Interactive draft/confirm flows are excluded so the user can act.
+ */
+function isDismissibleAnswerMode(mode: string): boolean {
+  return (
+    mode === "success" ||
+    mode === "responding" ||
+    mode === "error" ||
+    mode === "opening-app" ||
+    mode === "opening-web" ||
+    mode === "web-search"
   );
 }
 
 /**
- * After ArcSonare answers, re-open the mic so the user can keep talking
- * without pressing the shortcut again.
- *
- * If a result dropdown is open, keep it while listening. It dismisses after
- * `keepPanelMs`, or immediately when a newer answer replaces it.
+ * Hold the answer on screen briefly, then close the overlay.
+ * Never transitions back to listening — shortcut required for the next turn.
  */
-function resumeConversationListening(opts?: {
-  afterMs?: number;
-  keepPanelMs?: number;
-}) {
-  const windowMs = followUpListenMs();
-  if (windowMs === null) return;
-
-  const afterMs = opts?.afterMs ?? 1100;
-  const keepPanelMs = opts?.keepPanelMs ?? RESULT_PANEL_HOLD_MS;
-  // Drop only follow-up timers; keep unrelated ones by clearing then re-arming.
+function scheduleOverlayAutoDismiss(holdMs = POST_ANSWER_DISMISS_MS) {
   clearSessionTimers();
+  const epoch = listenEpoch;
   sessionTimers.push(
     window.setTimeout(() => {
-      const current = getOverlayState();
+      if (isStale(epoch)) return;
+      const s = getOverlayState();
       if (
-        current.mode === "hidden" ||
-        current.mode === "closing" ||
-        current.mode === "confirmation" ||
-        current.mode === "clarifying" ||
-        current.mode === "drafting-email" ||
-        current.mode === "scheduling-meeting" ||
-        current.mode === "creating-task" ||
-        current.requiresConfirmation
+        s.mode === "hidden" ||
+        s.mode === "closing" ||
+        s.mode === "listening" ||
+        s.mode === "thinking" ||
+        s.mode === "confirmation" ||
+        s.mode === "clarifying" ||
+        s.mode === "drafting-email" ||
+        s.mode === "scheduling-meeting" ||
+        s.mode === "creating-task" ||
+        s.requiresConfirmation
       ) {
         return;
       }
-
-      const keepPanel = hasResultPanel(current);
-      setOverlayMode("listening", {
-        status: "Listening...",
-        expanded: keepPanel,
-        transcript: "",
-        // Keep the last answer in the dropdown while listening for follow-ups.
-        actionPayload: keepPanel ? current.actionPayload : undefined,
-        result: keepPanel ? current.result : undefined,
-        error: keepPanel ? current.error : undefined,
-      });
-
-      if (keepPanel) {
-        scheduleResultPanelDismiss(keepPanelMs);
-      } else {
-        void collapseOverlayWindow();
-      }
-      playEventSound("listening");
-
-      // Soft idle close after the follow-up window if nobody spoke again.
-      sessionTimers.push(
-        window.setTimeout(() => {
-          const s = getOverlayState();
-          if (s.mode !== "listening") return;
-          cancelOverlaySession();
-        }, windowMs),
+      if (!isDismissibleAnswerMode(s.mode) && !hasResultPanel(s)) return;
+      void invoke("request_close").catch((err) =>
+        console.error("[ArcSonare] overlay auto-dismiss failed:", err),
       );
-    }, afterMs),
+    }, holdMs),
   );
 }
 
@@ -320,6 +276,47 @@ export async function startOverlaySession() {
     }
   } catch {
     // Pending-command command unavailable — fall through to listening.
+  }
+
+  // Realtime owns the whole turn when it is configured: the model hears the
+  // mic itself, picks the capability, and speaks. Local STT + the deterministic
+  // router only run when there is no Realtime session to hand off to.
+  demoActive = false;
+  // Sync Connect → ConnectionBroker before any path answers “is Gmail connected?”.
+  void import("../../services/integrationStatusService").then((m) =>
+    m.syncConnectionBrokerFromIntegrations().catch(() => undefined),
+  );
+  const realtime = await startRealtimeOverlaySession();
+  if (realtime === "started") {
+    sessionTimers = [];
+    playEventSound("overlay-open");
+    playEventSound("listening");
+    return;
+  }
+  // Realtime needs only an OpenAI key — it does not use the chat model. Check
+  // it BEFORE giving up: bailing on "no chat model" first meant a user with an
+  // OpenAI key was told nothing was connected and voice never even tried.
+  if (realtime === "unconfigured" && getAssistantRoute().provider === "none") {
+    const epoch = listenEpoch;
+    const message =
+      "No OpenAI key yet. Open Settings → Voice & AI keys and save your OpenAI API key for voice.";
+    setOverlayMode("error", { status: "Not connected", expanded: false });
+    setOverlayError({ message, code: "no-model" });
+    await expandOverlayWindow(220);
+    await sleep(600);
+    if (isStale(epoch) || getOverlayState().mode === "hidden") return;
+    await playBuiltinVoice("no-provider");
+    scheduleOverlayAutoDismiss(RESULT_PANEL_HOLD_MS);
+    return;
+  }
+
+  if (realtime === "failed") {
+    // Keep the reason on screen. Falling through to "Listening…" here hid
+    // every connection failure behind a mic that silently never responded.
+    await expandOverlayWindow(220);
+    playEventSound("error");
+    scheduleOverlayAutoDismiss(RESULT_PANEL_HOLD_MS);
+    return;
   }
 
   demoActive = true;
@@ -389,6 +386,8 @@ async function runDemoCycle() {
           },
           "Ready",
         );
+        // Demo answer also dismisses — same one-shot flow as real replies.
+        scheduleOverlayAutoDismiss(POST_ANSWER_DISMISS_MS);
       }, 2800),
     );
   }
@@ -397,8 +396,12 @@ async function runDemoCycle() {
 export function cancelOverlaySession() {
   demoActive = false;
   listenEpoch += 1;
-  stopPocketTtsPlayback();
+  stopSpeaking();
+  stopBuiltinVoice();
+  // Hard-stop Realtime speech immediately (must not keep talking after close).
+  stopRealtimeOverlaySession();
   clearSessionTimers();
+  void import("../../services/agentPointer").then((m) => m.hideAgentPointer());
   const mode = getOverlayState().mode;
   if (mode === "closing") {
     // Already mid-close / stuck on Cancelled — force the native hide now.
@@ -418,7 +421,11 @@ export function cancelOverlaySession() {
 
 export function endOverlaySession() {
   demoActive = false;
+  stopSpeaking();
+  stopBuiltinVoice();
+  stopRealtimeOverlaySession();
   clearSessionTimers();
+  void import("../../services/agentPointer").then((m) => m.hideAgentPointer());
   void collapseOverlayWindow();
   resetOverlay();
 }
@@ -443,7 +450,20 @@ async function applyEngineOutcome(
   pendingConfirmRunId = null;
   if (isStale(epoch)) return;
   const result = outcome.result;
-  const text = outcome.responseText ?? result?.summary ?? "Done";
+  let text = outcome.responseText ?? result?.summary ?? "Done";
+  // Structure dumps into list/table markdown so the overlay never shows raw API text.
+  try {
+    const { structureAsMarkdown, detectOutputShape } = await import(
+      "../../services/styleAssistantOutput"
+    );
+    text = structureAsMarkdown(
+      text,
+      detectOutputShape(text, result?.capabilityId),
+      result?.capabilityId,
+    );
+  } catch {
+    // Keep original text if the formatter is unavailable.
+  }
 
   // Screenshot artifact → render the image in the expanded panel.
   const imageArtifact = result?.artifacts?.find((a) => a.kind === "image");
@@ -466,20 +486,21 @@ async function applyEngineOutcome(
     playEventSound("task-completed");
     await speakOverlayReply(text);
     if (isStale(epoch)) return;
-    resumeConversationListening({ afterMs: 400 });
+    scheduleOverlayAutoDismiss(POST_ANSWER_DISMISS_MS);
     return;
   }
   if (result.status === "partial") {
     if (isStale(epoch)) return;
     if (appId) setApplicationContext(appId, icon?.iconPath);
     setOverlaySuccess({ title: text, summary: "", applicationId: appId }, text, false);
-    await finishSpokenReply(text, { afterMs: 400 });
+    await finishSpokenReply(text);
     return;
   }
   if (result.status === "cancelled") {
     if (isStale(epoch)) return;
     setStatusText(text);
     setOverlayMode("responding", { status: text, expanded: false });
+    scheduleOverlayAutoDismiss(POST_ANSWER_DISMISS_MS);
     return;
   }
   // not-found / denied / unsupported / error → honest error surface.
@@ -498,7 +519,7 @@ async function applyEngineOutcome(
   if (isStale(epoch)) return;
   await speakOverlayReply(friendly);
   if (isStale(epoch)) return;
-  resumeConversationListening({ afterMs: 400, keepPanelMs: RESULT_PANEL_HOLD_MS });
+  scheduleOverlayAutoDismiss(RESULT_PANEL_HOLD_MS);
 }
 
 function engineAppId(result: ToolResult | undefined): string | undefined {
@@ -633,6 +654,25 @@ export async function resolveOverlayConfirmation(optionId: string) {
 
 /** Capsule status stays short; the dropdown carries the full message. */
 const STATUS_CAPSULE_MAX = 72;
+
+/**
+ * Flatten a reply for the one-line capsule. Replies are composed as markdown
+ * for the expanded panel, and the capsule renders its string as plain text —
+ * so without this the user reads literal "**fantastic** — 5 i…".
+ */
+function capsuleText(raw: string, max = STATUS_CAPSULE_MAX): string {
+  const flat = raw
+    .split("\n")
+    .map((line) => line.replace(/^\s*[-*•]\s+/, "").trim())
+    .filter(Boolean)
+    .join(" · ")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/(?<!\w)_(.+?)_(?!\w)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
+}
 /** Expand when the reply won't fit the capsule (or needs a CTA). */
 const NOTICE_EXPAND_MIN_CHARS = 90;
 
@@ -686,7 +726,7 @@ async function presentOrchestratedResult(result: OrchestrationResult) {
   if (!shouldExpandOrchestration(result)) {
     if (isStale(epoch)) return;
     setOverlayMode("responding", {
-      status: result.text.slice(0, 120),
+      status: capsuleText(result.text, 120),
       expanded: false,
       applicationId: undefined,
       applicationIcon: undefined,
@@ -700,8 +740,8 @@ async function presentOrchestratedResult(result: OrchestrationResult) {
   if (isStale(epoch)) return;
   const title = result.action ? noticeHeading(result.action) : "Update";
   const status = result.action
-    ? title.slice(0, STATUS_CAPSULE_MAX)
-    : result.text.slice(0, STATUS_CAPSULE_MAX);
+    ? capsuleText(title)
+    : capsuleText(result.text);
   setOverlayMode("responding", {
     status,
     expanded: true,
@@ -722,9 +762,9 @@ async function presentOrchestratedResult(result: OrchestrationResult) {
   });
   await expandOverlayWindow(result.action ? 240 : OVERLAY_EXPANDED_TYPICAL);
   if (isStale(epoch)) return;
-  // Connection CTAs stay open without forcing the mic; free-form answers speak + listen.
+  // Connection CTAs stay open for a click; free-form answers speak then auto-dismiss.
   if (!result.action) {
-    await finishSpokenReply(result.text, { afterMs: 400 });
+    await finishSpokenReply(result.text);
   } else {
     playEventSound("error");
     void speakOverlayReply(result.text);
@@ -735,6 +775,9 @@ async function presentOrchestratedResult(result: OrchestrationResult) {
 async function presentTextReply(text: string, opts?: { asError?: boolean }) {
   const epoch = listenEpoch;
   const trimmed = text.trim();
+  import("../overlay-log/overlayLogService").then((m) => {
+    m.logAssistantResponseCompleted(trimmed);
+  });
   if (opts?.asError) {
     if (isStale(epoch)) return;
     setOverlayError({ message: trimmed || "Something went wrong" });
@@ -743,13 +786,13 @@ async function presentTextReply(text: string, opts?: { asError?: boolean }) {
     if (isStale(epoch)) return;
     await speakOverlayReply(trimmed || "Something went wrong");
     if (isStale(epoch)) return;
-    resumeConversationListening({ afterMs: 400, keepPanelMs: RESULT_PANEL_HOLD_MS });
+    scheduleOverlayAutoDismiss(RESULT_PANEL_HOLD_MS);
     return;
   }
   if (trimmed.length < NOTICE_EXPAND_MIN_CHARS) {
     if (isStale(epoch)) return;
     setOverlayMode("responding", {
-      status: trimmed.slice(0, 120),
+      status: capsuleText(trimmed, 120),
       expanded: false,
       applicationId: undefined,
       applicationIcon: undefined,
@@ -761,7 +804,7 @@ async function presentTextReply(text: string, opts?: { asError?: boolean }) {
   }
   if (isStale(epoch)) return;
   setOverlayMode("responding", {
-    status: trimmed.slice(0, STATUS_CAPSULE_MAX),
+    status: capsuleText(trimmed),
     expanded: true,
     applicationId: undefined,
     applicationIcon: undefined,
@@ -776,16 +819,31 @@ async function presentTextReply(text: string, opts?: { asError?: boolean }) {
   });
   await expandOverlayWindow(OVERLAY_EXPANDED_TYPICAL);
   if (isStale(epoch)) return;
-  await finishSpokenReply(trimmed, { afterMs: 400 });
+  await finishSpokenReply(trimmed, { dismissAfterMs: RESULT_PANEL_HOLD_MS });
 }
 
 /** Commit a transcript (push-to-talk release / typed command). */
 export async function commitOverlayTranscript(transcript: string) {
+  // Voice-to-voice Realtime already heard this and will speak the answer.
+  // Never run the parallel text/orchestration path — it overwrites the capsule
+  // with a second, often contradictory reply (e.g. “not connected”).
+  const { realtimeOverlayActive } = await import("./realtimeOverlay");
+  if (realtimeOverlayActive()) {
+    return;
+  }
+
   demoActive = false;
   clearSessionTimers();
   const epoch = listenEpoch;
   const trimmed = transcript.trim();
   patchOverlay({ transcript: trimmed });
+
+  // Log turn start and transcripts
+  import("../overlay-log/overlayLogService").then((m) => {
+    void m.startOverlayLogTurn(trimmed);
+    m.logFinalTranscript(trimmed);
+    m.logRequestCreated(trimmed);
+  });
 
   // While a draft is open, “send” / “send it” confirms without re-thinking.
   const current = getOverlayState();
@@ -934,10 +992,12 @@ async function respondWithAssistant(text: string) {
   } catch (err) {
     if (isStale(epoch)) return;
     console.error("[ArcSonare] Assistant respond failed:", err);
-    await presentTextReply(
-      err instanceof Error ? err.message : "Assistant unavailable",
-      { asError: true },
-    );
+    const message = describeProviderError(err, getAssistantRoute().displayName);
+    await presentTextReply(message, { asError: true });
+    // Setup problems get spoken guidance. This is exactly the case the
+    // pre-generated clips exist for: no model means no model can say it.
+    const clip = clipForError(message);
+    if (clip) await playBuiltinVoice(clip);
   }
 }
 
@@ -979,25 +1039,17 @@ export async function openApplication(appId: string) {
       );
       setApplicationContext(appId, iconPath);
       playEventSound("task-completed");
-      // Keep the app logo for 5s, then restore the close (X) control.
-      sessionTimers.push(
-        window.setTimeout(() => {
-          const s = getOverlayState();
-          if (s.mode !== "success" || s.applicationId !== appId) return;
-          patchOverlay({
-            applicationId: undefined,
-            applicationIcon: undefined,
-          });
-        }, 5000),
-      );
+      // Show success briefly, then dismiss — no re-listen.
+      scheduleOverlayAutoDismiss(POST_ANSWER_DISMISS_MS);
     } else {
       setOverlayError({ message: result.message, code: "launch-failed" });
       playEventSound("error");
       await expandOverlayWindow(220);
+      scheduleOverlayAutoDismiss(RESULT_PANEL_HOLD_MS);
     }
   } catch (err) {
     setOverlayError({
-      message: err instanceof Error ? err.message : "Launch failed",
+      message: errorText(err) || "Launch failed",
       code: "launch-exception",
     });
     playEventSound("error");
@@ -1026,17 +1078,16 @@ export async function performWebSearch(query: string) {
         "Search opened",
       );
       playEventSound("task-completed");
-      window.setTimeout(() => {
-        if (getOverlayState().mode === "success") void invoke("request_close");
-      }, 1400);
+      scheduleOverlayAutoDismiss(POST_ANSWER_DISMISS_MS);
     } else {
       setOverlayError({ message: result.message, code: "search-failed" });
       playEventSound("error");
       await expandOverlayWindow(220);
+      scheduleOverlayAutoDismiss(RESULT_PANEL_HOLD_MS);
     }
   } catch (err) {
     setOverlayError({
-      message: err instanceof Error ? err.message : "Search failed",
+      message: errorText(err) || "Search failed",
       code: "search-exception",
     });
     playEventSound("error");
@@ -1086,27 +1137,6 @@ async function beginEmailDraft(intent: Extract<ParsedIntent, { kind: "draft-emai
   });
   await expandOverlayWindow(360);
   playEventSound("responding");
-
-  // Optionally refine with local Ollama when it is reachable.
-  const drafted = await ollamaDraftEmail({
-    toName: contact.display,
-    toEmail: contact.email,
-    subject,
-    spokenBody: intent.body || intent.subject,
-  });
-  if (drafted && getOverlayState().mode === "drafting-email") {
-    subject = drafted.subject;
-    body = drafted.body;
-    setActionPayload({
-      type: "email",
-      data: {
-        ...payload,
-        subject,
-        body,
-        contextUsed: `Draft for ${contact.display} · Ollama`,
-      },
-    });
-  }
 
   if (getOverlayState().mode === "drafting-email") {
     patchOverlay({ status: "Drafting email..." });
@@ -1171,14 +1201,13 @@ export async function confirmCreateTask() {
       "Task created",
     );
     playEventSound("task-completed");
-    window.setTimeout(() => {
-      if (getOverlayState().mode === "success") void invoke("request_close");
-    }, 1400);
+    scheduleOverlayAutoDismiss(POST_ANSWER_DISMISS_MS);
   } catch (err) {
     setOverlayError({
-      message: err instanceof Error ? err.message : "Could not create task",
+      message: errorText(err) || "Could not create task",
     });
     playEventSound("error");
+    scheduleOverlayAutoDismiss(RESULT_PANEL_HOLD_MS);
   }
 }
 
@@ -1231,7 +1260,7 @@ export async function confirmSendEmail() {
     }
   } catch (err) {
     setOverlayError({
-      message: err instanceof Error ? err.message : "Could not open compose",
+      message: errorText(err) || "Could not open compose",
       code: "compose-exception",
     });
     playEventSound("error");

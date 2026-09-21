@@ -179,6 +179,24 @@ export const CAPABILITY_CATALOG: CapabilityDefinition[] = [
     description: "Report whether an email account is connected to ArcSonare.",
   },
   {
+    id: "calendar.create_event",
+    domain: "calendar",
+    modes: ["create"],
+    sideEffect: "external-write",
+    requiresConnection: true,
+    requiredScopes: ["calendar.read"],
+    description:
+      "Create an event on the user's calendar. Use when they ask to add, schedule, or book something. Never substitute a task for a calendar event.",
+  },
+  {
+    id: "drive.get_connection_status",
+    domain: "drive",
+    modes: ["read", "explain"],
+    sideEffect: "none",
+    requiresConnection: false,
+    description: "Report whether Google Drive is connected to ArcSonare.",
+  },
+  {
     id: "drive.list",
     domain: "drive",
     modes: ["read", "search"],
@@ -255,6 +273,7 @@ export function mapIntentToCapability(contract: IntentContract): string | undefi
     if (requestedData?.includes("connection") || object === "connection") {
       return "calendar.get_connection_status";
     }
+    if (mode === "create") return "calendar.create_event";
     if (mode === "open") {
       return object === "event" || requestedData?.includes("next")
         ? "calendar.open_event"
@@ -289,6 +308,9 @@ export function mapIntentToCapability(contract: IntentContract): string | undefi
   }
 
   if (domain === "drive") {
+    if (requestedData?.includes("connection") || object === "connection") {
+      return "drive.get_connection_status";
+    }
     return mode === "open" ? "drive.open_ui" : "drive.list";
   }
 

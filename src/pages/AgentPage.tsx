@@ -1,236 +1,319 @@
-import { useEffect, useMemo, useState } from "react";
-import { BotIcon, ClockIcon } from "../components/Icons";
+import { useEffect, useMemo, useState, Component, type ReactNode } from "react";
+import { Bot, Link2, Unplug } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
-import { AgentOrbitalMap } from "../components/agents/AgentOrbitalMap";
+import {
+  AGENT_DEPARTMENTS,
+  AgentListGrid,
+  type AgentDepartmentId,
+} from "../components/agents/AgentListGrid";
 import { agentAvatarSrc } from "../features/agents/agentAvatars";
-import { relativeTime } from "../features/agents/agentHealth";
 import {
   appendAgentActivity,
+  hydrateAgentsFromDb,
   setPrimeAgent,
   setAgentPrefs,
   useAgentPrefs,
   useAgents,
-  useApprovals,
   type AgentConfig,
   agentStatus,
 } from "../features/agents/agentStore";
-import { summarizeAgents } from "../features/agents/agentSelectors";
 import { addActivity } from "../stores/appStore";
 import { updateTask, useTasks, type Task } from "../stores/taskStore";
 
-/** Premium agent-management workspace — same 3-left/2-right card grid and
- * floating center as the Dashboard. */
+type DepartmentFilter = "all" | AgentDepartmentId;
+
+class LocalBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: unknown) {
+    console.error("[AgentPage] crash:", error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="dashboard connect-workspace-root" data-page="agent">
+          <div className="dashboard-center connect-center" style={{ padding: 24 }}>
+            <h1>Agent page error</h1>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                maxWidth: 720,
+                fontSize: 12,
+                color: "#e56c73",
+              }}
+            >
+              {this.state.error.message}
+              {"\n\n"}
+              {this.state.error.stack}
+            </pre>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => this.setState({ error: null })}
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function statusOf(agent: AgentConfig): string {
+  try {
+    return agentStatus(agent);
+  } catch {
+    return "Ready";
+  }
+}
+
+/** Public export — always wrapped so a crash shows the real stack. */
 export function AgentPage() {
-  const agents = useAgents();
-  const prefs = useAgentPrefs();
-  const approvals = useApprovals();
-  const tasks = useTasks();
-  const [openAgentId, setOpenAgentId] = useState<string | null>(
-    prefs.lastSelectedId,
+  return (
+    <LocalBoundary>
+      <AgentPageInner />
+    </LocalBoundary>
   );
-  const [teamActivityOpen, setTeamActivityOpen] = useState(false);
+}
+
+function AgentPageInner() {
+  const agentsRaw = useAgents();
+  const agents = Array.isArray(agentsRaw) ? agentsRaw.filter(Boolean) : [];
+  const prefs = useAgentPrefs();
+  const tasksRaw = useTasks();
+  const tasks = Array.isArray(tasksRaw) ? tasksRaw.filter(Boolean) : [];
+
+  const [openAgentId, setOpenAgentId] = useState<string | null>(
+    () => prefs?.lastSelectedId ?? null,
+  );
+  const [departmentFilter, setDepartmentFilter] =
+    useState<DepartmentFilter>("all");
   const [assignAgentId, setAssignAgentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (agents.length > 0) return;
+    void hydrateAgentsFromDb().catch((e) =>
+      console.error("[AgentPage] hydrate failed", e),
+    );
+  }, [agents.length]);
+
+  useEffect(() => {
+    if ((prefs?.lastSelectedId ?? null) === openAgentId) return;
+    setAgentPrefs({ lastSelectedId: openAgentId });
+  }, [openAgentId, prefs?.lastSelectedId]);
 
   const openAgent = agents.find((a) => a.id === openAgentId) ?? null;
   const assignAgent = agents.find((a) => a.id === assignAgentId) ?? null;
-  const primeAgent = agents.find((agent) => agent.isPrime) ?? agents[0] ?? null;
+  const primeAgent = agents.find((a) => a.isPrime) ?? agents[0] ?? null;
 
-  useEffect(() => {
-    if (primeAgent && !agents.some((agent) => agent.isPrime)) {
-      setPrimeAgent(primeAgent.id);
+  const assignmentByAgentName = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const task of tasks) {
+      if (task.completed || !task.agent) continue;
+      const key = String(task.agent);
+      const list = map.get(key) ?? [];
+      list.push(String(task.title || "Untitled"));
+      map.set(key, list);
     }
-  }, [agents, primeAgent]);
+    return map;
+  }, [tasks]);
 
-  const counts = useMemo(
-    () => summarizeAgents(agents, tasks, approvals),
-    [agents, tasks, approvals],
+  const openTasks = useMemo(
+    () => tasks.filter((t) => !t.completed),
+    [tasks],
   );
+  const assignedTaskCount = openTasks.filter((t) =>
+    Boolean(t.agent && String(t.agent).trim()),
+  ).length;
+  const unassignedTaskCount = openTasks.length - assignedTaskCount;
+  const onWorkCount = agents.filter(
+    (a) => (assignmentByAgentName.get(a.name)?.length ?? 0) > 0,
+  ).length;
 
-  useEffect(() => {
-    setAgentPrefs({ lastSelectedId: openAgentId });
-  }, [openAgentId]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (assignAgentId) setAssignAgentId(null);
-        else if (teamActivityOpen) setTeamActivityOpen(false);
-        else if (openAgentId) setOpenAgentId(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [assignAgentId, teamActivityOpen, openAgentId]);
-
-  const selectAgent = (agentId: string) => {
-    setTeamActivityOpen(false);
-    setOpenAgentId(agentId);
-  };
-
-  const recentActivity = useMemo(
-    () =>
-      agents
-        .flatMap((agent) =>
-          agent.activity.map((entry) => ({
-            ...entry,
-            agentId: agent.id,
-            agentName: agent.name,
-          })),
-        )
-        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-        .slice(0, 12),
-    [agents],
-  );
+  const linkedTitles = openAgent
+    ? (assignmentByAgentName.get(openAgent.name) ?? [])
+    : [];
 
   return (
-    <div className="dashboard">
+    <div className="dashboard connect-workspace-root" data-page="agent">
+      {/* LEFT — 3 cards like Connect */}
       <div className="dashboard-col side-column dashboard-left">
-        <section className="card sonare-card">
-          <div className="agent-resource-head">
-            <span className="agent-rail-label">Prime agent</span>
-            <strong>{primeAgent?.name ?? "Not assigned"}</strong>
-            <p>
-              Receives new work, selects specialists, and supervises every
-              handoff.
-            </p>
-          </div>
-          <div className="agent-resource-stats">
-            <div>
-              <span>Specialists</span>
-              <strong>{agents.length}</strong>
-            </div>
-            <div>
-              <span>Ready</span>
-              <strong>{counts.active + counts.idleConfigured}</strong>
-            </div>
-            <div>
-              <span>Assigned</span>
-              <strong>
-                {tasks.filter((task) => Boolean(task.agent)).length}
-              </strong>
-            </div>
-            <div>
-              <span>Approvals</span>
-              <strong>{counts.waiting}</strong>
+        <section className="card sonare-card connect-rail-card connect-rail-views">
+          <div className="connect-rail-block">
+            <span className="connect-rail-heading">Views</span>
+            <div className="connect-rail-filters" role="radiogroup">
+              <button
+                type="button"
+                role="radio"
+                aria-checked
+                className="connect-rail-filter active"
+              >
+                <span className="connect-rail-filter-dot" aria-hidden="true" />
+                <span className="connect-rail-filter-text">
+                  <strong>All</strong>
+                  <small>Full specialist roster</small>
+                </span>
+                <span className="connect-rail-filter-count">
+                  {agents.length}
+                </span>
+              </button>
             </div>
           </div>
         </section>
 
-        <section className="card sonare-card">
-          <div className="agent-resource-block">
-            <span className="agent-rail-label">Team resources</span>
-            {agents.slice(0, 3).map((agent) => (
+        <section className="card sonare-card connect-rail-card connect-rail-categories-card">
+          <div className="connect-rail-block">
+            <span className="connect-rail-heading">Departments</span>
+            <div className="connect-rail-categories" role="list">
               <button
-                key={agent.id}
                 type="button"
-                className={`agent-resource-row${!teamActivityOpen && openAgentId === agent.id ? " active" : ""}`}
-                onClick={() => selectAgent(agent.id)}
+                role="listitem"
+                className={`connect-rail-category${
+                  departmentFilter === "all" ? " active" : ""
+                }`}
+                onClick={() => setDepartmentFilter("all")}
               >
-                <span className="agent-resource-avatar">
-                  {agentAvatarSrc(agent.avatarId) ? (
-                    <img src={agentAvatarSrc(agent.avatarId)} alt="" />
-                  ) : (
-                    agent.initials
-                  )}
+                <span>All departments</span>
+                <span className="connect-rail-category-count">
+                  {agents.length}
+                </span>
+              </button>
+              {AGENT_DEPARTMENTS.map((dept) => {
+                const count = dept.agentIds.filter((id) =>
+                  agents.some((a) => a.id === id),
+                ).length;
+                return (
+                  <button
+                    key={dept.id}
+                    type="button"
+                    role="listitem"
+                    className={`connect-rail-category${
+                      departmentFilter === dept.id ? " active" : ""
+                    }`}
+                    onClick={() => setDepartmentFilter(dept.id)}
+                  >
+                    <span>{dept.title}</span>
+                    <span className="connect-rail-category-count">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="card sonare-card connect-rail-card connect-rail-pulse">
+          <div className="connect-rail-block">
+            <span className="connect-rail-heading">Delegation pulse</span>
+            <div className="connect-pulse">
+              <div className="connect-pulse-head">
+                <span>Open tasks linked</span>
+                <span>
+                  {assignedTaskCount}/{openTasks.length}
+                </span>
+              </div>
+              <div className="connect-pulse-track">
+                <span
+                  style={{
+                    width: `${
+                      openTasks.length
+                        ? (assignedTaskCount / openTasks.length) * 100
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+              <div className="connect-pulse-grid">
+                <span>
+                  <b>{onWorkCount}</b> On work
                 </span>
                 <span>
-                  <strong>{agent.name}</strong>
-                  <small>{agent.role}</small>
+                  <b>{assignedTaskCount}</b> Tasks linked
                 </span>
-                <i className={agent.enabled ? "online" : ""} />
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="card sonare-card">
-          <div className="agent-resource-summary">
-            <span className="agent-rail-label">Delegation flow</span>
-            <div className="agent-resource-meter">
-              <span
-                style={{
-                  width: `${tasks.length ? (tasks.filter((task) => Boolean(task.agent)).length / tasks.length) * 100 : 0}%`,
-                }}
-              />
+                <span>
+                  <b>{unassignedTaskCount}</b> Unassigned
+                </span>
+              </div>
             </div>
-            <p>
-              <strong>{tasks.filter((task) => Boolean(task.agent)).length}</strong>{" "}
-              assigned{" "}
-              <span>{tasks.filter((task) => !task.agent).length} waiting</span>
-            </p>
-          </div>
-          <div className="agent-resource-foot">
-            <span>
-              <i /> Network ready
-            </span>
-            <small>{counts.completedToday} completed today</small>
           </div>
         </section>
       </div>
 
-      <div className="dashboard-center">
-        <section className="agent-directory">
-          <header className="agent-directory-head">
-            <div>
-              <span className="agent-rail-label">Agent workspace</span>
+      {/* CENTER */}
+      <div className="dashboard-center connect-center">
+        <section className="connect-directory">
+          <header className="agent-directory-head connect-directory-head">
+            <div className="connect-directory-title">
+              <span className="connect-rail-heading">Agent workspace</span>
               <h1>Your agent team</h1>
               <p>
-                Select a specialist to inspect resources, permissions, and
-                current work.
+                {agents.length} specialists · 3 departments · 6 per department
               </p>
             </div>
-            <button
-              type="button"
-              className={`btn agent-team-activity-trigger${teamActivityOpen ? " active" : ""}`}
-              onClick={() => setTeamActivityOpen(true)}
-            >
-              <ClockIcon size={13} /> Team activity
-            </button>
           </header>
-          <AgentOrbitalMap
+
+          <AgentListGrid
             agents={agents}
-            selectedId={!teamActivityOpen ? openAgentId : null}
-            onSelect={selectAgent}
+            selectedId={openAgentId}
+            onSelect={setOpenAgentId}
+            assignmentByAgentName={assignmentByAgentName}
+            departmentFilter={departmentFilter}
           />
         </section>
       </div>
 
+      {/* RIGHT */}
       <div className="dashboard-col side-column dashboard-right">
-        <section className="card sonare-card">
-          {teamActivityOpen ? (
-            <div className="agent-team-activity-head">
-              <span className="agent-rail-label">Team overview</span>
-              <h2>Team activity</h2>
-              <p>What every specialist is doing right now.</p>
-            </div>
-          ) : openAgent ? (
+        <section className="card sonare-card connect-inspector-hero">
+          {openAgent ? (
             <>
-              <div className="agent-inspector-hero">
-                <span className="agent-inspector-avatar">
+              <div className="connect-inspector-top">
+                <span className="connect-icon-slot agent-card-avatar-slot">
                   {agentAvatarSrc(openAgent.avatarId) ? (
-                    <img src={agentAvatarSrc(openAgent.avatarId)} alt="" />
+                    <img
+                      className="connect-icon agent-card-avatar-img"
+                      src={agentAvatarSrc(openAgent.avatarId)}
+                      alt=""
+                      draggable={false}
+                    />
                   ) : (
-                    openAgent.initials
+                    <span className="agent-list-card-avatar-fallback">
+                      {openAgent.initials || "?"}
+                    </span>
                   )}
                 </span>
-                <span className="agent-rail-label">Selected agent</span>
-                <h2>{openAgent.name}</h2>
-                <p>{openAgent.role}</p>
+                <span className="connect-rail-heading">Selected agent</span>
+                <h2>{openAgent.name || "Unnamed"}</h2>
+                <p>{openAgent.role || "Specialist"}</p>
                 <span
-                  className={`agent-inspector-status${openAgent.enabled ? " active" : ""}`}
+                  className={`connect-inspector-status${
+                    openAgent.enabled ? " active" : ""
+                  }`}
                 >
-                  {agentStatus(openAgent)}
+                  {statusOf(openAgent)}
                 </span>
               </div>
-              <div className="agent-inspector-actions">
+              <p className="connect-inspector-desc">
+                {openAgent.description ||
+                  openAgent.instructions?.objective ||
+                  "Specialist ready for workspace tasks."}
+              </p>
+              <div className="connect-inspector-actions">
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn"
                   onClick={() => setAssignAgentId(openAgent.id)}
                 >
-                  Assign task
+                  <Link2 size={13} /> Assign task
                 </button>
-                {!openAgent.isPrime ? (
+                {!openAgent.isPrime && (
                   <button
                     type="button"
                     className="btn"
@@ -238,144 +321,74 @@ export function AgentPage() {
                   >
                     Set as prime
                   </button>
-                ) : null}
+                )}
               </div>
             </>
           ) : (
             <EmptyState
-              icon={<BotIcon size={24} />}
+              icon={<Unplug size={24} />}
               title="Select an agent"
-              description="Choose a specialist to inspect its work, permissions, and resources."
+              description="Choose a specialist from the center grid."
               compact
             />
           )}
         </section>
 
-        <section
-          className="card sonare-card agent-inspector-panel"
-          style={{ gridRow: "span 2" }}
-        >
-          {teamActivityOpen ? (
-            <>
-              <span className="agent-rail-label">Current status</span>
-              <div className="agent-team-status-list">
-                {agents.slice(0, 4).map((agent) => (
-                  <button
-                    key={agent.id}
-                    type="button"
-                    onClick={() => selectAgent(agent.id)}
-                  >
-                    <span className="agent-team-status-avatar">
-                      {agentAvatarSrc(agent.avatarId) ? (
-                        <img src={agentAvatarSrc(agent.avatarId)} alt="" />
-                      ) : (
-                        agent.initials
-                      )}
-                    </span>
-                    <span>
-                      <strong>{agent.name}</strong>
-                      <small>{agent.role}</small>
-                    </span>
-                    <em className={agent.enabled ? "active" : ""}>
-                      {agentStatus(agent)}
-                    </em>
-                  </button>
-                ))}
-              </div>
-              <span className="agent-rail-label" style={{ marginTop: 16 }}>
-                History
-              </span>
-              {recentActivity.length ? (
-                <div className="agent-team-history">
-                  {recentActivity.map((entry) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      onClick={() => selectAgent(entry.agentId)}
-                    >
-                      <i />
-                      <span>
-                        <strong>
-                          {entry.agentName}
-                          <em>{entry.title}</em>
-                        </strong>
-                        <small>{entry.summary}</small>
-                        <time dateTime={entry.createdAt}>
-                          {relativeTime(Date.parse(entry.createdAt))}
-                        </time>
-                      </span>
-                    </button>
+        <section className="card sonare-card agent-inspector-panel">
+          {openAgent ? (
+            <div className="agent-inspector-fill">
+              <span className="connect-rail-heading">Linked now</span>
+              {linkedTitles.length > 0 ? (
+                <div className="agent-linked-list">
+                  {linkedTitles.map((title) => (
+                    <div key={title} className="agent-linked-static">
+                      <strong>{title}</strong>
+                      <small>Open task assigned to this agent</small>
+                    </div>
                   ))}
                 </div>
               ) : (
-                <EmptyState
-                  icon={<ClockIcon size={23} />}
-                  title="No activity yet"
-                  description="Agent work and assignments will appear here."
-                  compact
-                />
-              )}
-            </>
-          ) : openAgent ? (
-            <>
-              <div className="agent-inspector-section">
-                <span className="agent-rail-label">Objective</span>
-                <p>
-                  {openAgent.instructions.objective || openAgent.description}
-                </p>
-              </div>
-              <div className="agent-inspector-grid">
-                <div>
-                  <span>Model</span>
-                  <strong>{openAgent.modelId || "Automatic"}</strong>
-                </div>
-                <div>
-                  <span>Reasoning</span>
-                  <strong>{openAgent.reasoningPreference}</strong>
-                </div>
-                <div>
-                  <span>Memory</span>
-                  <strong>{openAgent.memory.mode}</strong>
-                </div>
-                <div>
-                  <span>Runtime</span>
-                  <strong>{openAgent.runtimeType}</strong>
-                </div>
-              </div>
-              <div className="agent-inspector-section">
-                <span className="agent-rail-label">Resources</span>
-                <div className="agent-permission-list">
-                  {Object.entries(openAgent.permissions)
-                    .slice(0, 6)
-                    .map(([key, level]) => (
-                      <span key={key}>
-                        {key}
-                        <em>{level}</em>
-                      </span>
-                    ))}
-                </div>
-              </div>
-              <div className="agent-inspector-section">
-                <span className="agent-rail-label">Recent activity</span>
-                {openAgent.activity.slice(0, 5).map((entry, index) => (
-                  <div
-                    className="agent-activity-line"
-                    key={`${entry.title}-${index}`}
+                <div className="agent-linked-empty">
+                  <p className="connect-inspector-empty">
+                    No open tasks linked to {openAgent.name}.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setAssignAgentId(openAgent.id)}
                   >
-                    <i />
-                    <span>
-                      <strong>{entry.title}</strong>
-                      <small>{entry.summary}</small>
+                    <Link2 size={13} /> Link a task
+                  </button>
+                </div>
+              )}
+
+              <span className="connect-rail-heading">Resources</span>
+              <div className="agent-permission-list agent-permission-list-roomy">
+                {Object.entries(openAgent.permissions ?? {}).map(
+                  ([key, level]) => (
+                    <span key={key}>
+                      {key}
+                      <em>{String(level)}</em>
                     </span>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
-            </>
+
+              <div className="agent-inspector-foot">
+                <span>
+                  <i />{" "}
+                  {primeAgent?.id === openAgent.id
+                    ? "Prime agent"
+                    : "Specialist"}
+                </span>
+                <small>{linkedTitles.length} linked</small>
+              </div>
+            </div>
           ) : (
             <EmptyState
-              icon={<BotIcon size={24} />}
+              icon={<Bot size={24} />}
               title="Nothing selected yet"
-              description="Details, permissions, and activity for the chosen specialist will show up here."
+              description="Linked tasks and resources will show here."
               compact
             />
           )}

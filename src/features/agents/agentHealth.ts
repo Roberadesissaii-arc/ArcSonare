@@ -6,6 +6,7 @@ import type { AgentHealth, AgentStatus } from "./agentTypes";
  * Never returns "working" / "running" without a real runtime.
  */
 export function deriveAgentStatus(agent: AgentConfig): AgentStatus {
+  if (!agent) return "not-configured";
   if (!agent.modelId) return "not-configured";
   if (!agent.enabled) return "paused";
   // Configured + enabled, but no autonomous runtime exists yet.

@@ -1,9 +1,13 @@
 //! The main Command Center window and the custom tray quick-menu window.
 //!
-//! The quick menu is created hidden from tauri.conf.json and is only ever
-//! shown/hidden — never destroyed — so exactly one instance exists.
+//! The quick menu is built hidden on first use and is only ever shown/hidden
+//! — never destroyed — so exactly one instance exists. It used to be declared
+//! in tauri.conf.json, but creating four webviews at once during startup makes
+//! WebView2 fail with 0x8007139F, leaving a window with no webview behind.
 
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewWindow};
+use tauri::{
+    AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+};
 
 use crate::window_position;
 
@@ -40,9 +44,36 @@ fn hide_window(app: &AppHandle, label: &str) {
     }
 }
 
+/// Build the quick menu on demand, matching its former tauri.conf.json entry.
+fn ensure_quick_menu(app: &AppHandle) -> Option<WebviewWindow> {
+    if let Some(window) = app.get_webview_window(QUICK_MENU_LABEL) {
+        return Some(window);
+    }
+    match WebviewWindowBuilder::new(app, QUICK_MENU_LABEL, WebviewUrl::App("index.html".into()))
+        .title("ArcSonare Menu")
+        .inner_size(300.0, 420.0)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .maximizable(false)
+        .minimizable(false)
+        .shadow(false)
+        .visible(false)
+        .build()
+    {
+        Ok(window) => Some(window),
+        Err(e) => {
+            log::error!("failed to build quick menu: {e}");
+            None
+        }
+    }
+}
+
 /// Toggles the quick menu near the tray click position.
 pub fn toggle_quick_menu(app: &AppHandle, cursor: PhysicalPosition<f64>) {
-    let Some(window) = get_window(app, QUICK_MENU_LABEL) else {
+    let Some(window) = ensure_quick_menu(app) else {
         return;
     };
     if window.is_visible().unwrap_or(false) {

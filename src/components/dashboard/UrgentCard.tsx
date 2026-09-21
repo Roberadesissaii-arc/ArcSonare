@@ -4,7 +4,10 @@ import { navigate } from "../../stores/appStore";
 import { filterTasks, useTasks, type Task } from "../../stores/taskStore";
 
 const PRIORITY_LABEL = { high: "High", medium: "Medium", low: "Low" } as const;
-const URGENT_SLOTS = 5;
+// The rail card can display three complete rows at every supported dashboard
+// height. Additional tasks remain available through the footer instead of
+// being rendered into a clipped flex area.
+const URGENT_SLOTS = 3;
 
 /** Tall right-rail card: urgent work first, then more open tasks from the list. */
 export function UrgentCard() {
@@ -34,6 +37,7 @@ export function UrgentCard() {
           </span>
         ) : null}
       </div>
+      <p className="card-lede">Tasks that need attention first.</p>
 
       {primary.length === 0 && secondary.length === 0 ? (
         <EmptyState

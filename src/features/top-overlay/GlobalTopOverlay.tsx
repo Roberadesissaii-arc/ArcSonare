@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { dispatchEscape, escapeIsClaimed } from "../ui/escapeStack";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useOverlayLifecycle } from "../../hooks/useOverlayLifecycle";
@@ -21,6 +22,7 @@ import {
   getOverlayState,
   patchOverlay,
   setOverlayPhase,
+  toggleOverlayTranscriptPanel,
   useOverlayStore,
   overlayModeToLegacyVoiceStatus,
 } from "./overlayStore";
@@ -34,6 +36,10 @@ import {
   setVoiceStatus,
   voiceSessionEnded,
 } from "../../stores/voiceStore";
+import {
+  realtimeOverlayActive,
+  subscribeRealtimeOwnership,
+} from "./realtimeOverlay";
 
 /**
  * Global top-edge overlay window (`sonare-overlay`): floating smoked-titanium
@@ -58,10 +64,17 @@ export function GlobalTopOverlay() {
     setOverlayPhase(phase);
     if (prevPhase.current !== "opening" && phase === "opening") {
       void startOverlaySession();
+      import("../overlay-log/overlayLogService").then((m) => {
+        void m.startOverlayLogSession("voice-overlay");
+        m.logOverlayOpened();
+      });
     }
     if (prevPhase.current !== "hidden" && phase === "hidden") {
       endOverlaySession();
       voiceSessionEnded();
+      import("../overlay-log/overlayLogService").then((m) => {
+        m.logOverlayClosed();
+      });
     }
     prevPhase.current = phase;
   }, [phase]);
@@ -87,25 +100,24 @@ export function GlobalTopOverlay() {
     );
   }, [overlay.mode, overlay.status]);
 
-  // While the model is thinking, keep the capsule status on “Thinking...”
-  // even if a prior status string lingered.
-  useEffect(() => {
-    if (overlay.mode === "thinking" && overlay.status !== "Thinking...") {
-      patchOverlay({ status: "Thinking..." });
-    }
-  }, [overlay.mode, overlay.status]);
+  // Realtime ownership flips when the voice session connects/disconnects.
+  const realtimeOwnsMic = useSyncExternalStore(
+    subscribeRealtimeOwnership,
+    realtimeOverlayActive,
+    () => false,
+  );
 
-  // Local STT: listen while idle/listening, and while an email draft is open
-  // so “send” can confirm. Cloud STT is not wired yet.
+  // Local STT only when Realtime is NOT owning the mic. Running both caused a
+  // dual path: voice said “Gmail is connected” while STT re-ran the text path
+  // and flashed “isn’t connected” in the capsule/dropdown.
   useEffect(() => {
     const listenModes =
       overlay.mode === "listening" ||
       overlay.mode === "entering" ||
       overlay.mode === "drafting-email" ||
-      overlay.mode === "confirmation" ||
-      overlay.mode === "success";
+      overlay.mode === "confirmation";
     const listening = phase === "visible" && listenModes;
-    if (!listening) {
+    if (!listening || realtimeOwnsMic) {
       stopSpeechListening();
       return;
     }
@@ -117,9 +129,12 @@ export function GlobalTopOverlay() {
       overlay.mode === "drafting-email" || overlay.mode === "confirmation";
     startSpeechListening({
       onFinal: (text) => {
+        // Hard gate — Realtime may have claimed the mic mid-utterance.
+        if (realtimeOverlayActive()) return;
         void commitOverlayTranscript(text);
       },
       onPartial: (text) => {
+        if (realtimeOverlayActive()) return;
         // Don't overwrite “Draft ready…” with interim speech while reviewing.
         if (!drafting) {
           patchOverlay({ transcript: text, status: text }, false);
@@ -134,12 +149,23 @@ export function GlobalTopOverlay() {
       },
     });
     return () => stopSpeechListening();
-  }, [phase, overlay.mode]);
+  }, [phase, overlay.mode, realtimeOwnsMic]);
 
   // Escape: confirmation first, then cancel/close.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // A modal or other dismissible surface in front of the overlay owns
+      // Escape while it is open. Without this the overlay's handler — which
+      // runs first, on window capture, and calls `stopImmediatePropagation` —
+      // swallows the key and hides the whole window instead of closing the
+      // thing the user is actually looking at.
+      if (escapeIsClaimed()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        dispatchEscape();
+        return;
+      }
       event.preventDefault();
       const current = getOverlayState();
       if (current.requiresConfirmation && current.mode === "confirmation") {
@@ -170,12 +196,6 @@ export function GlobalTopOverlay() {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [requestClose, forceClose, phase]);
-
-  useEffect(() => {
-    if (overlay.mode === "success" && !overlay.expanded && phase === "visible") {
-      // Simple launch success auto-closes via overlayActions; expanded success stays.
-    }
-  }, [overlay.mode, overlay.expanded, phase]);
 
   // Dev state keys for visual QA.
   useEffect(() => {
@@ -208,7 +228,7 @@ export function GlobalTopOverlay() {
   const showExpanded =
     overlay.expanded &&
     phase !== "hidden" &&
-    (overlay.actionPayload || overlay.error || overlay.result);
+    (overlay.actionPayload || overlay.error || overlay.result || overlay.transcript);
 
   // Fit the native window to the real dropdown height so long error/notice
   // panels never clip the bottom radius or action buttons.
@@ -274,6 +294,7 @@ export function GlobalTopOverlay() {
           waveformLevels={overlay.waveformLevels}
           onCancel={cancel}
           onActivateListening={activateOverlayListening}
+          onToggleTranscript={toggleOverlayTranscriptPanel}
           expanded={Boolean(showExpanded)}
         />
         {showExpanded ? (
@@ -282,7 +303,12 @@ export function GlobalTopOverlay() {
             <OverlayExpandedPanel
               payload={overlay.actionPayload}
               error={overlay.error}
-              result={overlay.result}
+              result={
+                overlay.result ??
+                (overlay.transcript
+                  ? { title: overlay.transcript, summary: "" }
+                  : undefined)
+              }
               requiresConfirmation={overlay.requiresConfirmation}
               onCancel={cancel}
             />

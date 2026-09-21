@@ -4,7 +4,10 @@
  */
 
 import { formatSessionActionContext } from "../features/capabilities/actionSessionMemory";
+import { loadAccountProfile } from "../features/account/accountProfile";
 import { connectedIntegrationsSummary } from "./integrationStatusService";
+import { buildAssistantPrompt } from "./assistantPrompt";
+import { watchContextForPrompt } from "../features/watch/watchPromptContext";
 
 function formatNow(): { time: string; date: string; full: string; zone: string } {
   const now = new Date();
@@ -34,27 +37,37 @@ function formatNow(): { time: string; date: string; full: string; zone: string }
   return { time, date, full, zone };
 }
 
-/** Context injected into every LLM system prompt. */
-export async function assistantSystemContext(): Promise<string> {
+/**
+ * Context injected into every LLM system prompt.
+ *
+ * `requestText` narrows the watched-application block to what could plausibly
+ * answer this turn. Without it every watched application's state travels with
+ * every request, which is both noisier and a wider disclosure than the user
+ * asked for.
+ */
+export async function assistantSystemContext(
+  requestText = "",
+  conversationId?: string,
+): Promise<string> {
   const { full, zone } = formatNow();
   const memory = formatSessionActionContext();
-  const integrations = await connectedIntegrationsSummary().catch(
-    () => "Integration status is unavailable right now.",
-  );
-  return [
-    "You are ArcSonare, a helpful Windows desktop assistant.",
-    `Current local datetime: ${full} (${zone}).`,
-    "Use this datetime for any time or date questions — do not invent a different clock.",
-    "Answer in your own words. Do not mention internal tool names or function ids.",
-    "Keep replies concise (1–4 sentences) unless the user asks for more.",
-    "You can help with: current time/date, drafting text, summarizing, planning tasks,",
-    "explaining ArcSonare settings, and answering follow-ups about actions you already took.",
-    "When recent-actions context is provided below, treat it as ground truth for what you did.",
-    "Do not invent files, folders, paths, or actions that are not listed there.",
+  const [integrations, desktop] = await Promise.all([
+    connectedIntegrationsSummary().catch(
+      () => "Integration status is unavailable right now.",
+    ),
+    watchContextForPrompt(requestText, conversationId).catch(
+      () => "Desktop app status is unavailable right now.",
+    ),
+  ]);
+  const profile = loadAccountProfile();
+  const userName =
+    profile.displayName.trim() || profile.fullName.trim() || "";
+  return buildAssistantPrompt({
+    datetime: full,
+    zone,
     integrations,
-    "This integration status is ground truth — never guess or contradict it.",
     memory,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    desktop,
+    userName,
+  });
 }

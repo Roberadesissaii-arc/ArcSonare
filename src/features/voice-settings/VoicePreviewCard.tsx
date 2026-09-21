@@ -8,13 +8,11 @@ import { useState } from "react";
 interface VoicePreviewCardProps {
   character: VoiceCharacter;
   speechConfigured: boolean;
-  onOpenModels: () => void;
 }
 
 export function VoicePreviewCard({
   character,
   speechConfigured,
-  onOpenModels,
 }: VoicePreviewCardProps) {
   const [sampleId, setSampleId] = useState("greeting");
   const [busy, setBusy] = useState(false);
@@ -36,7 +34,7 @@ export function VoicePreviewCard({
       setError(
         err instanceof Error
           ? err.message
-          : "Could not play preview. Open Voice Lab if Pocket TTS needs setup.",
+          : "Could not play preview.",
       );
     } finally {
       setBusy(false);
@@ -75,10 +73,7 @@ export function VoicePreviewCard({
           ) : null}
           {!speechConfigured ? (
             <span className="voice-help">
-              Uses Pocket TTS (same as Voice Lab).{" "}
-              <button type="button" className="text-action" onClick={onOpenModels}>
-                Open Voice Lab
-              </button>
+              Save an OpenAI key above to enable Realtime voice.
             </span>
           ) : null}
         </div>

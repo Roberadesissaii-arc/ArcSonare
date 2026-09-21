@@ -58,7 +58,7 @@ export function LocationPermissionModal({
         <div className="modal-head">
           <h2 className="modal-title">Use your location?</h2>
         </div>
-        <p className="modal-label" style={{ marginBottom: "0.75rem" }}>
+        <p className="modal-body" style={{ marginBottom: "0.75rem" }}>
           ArcSonare can check the weather where you are, find nearby places, and
           estimate travel time — only when you ask.
         </p>

@@ -9,6 +9,7 @@ import { INTEGRATIONS } from "../data/demoData";
 import { credentialSpecFor, integrationSecureKey } from "../config/integrationCatalog";
 import type { IntegrationId } from "../config/iconRegistry";
 import {
+  getGoogleOAuthClientId,
   GOOGLE_INTEGRATION_IDS,
   GOOGLE_SHARED_ACCOUNT_ID,
   isGoogleIntegration,
@@ -61,6 +62,16 @@ export async function getConnectedIntegrationIds(): Promise<Set<IntegrationId>> 
  * repeatedly — it's a resync, not a one-time hydration.
  */
 export async function syncConnectionBrokerFromIntegrations(): Promise<void> {
+  // Connections made before the OAuth client id was persisted alongside the
+  // tokens cannot refresh, so every Google API call 401s. Backfilling it here
+  // repairs those without making the user reconnect.
+  const clientId = getGoogleOAuthClientId();
+  if (clientId) {
+    await invoke("set_google_oauth_client_id", { clientId }).catch((err) => {
+      console.error("[integrationStatus] failed to backfill Google client id", err);
+    });
+  }
+
   const connectedIds = await getConnectedIntegrationIds();
   const services: ConnectedServiceKind[] = [];
   const scopes: string[] = [];

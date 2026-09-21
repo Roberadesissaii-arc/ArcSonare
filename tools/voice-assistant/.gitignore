@@ -1,5 +1,0 @@
-.venv/
-__pycache__/
-*.pyc
-_voice_chat_reply.wav
-.env

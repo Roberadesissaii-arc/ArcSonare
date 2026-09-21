@@ -2,22 +2,28 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { IntegrationInfo } from "../../data/demoData";
 import {
+  capabilitiesFor,
   credentialSpecFor,
   integrationSecureKey,
   type IntegrationCredentialField,
 } from "../../config/integrationCatalog";
-import { integrationIcons, type IntegrationId } from "../../config/iconRegistry";
+import {
+  FRAMED_INTEGRATION_IDS,
+  integrationIcons,
+  type IntegrationId,
+} from "../../config/iconRegistry";
 import {
   allGoogleScopes,
   getGoogleOAuthClientId,
   GOOGLE_INTEGRATION_IDS,
   GOOGLE_SHARED_ACCOUNT_ID,
   isGoogleIntegration,
+  type GoogleAccountSummary,
   type GoogleOAuthConnectResult,
   type GoogleOAuthStatus,
 } from "../../config/googleOAuth";
 import { patchPrefs } from "../../stores/settingsStore";
-import { CloseIcon } from "../Icons";
+import { Plus, Trash2, X } from "lucide-react";
 
 type ConnectionState = "connected" | "configured";
 
@@ -60,6 +66,8 @@ export function IntegrationCredentialModal({
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [googleAccounts, setGoogleAccounts] = useState<GoogleAccountSummary[]>([]);
+  const [showAddAccount, setShowAddAccount] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
   const google = integration ? isGoogleIntegration(integration.id) : false;
@@ -69,11 +77,16 @@ export function IntegrationCredentialModal({
   );
   const fields = google ? GOOGLE_FIELDS : spec?.fields ?? [];
   const supported = google || Boolean(spec);
+  const capabilities = useMemo(
+    () => (integration ? capabilitiesFor(integration.id) : []),
+    [integration],
+  );
 
   useEffect(() => {
     if (!integration) return;
     setBusy(false);
     setError(null);
+    setShowAddAccount(false);
     setValues(
       google
         ? { clientId: getGoogleOAuthClientId(), clientSecret: "" }
@@ -81,6 +94,37 @@ export function IntegrationCredentialModal({
     );
     requestAnimationFrame(() => firstFieldRef.current?.focus());
   }, [google, integration]);
+
+  useEffect(() => {
+    if (!integration || !google) {
+      setGoogleAccounts([]);
+      return;
+    }
+    let cancelled = false;
+    invoke<GoogleAccountSummary[]>("google_oauth_list_accounts")
+      .then((accounts) => {
+        if (!cancelled) setGoogleAccounts(accounts);
+      })
+      .catch((listError) => {
+        console.error("[connect] failed to list Google accounts", listError);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [google, integration]);
+
+  const refreshGoogleAccounts = async () => {
+    try {
+      const accounts = await invoke<GoogleAccountSummary[]>(
+        "google_oauth_list_accounts",
+      );
+      setGoogleAccounts(accounts);
+      return accounts;
+    } catch (listError) {
+      console.error("[connect] failed to list Google accounts", listError);
+      return googleAccounts;
+    }
+  };
 
   useEffect(() => {
     if (!integration) return;
@@ -97,7 +141,7 @@ export function IntegrationCredentialModal({
     (field) => !field.optional && !values[field.key]?.trim(),
   );
 
-  const connect = async () => {
+  const connect = async (opts?: { addAccount?: boolean }) => {
     if (!supported || missingRequired || busy) return;
     setBusy(true);
     setError(null);
@@ -113,26 +157,37 @@ export function IntegrationCredentialModal({
           });
         }
 
-        await invoke<GoogleOAuthConnectResult>("google_oauth_connect", {
-          clientId,
-          scopes: allGoogleScopes(),
-          accountId: GOOGLE_SHARED_ACCOUNT_ID,
-          clientSecret: clientSecret || null,
-        });
+        const result = await invoke<GoogleOAuthConnectResult>(
+          "google_oauth_connect",
+          {
+            clientId,
+            scopes: allGoogleScopes(),
+            accountId: GOOGLE_SHARED_ACCOUNT_ID,
+            clientSecret: clientSecret || null,
+          },
+        );
         const status = await invoke<GoogleOAuthStatus>("google_oauth_status");
         if (!status.connected) {
           throw new Error(
             "Google authorization finished, but ArcSonare could not verify the account.",
           );
         }
+        await refreshGoogleAccounts();
         onConnectionChange(
           GOOGLE_INTEGRATION_IDS,
           "connected",
-          status.email
-            ? `Google connected as ${status.email}.`
+          result.email
+            ? opts?.addAccount
+              ? `Added ${result.email} to your connected Google accounts.`
+              : `Google connected as ${result.email}.`
             : "Google connected and verified.",
         );
-        onClose();
+        if (opts?.addAccount) {
+          setShowAddAccount(false);
+          setValues({ clientId: getGoogleOAuthClientId(), clientSecret: "" });
+        } else {
+          onClose();
+        }
         return;
       }
 
@@ -168,13 +223,20 @@ export function IntegrationCredentialModal({
     setError(null);
     try {
       if (google) {
-        await invoke("google_oauth_disconnect", {
-          accountId: GOOGLE_SHARED_ACCOUNT_ID,
-        });
+        const accounts =
+          googleAccounts.length > 0
+            ? googleAccounts
+            : [{ accountId: GOOGLE_SHARED_ACCOUNT_ID, active: true }];
+        for (const account of accounts) {
+          await invoke("google_oauth_disconnect", {
+            accountId: account.accountId,
+          });
+        }
         const status = await invoke<GoogleOAuthStatus>("google_oauth_status");
         if (status.connected) {
           throw new Error("Google still reports an active connection.");
         }
+        setGoogleAccounts([]);
         onConnectionChange(
           GOOGLE_INTEGRATION_IDS,
           "disconnected",
@@ -201,9 +263,48 @@ export function IntegrationCredentialModal({
     }
   };
 
+  const removeGoogleAccount = async (accountId: string) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await invoke("google_oauth_disconnect", { accountId });
+      await refreshGoogleAccounts();
+      const status = await invoke<GoogleOAuthStatus>("google_oauth_status");
+      onConnectionChange(
+        GOOGLE_INTEGRATION_IDS,
+        status.connected ? "connected" : "disconnected",
+        status.connected
+          ? "Google account removed."
+          : "Google disconnected.",
+      );
+    } catch (removeError) {
+      setError(errorMessage(removeError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const switchGoogleAccount = async (accountId: string) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await invoke("google_oauth_set_active_account", { accountId });
+      await refreshGoogleAccounts();
+    } catch (switchError) {
+      setError(errorMessage(switchError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const docsUrl = google
     ? "https://console.cloud.google.com/apis/credentials"
     : spec?.docsUrl;
+
+  const isAddingGoogleAccount = Boolean(state && google && showAddAccount);
+  const showCredentialForm = (!state && supported) || isAddingGoogleAccount;
 
   return (
     <div
@@ -211,7 +312,9 @@ export function IntegrationCredentialModal({
       onPointerDown={busy ? undefined : onClose}
     >
       <div
-        className="modal integration-credential-modal"
+        className={`modal integration-credential-modal${
+          google && state ? " has-account-manager" : ""
+        }`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="integration-credential-title"
@@ -220,7 +323,9 @@ export function IntegrationCredentialModal({
         <div className="modal-head integration-credential-head">
           <div className="integration-credential-title">
             <span
-              className={`integration-credential-icon integration-icon-${integration.id}`}
+              className={`integration-credential-icon integration-icon-${integration.id}${
+                FRAMED_INTEGRATION_IDS.has(integration.id) ? " is-framed" : ""
+              }`}
             >
               <img src={integrationIcons[integration.id]} alt="" />
             </span>
@@ -247,9 +352,31 @@ export function IntegrationCredentialModal({
             disabled={busy}
             aria-label="Close"
           >
-            <CloseIcon size={15} />
+            <X size={17} />
           </button>
         </div>
+
+        {capabilities.length > 0 ? (
+          <div className="integration-credential-capabilities">
+            <span className="integration-credential-capabilities-label">
+              What this connects
+            </span>
+            <div className="integration-credential-capabilities-grid">
+              {capabilities.map((capability) => (
+                <div
+                  className="integration-credential-capability"
+                  key={capability}
+                >
+                  <span
+                    className="integration-credential-capability-dot"
+                    aria-hidden="true"
+                  />
+                  {capability}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {state ? (
           <div className="integration-connection-summary">
@@ -269,8 +396,73 @@ export function IntegrationCredentialModal({
           </div>
         ) : null}
 
-        {!state && supported ? (
+        {state && google ? (
+          <div className="integration-google-accounts">
+            <div className="integration-google-accounts-head">
+              <span className="integration-credential-capabilities-label">
+                Connected accounts
+              </span>
+              <button
+                type="button"
+                className="integration-add-account-button"
+                disabled={busy || showAddAccount}
+                onClick={() => setShowAddAccount(true)}
+              >
+                <Plus size={13} />
+                Add account
+              </button>
+            </div>
+            <div className="integration-google-accounts-list">
+              {googleAccounts.map((account) => (
+                <div
+                  className={`integration-google-account${
+                    account.active ? " is-active" : ""
+                  }`}
+                  key={account.accountId}
+                >
+                  <div className="integration-google-account-info">
+                    <span className="integration-google-account-email">
+                      {account.email ?? "Google account"}
+                    </span>
+                    {account.active ? (
+                      <span className="integration-google-account-badge">
+                        Active
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="integration-google-account-actions">
+                    {!account.active ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void switchGoogleAccount(account.accountId)}
+                      >
+                        Use
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label={`Remove ${account.email ?? "this account"}`}
+                      onClick={() => void removeGoogleAccount(account.accountId)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {showCredentialForm ? (
           <>
+            {isAddingGoogleAccount ? (
+              <p className="integration-credential-add-account-hint">
+                Sign in with a different Google account. Existing accounts
+                stay connected.
+              </p>
+            ) : null}
             <div className="integration-credential-fields">
               {fields.map((field, index) => {
                 const id = `integration-${integration.id}-${field.key}`;
@@ -329,18 +521,21 @@ export function IntegrationCredentialModal({
             ) : null}
 
             {docsUrl ? (
-              <a
+              <button
+                type="button"
                 className="integration-credential-docs"
-                href={docsUrl}
-                target="_blank"
-                rel="noreferrer"
+                onClick={() => {
+                  void invoke("overlay_open_url", { url: docsUrl }).catch(
+                    (openError) => setError(errorMessage(openError)),
+                  );
+                }}
               >
                 <span>
                   <strong>Open credential setup guide</strong>
                   <small>Opens the official {integration.name} setup page</small>
                 </span>
                 <span aria-hidden="true">↗</span>
-              </a>
+              </button>
             ) : null}
           </>
         ) : null}
@@ -362,7 +557,7 @@ export function IntegrationCredentialModal({
         ) : null}
 
         <div className="modal-actions">
-          {state ? (
+          {state && !isAddingGoogleAccount ? (
             <button
               type="button"
               className="btn integration-disconnect-button"
@@ -372,21 +567,35 @@ export function IntegrationCredentialModal({
               {busy ? "Disconnecting…" : "Disconnect"}
             </button>
           ) : null}
-          <button type="button" className="btn" disabled={busy} onClick={onClose}>
-            {supported && !state ? "Cancel" : "Close"}
+          <button
+            type="button"
+            className="btn"
+            disabled={busy}
+            onClick={() => {
+              if (isAddingGoogleAccount) {
+                setShowAddAccount(false);
+                setError(null);
+                return;
+              }
+              onClose();
+            }}
+          >
+            {showCredentialForm ? "Cancel" : "Close"}
           </button>
-          {supported && !state ? (
+          {showCredentialForm ? (
             <button
               type="button"
               className="btn btn-primary"
               disabled={busy || missingRequired}
-              onClick={() => void connect()}
+              onClick={() => void connect({ addAccount: isAddingGoogleAccount })}
             >
               {busy
                 ? google
                   ? "Waiting for Google…"
                   : "Verifying…"
-                : "Connect"}
+                : isAddingGoogleAccount
+                  ? "Add account"
+                  : "Connect"}
             </button>
           ) : null}
         </div>

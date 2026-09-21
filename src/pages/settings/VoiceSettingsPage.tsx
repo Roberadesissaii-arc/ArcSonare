@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { SettingsPageHeader } from "../../components/settings/SettingsPageHeader";
 import { modelById } from "../../config/modelRegistry";
 import type { VoiceActivationMode } from "../../config/prefs";
+import { AiKeysCard } from "../../features/voice-settings/AiKeysCard";
 import { CustomizeOverlayDrawer } from "../../features/voice-settings/CustomizeOverlayDrawer";
 import { InputDeviceCard } from "../../features/voice-settings/InputDeviceCard";
 import { ListeningBehaviorCard } from "../../features/voice-settings/ListeningBehaviorCard";
@@ -23,7 +24,6 @@ import {
   type MicPermission,
 } from "../../services/DeviceService";
 import { playOutputTestTone } from "../../services/SoundService";
-import { navigateSettings } from "../../stores/appStore";
 import { patchPrefs, usePrefs } from "../../stores/settingsStore";
 
 export function VoiceSettingsPage() {
@@ -45,7 +45,7 @@ export function VoiceSettingsPage() {
   const set = (patch: Partial<typeof voice>) => patchPrefs("voice", patch);
 
   const speechModel = modelById(prefs.models.roles.speech);
-  // Previews use Pocket TTS (Voice Lab) — always offer play; runtime boots on demand.
+  // Previews always offer play; the speech backend boots on demand.
   const speechConfigured = true;
   const backgroundFilterAvailable = Boolean(
     prefs.models.roles.transcription ||
@@ -154,9 +154,11 @@ export function VoiceSettingsPage() {
   return (
     <div className="page voice-settings-page">
       <SettingsPageHeader
-        title="Voice"
-        description="Configure voice input, output, voices, and turn detection. Choose how ArcSonare listens, speaks, and responds."
+        title="Voice & AI keys"
+        description="OpenAI Realtime for the voice overlay. DeepSeek for dashboard chat. Then mic, speakers, and voice character."
       />
+
+      <AiKeysCard />
 
       <div className="voice-settings-grid">
         {/* Row 1 — matched heights */}
@@ -229,7 +231,6 @@ export function VoiceSettingsPage() {
           <VoicePreviewCard
             character={character}
             speechConfigured={speechConfigured}
-            onOpenModels={() => navigateSettings("voice-lab")}
           />
         </div>
       </div>
